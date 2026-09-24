@@ -29,6 +29,7 @@ export type AuditAction =
   | "auth.two_factor_disabled"
   | "auth.backup_codes_regenerated"
   | "auth.oauth_linked"
+  | "user.phone_verified"
   | "user.updated"
   | "user.role_granted"
   | "user.role_revoked"

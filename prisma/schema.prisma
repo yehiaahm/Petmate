@@ -39,6 +39,8 @@ model User {
   bio             String?
   phone           String?
   phoneVerifiedAt DateTime?
+  /// How phone messages reach them: WHATSAPP | SMS.
+  phoneChannel    String    @default("WHATSAPP")
 
   // Two-factor sign-in (TOTP). The seed is encrypted, never hashed, because
   // the server has to compute codes from it; the counter stops a code that
@@ -2008,10 +2010,36 @@ model NotificationPreference {
   inApp    Boolean @default(true)
   email    Boolean @default(true)
   push     Boolean @default(false)
+  /// WhatsApp or SMS to the verified phone number.
+  phone    Boolean @default(false)
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, category])
+}
+
+/// Outbox for WhatsApp and SMS, delivered by the worker like email.
+model OutboundMessage {
+  id          String    @id @default(cuid())
+  userId      String?
+  channel     String // WHATSAPP | SMS
+  to          String // E.164
+  kind        String // OTP | NOTIFICATION
+  body        String
+  template    String?
+  /// JSON array of template parameters (WhatsApp templates).
+  params      String?
+  status      String    @default("QUEUED") // QUEUED | SENDING | SENT | FAILED
+  provider    String?
+  providerRef String?
+  error       String?
+  attempts    Int       @default(0)
+  claimedAt   DateTime?
+  sentAt      DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([status, createdAt])
+  @@index([to, createdAt])
 }
 
 /// Transactional email outbox. Rows are written inside the business

@@ -14,6 +14,7 @@ import { pruneAnalytics } from "@/lib/services/analytics.service";
 import { autoReleaseEscrow } from "@/lib/services/petorder.service";
 import { autoReleaseBreedingFee } from "@/lib/services/breeding-fee.service";
 import { settleFinishedCampaigns } from "@/lib/services/ad.service";
+import { processMessageQueue } from "@/lib/messaging";
 import { cancelOrder } from "@/lib/services/commerce.service";
 import { expireSubscription } from "@/lib/services/subscription.service";
 import { releaseSellerHold, releaseClinicHold } from "@/lib/payments/settlement";
@@ -118,6 +119,11 @@ const handlers: Record<JobType, Handler> = {
     const requestId = String(payload.requestId ?? "");
     if (!requestId) return "missing requestId";
     return autoReleaseBreedingFee(requestId);
+  },
+
+  async "messages.process"() {
+    const { sent, failed } = await processMessageQueue();
+    return `${sent} sent, ${failed} failed`;
   },
 
   async "ads.settle"() {

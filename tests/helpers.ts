@@ -299,7 +299,7 @@ export async function resetDatabase() {
     "Appointment", "Service", "ClinicHours", "AvailabilityException", "Vet", "ClinicMember", "Clinic",
     "SupportMessage", "SupportTicket", "DisputeMessage", "Dispute", "Report", "Verification", "TrustSignal", "RiskEvent", "Block",
     "Message", "ConversationParticipant", "Conversation",
-    "Notification", "NotificationPreference", "EmailMessage",
+    "Notification", "NotificationPreference", "EmailMessage", "OutboundMessage",
     "AdoptionApplication", "ListingQuestion", "ListingView", "Favorite", "SavedSearch", "Listing",
     "BreedingMatch", "BreedingRequest", "BreedingProfilePreferredBreed", "BreedingProfile", "Litter",
     "HealthReminder", "HealthRecord", "PetDocument", "PetPhoto", "PetTransfer", "Pet",

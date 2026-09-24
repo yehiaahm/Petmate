@@ -9,6 +9,7 @@ import { Field, Input } from "@/components/ui/field";
 import { Alert } from "@/components/ui/primitives";
 import { useI18n } from "@/components/i18n/i18n-provider";
 import { api, ApiError } from "@/lib/api-client";
+import { toWesternDigits } from "@/lib/digits";
 
 export function LoginForm({
   next,
@@ -116,7 +117,7 @@ export function LoginForm({
               autoComplete="one-time-code"
               maxLength={useBackup ? 11 : 7}
               value={code}
-              onChange={(e) => setCode(useBackup ? e.target.value : e.target.value.replace(/[^\d ]/g, ""))}
+              onChange={(e) => setCode(useBackup ? e.target.value : toWesternDigits(e.target.value).replace(/[^\d ]/g, ""))}
               className="tracking-widest"
               placeholder={useBackup ? "abcde-12345" : "123 456"}
             />

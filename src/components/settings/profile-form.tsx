@@ -31,7 +31,6 @@ export function ProfileForm({ profile }: { profile: Profile }) {
     name: profile.name,
     handle: profile.handle,
     bio: profile.bio ?? "",
-    phone: profile.phone ?? "",
     country: profile.country ?? "",
     region: profile.region ?? "",
     city: profile.city ?? "",
@@ -83,7 +82,6 @@ export function ProfileForm({ profile }: { profile: Profile }) {
         name: values.name,
         handle: values.handle,
         bio: values.bio,
-        phone: values.phone || undefined,
         country: values.country || undefined,
         region: values.region || undefined,
         city: values.city || undefined,
@@ -190,22 +188,8 @@ export function ProfileForm({ profile }: { profile: Profile }) {
           description="Your city is public. Your street address, postcode and phone number are not."
         />
         <div className="grid gap-5 p-5 sm:grid-cols-2">
-          <Field label="Email address" hint="Change this from the Security tab.">
+          <Field label="Email address" hint="To change it, contact support.">
             {({ id }) => <Input id={id} value={profile.email} readOnly disabled />}
-          </Field>
-
-          <Field label="Phone" hint="Used for delivery coordination only." error={fieldError("phone")}>
-            {({ id, invalid }) => (
-              <Input
-                id={id}
-                invalid={invalid}
-                type="tel"
-                autoComplete="tel"
-                value={values.phone}
-                onChange={(e) => set("phone", e.target.value)}
-                placeholder="+20 100 000 0000"
-              />
-            )}
           </Field>
 
           <Field label="City" error={fieldError("city")}>

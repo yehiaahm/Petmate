@@ -85,6 +85,23 @@ const serverSchema = z.object({
   EMAIL_FROM: z.string().default("PetMate <no-reply@petmate.app>"),
   RESEND_API_KEY: z.string().optional(),
 
+  // ---- WhatsApp and SMS ----------------------------------------------------
+  // "log" writes to the OutboundMessage table and the log without sending,
+  // for development. WhatsApp goes through Meta's WhatsApp Cloud API with
+  // approved templates; SMS through Twilio.
+  WHATSAPP_PROVIDER: z.enum(["log", "meta"]).default("log"),
+  META_WHATSAPP_TOKEN: z.string().optional(),
+  META_WHATSAPP_PHONE_NUMBER_ID: z.string().optional(),
+  /** An approved "authentication" template whose body takes the code. */
+  META_WHATSAPP_OTP_TEMPLATE: z.string().default("petmate_verification_code"),
+  /** An approved "utility" template with two body parameters: the message and the link. */
+  META_WHATSAPP_UPDATE_TEMPLATE: z.string().default("petmate_update"),
+  SMS_PROVIDER: z.enum(["log", "twilio"]).default("log"),
+  TWILIO_ACCOUNT_SID: z.string().optional(),
+  TWILIO_AUTH_TOKEN: z.string().optional(),
+  /** A sender number, alphanumeric sender ID or Messaging Service SID (MG…). */
+  TWILIO_FROM: z.string().optional(),
+
   // ---- AI -----------------------------------------------------------------
   // Absent key => every AI surface falls back to its deterministic path and
   // says so in the UI. Nothing is ever presented as AI output when it is not.
@@ -237,6 +254,15 @@ export function productionReadiness(): string[] {
   }
   if (e.EMAIL_PROVIDER === "outbox") {
     problems.push("EMAIL_PROVIDER=outbox does not deliver mail; configure resend or smtp");
+  }
+  if (e.WHATSAPP_PROVIDER === "meta" && (!e.META_WHATSAPP_TOKEN || !e.META_WHATSAPP_PHONE_NUMBER_ID)) {
+    problems.push("WHATSAPP_PROVIDER=meta requires META_WHATSAPP_TOKEN and META_WHATSAPP_PHONE_NUMBER_ID");
+  }
+  if (e.SMS_PROVIDER === "twilio" && (!e.TWILIO_ACCOUNT_SID || !e.TWILIO_AUTH_TOKEN || !e.TWILIO_FROM)) {
+    problems.push("SMS_PROVIDER=twilio requires TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN and TWILIO_FROM");
+  }
+  if (e.WHATSAPP_PROVIDER === "log" && e.SMS_PROVIDER === "log") {
+    problems.push("WHATSAPP_PROVIDER and SMS_PROVIDER are both log: phone verification codes would never arrive");
   }
   if (e.SEED_DEMO_DATA) {
     problems.push("SEED_DEMO_DATA must be false in production");

@@ -10,6 +10,7 @@ import { Alert, Badge } from "@/components/ui/primitives";
 import { useToast } from "@/components/ui/toast";
 import { useI18n } from "@/components/i18n/i18n-provider";
 import { api, ApiError } from "@/lib/api-client";
+import { toWesternDigits } from "@/lib/digits";
 
 interface Setup {
   secret: string;
@@ -164,7 +165,7 @@ export function TwoFactorPanel({ enabled, backupCodesLeft }: { enabled: boolean;
               maxLength={7}
               dir="ltr"
               value={code}
-              onChange={(e) => setCode(e.target.value.replace(/[^\d ]/g, ""))}
+              onChange={(e) => setCode(toWesternDigits(e.target.value).replace(/[^\d ]/g, ""))}
               className="max-w-40 tracking-widest"
             />
           )}

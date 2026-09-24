@@ -12,6 +12,7 @@ import { recordLoginAttempt, enforceRateLimit } from "@/lib/rate-limit";
 import { generateToken } from "@/lib/utils";
 import { notify } from "./notification.service";
 import { finishLogin } from "./auth.service";
+import { toWesternDigits } from "@/lib/digits";
 
 /**
  * Two-factor sign-in with an authenticator app.
@@ -66,7 +67,7 @@ async function consumeSecondFactor(userId: string, code: string): Promise<"TOTP"
   });
   if (!user?.twoFactorSecret) return null;
 
-  const trimmed = code.trim();
+  const trimmed = toWesternDigits(code).trim();
   if (/^\d[\d\s]{5,7}$/.test(trimmed)) {
     const counter = verifyTotp(open(user.twoFactorSecret, SEAL_PURPOSE), trimmed, {
       lastUsedCounter: user.twoFactorLastCounter,

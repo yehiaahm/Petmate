@@ -2,7 +2,9 @@ import { z } from "zod";
 import { route } from "@/lib/api";
 import { requireActive } from "@/lib/auth/rbac";
 import { db } from "@/lib/db";
-import { conflict } from "@/lib/errors";
+import { badRequest, conflict } from "@/lib/errors";
+import { normalizePhone } from "@/lib/phone";
+import { requestPhoneCode, confirmPhoneCode, setPhoneChannel } from "@/lib/services/phone.service";
 import { audit } from "@/lib/audit";
 import {
   changePassword,
@@ -133,6 +135,9 @@ export const POST = route({
     z.object({ action: z.literal("resume-subscription") }),
     z.object({ action: z.literal("delete-account"), confirm: z.literal("DELETE") }),
     z.object({ action: z.literal("2fa-begin") }),
+    z.object({ action: z.literal("phone-code"), phone: z.string().trim().min(6).max(30), channel: z.enum(["WHATSAPP", "SMS"]).default("WHATSAPP") }),
+    z.object({ action: z.literal("phone-confirm"), code: z.string().trim().min(6).max(10) }),
+    z.object({ action: z.literal("phone-channel"), channel: z.enum(["WHATSAPP", "SMS"]) }),
     z.object({ action: z.literal("2fa-confirm"), code: z.string().trim().min(6).max(8) }),
     z.object({
       action: z.literal("2fa-disable"),
@@ -160,6 +165,15 @@ export const POST = route({
           if (taken) throw conflict("That handle is already taken.");
         }
 
+        // A changed number is an unverified number until the owner proves it again.
+        let phoneChange: { phone: string | null; phoneVerifiedAt?: null } | null = null;
+        if (body.phone !== undefined) {
+          const normalized = body.phone ? normalizePhone(body.phone) : null;
+          if (body.phone && !normalized) throw badRequest("Enter a valid mobile number, such as 010 1234 5678.");
+          const current = await db.user.findUniqueOrThrow({ where: { id: auth.user.id }, select: { phone: true } });
+          phoneChange = normalized === current.phone ? null : { phone: normalized, phoneVerifiedAt: null };
+        }
+
         // Images must be files this user uploaded.
         const avatar = body.avatarFileId
           ? await assertOwnsFile(body.avatarFileId, auth.user.id)
@@ -174,7 +188,7 @@ export const POST = route({
             ...(body.name !== undefined ? { name: body.name } : {}),
             ...(body.handle !== undefined ? { handle: body.handle } : {}),
             ...(body.bio !== undefined ? { bio: body.bio ?? null } : {}),
-            ...(body.phone !== undefined ? { phone: body.phone ?? null } : {}),
+            ...(phoneChange ?? {}),
             ...(body.country !== undefined ? { country: body.country ?? null } : {}),
             ...(body.region !== undefined ? { region: body.region ?? null } : {}),
             ...(body.city !== undefined ? { city: body.city ?? null } : {}),
@@ -220,6 +234,15 @@ export const POST = route({
       case "revoke-session":
         await revokeSession(auth.user.id, body.sessionId);
         return { ok: true };
+
+      case "phone-code":
+        return requestPhoneCode(auth, body.phone, body.channel);
+
+      case "phone-confirm":
+        return confirmPhoneCode(auth, body.code);
+
+      case "phone-channel":
+        return setPhoneChannel(auth, body.channel);
 
       case "2fa-begin":
         return beginTwoFactorSetup(auth);

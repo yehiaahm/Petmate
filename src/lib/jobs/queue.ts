@@ -23,6 +23,7 @@ export type JobType =
   | "escrow.autoRelease"
   | "breeding.releaseFee"
   | "ads.settle"
+  | "messages.process"
   | "payouts.release"
   | "clinic.releaseHold"
   | "subscription.expire"
@@ -164,6 +165,7 @@ export async function failJob(job: ClaimedJob, error: unknown): Promise<void> {
 /** Recurring jobs, re-enqueued after each run so the schedule self-heals. */
 export const RECURRING_JOBS: { type: JobType; intervalSeconds: number }[] = [
   { type: "email.process", intervalSeconds: 30 },
+  { type: "messages.process", intervalSeconds: 30 },
   { type: "health.reminders", intervalSeconds: 3600 },
   { type: "listing.expire", intervalSeconds: 3600 },
   { type: "savedSearch.run", intervalSeconds: 21600 },

@@ -42,6 +42,7 @@ export const POST = route({
             category: z.enum(NOTIFICATION_CATEGORY),
             inApp: z.boolean(),
             email: z.boolean(),
+            phone: z.boolean().default(false),
           }),
         )
         .max(20),
@@ -67,17 +68,21 @@ export const POST = route({
           category: pref.category,
           inApp: mandatory ? true : pref.inApp,
           email: mandatory ? true : pref.email,
+          // The phone channel is a cost to the person as well as a channel, so
+          // even security alerts may be kept to email there.
+          phone: pref.phone,
         },
         update: {
           inApp: mandatory ? true : pref.inApp,
           email: mandatory ? true : pref.email,
+          phone: pref.phone,
         },
       });
     }
 
     const preferences = await db.notificationPreference.findMany({
       where: { userId: auth.user.id },
-      select: { category: true, inApp: true, email: true },
+      select: { category: true, inApp: true, email: true, phone: true },
     });
 
     return { preferences };

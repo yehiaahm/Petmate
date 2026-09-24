@@ -51,6 +51,9 @@ export const RATE_LIMITS = {
   adImpression: { window: 1800, max: 1 },
   adClick: { window: 1800, max: 1 },
   groupCreate: { window: 86400, max: 3 },
+  // Every code costs money to send and is a way to spam a stranger's phone.
+  phoneCode: { window: 3600, max: 5 },
+  phoneCodePerNumber: { window: 86400, max: 8 },
   post: { window: 3600, max: 20 },
   comment: { window: 300, max: 30 },
   supportTicket: { window: 3600, max: 6 },
