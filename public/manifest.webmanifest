@@ -1,0 +1,18 @@
+{
+  "name": "PetMate",
+  "short_name": "PetMate",
+  "description": "Verified pets, verified people, one lifelong record.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#fbf9f5",
+  "theme_color": "#1f4d3a",
+  "orientation": "portrait-primary",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ],
+  "shortcuts": [
+    { "name": "Find a pet", "url": "/pets" },
+    { "name": "My pets", "url": "/dashboard/pets" },
+    { "name": "Messages", "url": "/messages" }
+  ]
+}

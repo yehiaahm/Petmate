@@ -1,0 +1,417 @@
+@import "tailwindcss";
+
+/* ==========================================================================
+   PetMate design language
+   --------------------------------------------------------------------------
+   The product moves animals, money and medical records between strangers.
+   The interface has to read as an institution people can trust, while staying
+   warm enough that it does not feel like filing a tax return.
+
+   So: paper-warm neutrals instead of cold grey, a deep pine green as the
+   primary (care, veterinary, permanence), and an ember orange reserved for
+   moments that need urgency. A serif for headlines gives editorial authority
+   that a geometric sans cannot.
+
+   Every colour pair below is checked for WCAG AA. Tokens marked "large only"
+   fall under 4.5:1 and are never used for body copy.
+   ========================================================================== */
+
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+@theme {
+  /* ---- Palette ---------------------------------------------------------- */
+  --color-paper: #fbf9f5;
+  --color-surface: #ffffff;
+  --color-surface-2: #f5f1ea;
+  --color-surface-3: #ece6db;
+
+  --color-line: #e7e0d4;
+  --color-line-strong: #d3c9b7;
+
+  --color-ink: #1a1714;
+  --color-ink-muted: #665f55;
+  --color-ink-subtle: #8a8274; /* large text only */
+
+  /* Pine — the primary. 10.2:1 on paper, 8.6:1 white-on-pine. */
+  --color-pine-50: #eef5f1;
+  --color-pine-100: #dcebe2;
+  --color-pine-200: #b6d5c3;
+  --color-pine-300: #85b79c;
+  --color-pine-400: #4f9070;
+  --color-pine-500: #2d6a4f;
+  --color-pine-600: #1f4d3a;
+  --color-pine-700: #173c2d;
+  --color-pine-800: #102b20;
+  --color-pine-900: #0a1c15;
+
+  /* Ember — highlight, urgency, "act now". Never body text on paper. */
+  --color-ember-50: #fdf1ea;
+  --color-ember-100: #fbe0d1;
+  --color-ember-200: #f7bd9c;
+  --color-ember-300: #f09462;
+  --color-ember-400: #e8703a;
+  --color-ember-500: #c9521c;
+  --color-ember-600: #a84215;
+  --color-ember-700: #843311;
+
+  /* Semantic */
+  --color-success: #0f7b4f;
+  --color-success-soft: #e1f3ea;
+  --color-warning: #99540a;
+  --color-warning-soft: #fbefdc;
+  --color-danger: #b3261e;
+  --color-danger-soft: #fbe6e4;
+  --color-info: #1b6796;
+  --color-info-soft: #e3f0f8;
+
+  /* ---- Type ------------------------------------------------------------- */
+  --font-display: var(--font-fraunces), ui-serif, Georgia, "Times New Roman", serif;
+  --font-sans: var(--font-jakarta), ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+
+  /* ---- Shape ------------------------------------------------------------ */
+  --radius-card: 1rem;
+  --radius-panel: 1.25rem;
+  --radius-field: 0.625rem;
+
+  /* Warm shadows. A neutral-grey shadow on a warm surface looks like dirt. */
+  --shadow-subtle: 0 1px 2px rgb(26 23 20 / 0.05), 0 1px 3px rgb(26 23 20 / 0.04);
+  --shadow-card: 0 2px 4px rgb(26 23 20 / 0.04), 0 8px 20px -6px rgb(26 23 20 / 0.08);
+  --shadow-lift: 0 4px 8px rgb(26 23 20 / 0.06), 0 16px 32px -10px rgb(26 23 20 / 0.14);
+  --shadow-pop: 0 8px 16px rgb(26 23 20 / 0.08), 0 24px 48px -12px rgb(26 23 20 / 0.2);
+
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* ==========================================================================
+   Semantic layer
+   Components consume these, never the raw palette, so dark mode is one
+   redefinition rather than a `dark:` class on every element.
+   ========================================================================== */
+
+:root {
+  --bg: var(--color-paper);
+  --bg-elevated: var(--color-surface);
+  --bg-sunken: var(--color-surface-2);
+  --bg-inset: var(--color-surface-3);
+
+  --fg: var(--color-ink);
+  --fg-muted: var(--color-ink-muted);
+  --fg-subtle: var(--color-ink-subtle);
+
+  --border: var(--color-line);
+  --border-strong: var(--color-line-strong);
+
+  --brand: var(--color-pine-600);
+  --brand-hover: var(--color-pine-700);
+  --brand-fg: #ffffff;
+  --brand-soft: var(--color-pine-50);
+  --brand-soft-fg: var(--color-pine-700);
+
+  --accent: var(--color-ember-500);
+  --accent-hover: var(--color-ember-600);
+  --accent-fg: #ffffff;
+  --accent-soft: var(--color-ember-50);
+  --accent-soft-fg: var(--color-ember-700);
+
+  --success: var(--color-success);
+  --success-soft: var(--color-success-soft);
+  --warning: var(--color-warning);
+  --warning-soft: var(--color-warning-soft);
+  --danger: var(--color-danger);
+  --danger-soft: var(--color-danger-soft);
+  --info: var(--color-info);
+  --info-soft: var(--color-info-soft);
+
+  --ring: var(--color-pine-500);
+  --overlay: rgb(26 23 20 / 0.45);
+
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  --bg: #121110;
+  --bg-elevated: #1a1917;
+  --bg-sunken: #232220;
+  --bg-inset: #2b2926;
+
+  --fg: #f6f2eb;
+  --fg-muted: #a8a094;
+  --fg-subtle: #7d7568;
+
+  --border: #302e2b;
+  --border-strong: #46423d;
+
+  /* Pine 600 is unreadable on near-black, so dark mode steps up to 300/400. */
+  --brand: #6cbd93;
+  --brand-hover: #8ed0ad;
+  --brand-fg: #08150f;
+  --brand-soft: #16281f;
+  --brand-soft-fg: #a4dcbf;
+
+  --accent: #f08a5b;
+  --accent-hover: #f5a17a;
+  --accent-fg: #2b1109;
+  --accent-soft: #2e1a12;
+  --accent-soft-fg: #f5b193;
+
+  --success: #4cb98a;
+  --success-soft: #14271f;
+  --warning: #d69a4a;
+  --warning-soft: #2a2115;
+  --danger: #e9736a;
+  --danger-soft: #2d1817;
+  --info: #6bb3dd;
+  --info-soft: #14242e;
+
+  --ring: #6cbd93;
+  --overlay: rgb(0 0 0 / 0.6);
+
+  color-scheme: dark;
+}
+
+/* Tailwind utility aliases for the semantic tokens. */
+@theme inline {
+  --color-bg: var(--bg);
+  --color-bg-elevated: var(--bg-elevated);
+  --color-bg-sunken: var(--bg-sunken);
+  --color-bg-inset: var(--bg-inset);
+  --color-fg: var(--fg);
+  --color-fg-muted: var(--fg-muted);
+  --color-fg-subtle: var(--fg-subtle);
+  --color-border-default: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-brand-fg: var(--brand-fg);
+  --color-brand-soft: var(--brand-soft);
+  --color-brand-soft-fg: var(--brand-soft-fg);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-fg: var(--accent-fg);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-soft-fg: var(--accent-soft-fg);
+  --color-success-fg: var(--success);
+  --color-warning-fg: var(--warning);
+  --color-danger-fg: var(--danger);
+  --color-info-fg: var(--info);
+}
+
+/* ==========================================================================
+   Base
+   ========================================================================== */
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: var(--bg);
+    color: var(--fg);
+    font-family: var(--font-sans);
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  h1, h2, h3, h4 {
+    font-family: var(--font-display);
+    font-weight: 600;
+    letter-spacing: -0.015em;
+    color: var(--fg);
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  /* One visible, consistent focus ring everywhere. Never removed. */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  ::selection {
+    background: var(--brand-soft);
+    color: var(--brand-soft-fg);
+  }
+
+  /* Money, counts and dates must not shift width as they change. */
+  .tabular,
+  [data-tabular] {
+    font-variant-numeric: tabular-nums;
+  }
+
+  input, textarea, select, button {
+    font: inherit;
+    color: inherit;
+  }
+
+  [type="search"]::-webkit-search-cancel-button {
+    -webkit-appearance: none;
+  }
+
+  /* Honour the OS setting rather than animating regardless. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--border-strong);
+    border-radius: 999px;
+    border: 3px solid var(--bg);
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--fg-subtle);
+  }
+}
+
+/* ==========================================================================
+   Components
+   ========================================================================== */
+
+@layer components {
+  .container-page {
+    width: 100%;
+    margin-inline: auto;
+    padding-inline: 1rem;
+    max-width: 80rem;
+  }
+  @media (min-width: 640px) {
+    .container-page { padding-inline: 1.5rem; }
+  }
+  @media (min-width: 1024px) {
+    .container-page { padding-inline: 2rem; }
+  }
+
+  .container-wide {
+    width: 100%;
+    margin-inline: auto;
+    padding-inline: 1rem;
+    max-width: 96rem;
+  }
+  @media (min-width: 640px) {
+    .container-wide { padding-inline: 1.5rem; }
+  }
+  @media (min-width: 1024px) {
+    .container-wide { padding-inline: 2rem; }
+  }
+
+  .surface {
+    background-color: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-card);
+  }
+
+  .surface-lift {
+    transition: box-shadow 220ms var(--ease-out-soft),
+      transform 220ms var(--ease-out-soft),
+      border-color 220ms var(--ease-out-soft);
+  }
+  .surface-lift:hover {
+    box-shadow: var(--shadow-lift);
+    border-color: var(--border-strong);
+    transform: translateY(-2px);
+  }
+
+  /* The passport motif: a hairline inner rule that reads as a document edge. */
+  .passport-edge {
+    position: relative;
+  }
+  .passport-edge::after {
+    content: "";
+    position: absolute;
+    inset: 4px;
+    border-radius: calc(var(--radius-card) - 4px);
+    border: 1px dashed color-mix(in srgb, var(--border-strong) 70%, transparent);
+    pointer-events: none;
+  }
+
+  .skeleton {
+    background: linear-gradient(
+      90deg,
+      var(--bg-sunken) 25%,
+      color-mix(in srgb, var(--bg-sunken) 60%, var(--bg-elevated)) 37%,
+      var(--bg-sunken) 63%
+    );
+    background-size: 400% 100%;
+    animation: shimmer 1.4s ease-in-out infinite;
+    border-radius: 0.5rem;
+  }
+
+  @keyframes shimmer {
+    0% { background-position: 100% 0; }
+    100% { background-position: -100% 0; }
+  }
+
+  .hide-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Skip link — present on every page, visible only on keyboard focus. */
+  .skip-link {
+    position: absolute;
+    left: -9999px;
+    z-index: 100;
+  }
+  .skip-link:focus {
+    left: 1rem;
+    top: 1rem;
+    padding: 0.75rem 1rem;
+    background: var(--brand);
+    color: var(--brand-fg);
+    border-radius: var(--radius-field);
+    box-shadow: var(--shadow-pop);
+  }
+}
+
+@layer utilities {
+  .animate-in-up {
+    animation: inUp 420ms var(--ease-out-soft) both;
+  }
+  @keyframes inUp {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: none; }
+  }
+
+  .animate-fade {
+    animation: fade 260ms var(--ease-out-soft) both;
+  }
+  @keyframes fade {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  .text-balance { text-wrap: balance; }
+
+  /* Reserves space before an image loads, so nothing jumps: helps CLS. */
+  .aspect-portrait { aspect-ratio: 4 / 5; }
+  .aspect-card { aspect-ratio: 3 / 2; }
+}

@@ -1,0 +1,2139 @@
+// PetMate — database schema
+//
+// PORTABILITY CONTRACT
+// --------------------
+// This schema is written in the intersection of SQLite and PostgreSQL that
+// Prisma supports, so the exact same models run on both:
+//   * no native `enum`   -> String columns validated by Zod at every entry point
+//   * no `Json` scalar   -> String columns holding JSON, read via lib/json.ts
+//   * no scalar lists    -> join tables, or delimited strings for display-only data
+//   * no `Decimal`       -> all money is Int, in the currency minor unit (cents)
+// `npm run pg:schema` emits prisma/schema.postgres.prisma for production.
+//
+// Local dev uses SQLite so the product runs with zero infrastructure.
+// Production uses PostgreSQL. See docs/DATABASE.md.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("PETMATE_DATABASE_URL")
+}
+
+// ============================================================================
+// IDENTITY & ACCESS
+// ============================================================================
+
+model User {
+  id              String    @id @default(cuid())
+  email           String    @unique
+  emailNormalized String    @unique
+  emailVerifiedAt DateTime?
+  passwordHash    String
+  name            String
+  handle          String    @unique
+  avatarUrl       String?
+  bannerUrl       String?
+  bio             String?
+  phone           String?
+  phoneVerifiedAt DateTime?
+
+  // Location, denormalised so radius filtering works without PostGIS.
+  country    String?
+  region     String?
+  city       String?
+  postalCode String?
+  lat        Float?
+  lng        Float?
+
+  locale   String @default("en")
+  currency String @default("USD")
+  timezone String @default("UTC")
+
+  status       String    @default("ACTIVE") // ACTIVE | SUSPENDED | FROZEN | DEACTIVATED | BANNED
+  statusReason String?
+  statusUntil  DateTime?
+
+  trustScore      Int       @default(0) // 0-100, recomputed by TrustService
+  trustComputedAt DateTime?
+
+  // Denormalised counters, written inside the same transaction as their source
+  // event. Read-hot, write-cold.
+  ratingAvgBps   Int @default(0) // average rating x 100, so 0-500
+  ratingCount    Int @default(0)
+  completedSales Int @default(0)
+  completedBuys  Int @default(0)
+
+  lastLoginAt     DateTime?
+  lastSeenAt      DateTime?
+  onboardedAt     DateTime?
+  acceptedTermsAt DateTime?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  roles               UserRole[]
+  sessions            Session[]
+  tokens              VerificationToken[]
+  pets                Pet[]                     @relation("PetOwner")
+  listings            Listing[]                 @relation("ListingSeller")
+  favorites           Favorite[]
+  savedSearches       SavedSearch[]
+  adoptionApps        AdoptionApplication[]     @relation("Applicant")
+  breedingRequestsOut BreedingRequest[]         @relation("BreedingInitiator")
+  breedingRequestsIn  BreedingRequest[]         @relation("BreedingReceiver")
+  clinicMemberships   ClinicMember[]
+  vetProfile          Vet?
+  ownedClinics        Clinic[]                  @relation("ClinicOwner")
+  ownedShops          Shop[]                    @relation("ShopOwner")
+  appointments        Appointment[]             @relation("AppointmentCustomer")
+  cartItems           CartItem[]
+  orders              Order[]                   @relation("OrderBuyer")
+  reviewsWritten      Review[]                  @relation("ReviewAuthor")
+  paymentIntents      PaymentIntent[]
+  subscriptions       Subscription[]
+  notifications       Notification[]
+  notifPrefs          NotificationPreference[]
+  conversations       ConversationParticipant[]
+  messages            Message[]
+  reportsFiled        Report[]                  @relation("Reporter")
+  verifications       Verification[]            @relation("VerificationSubject")
+  disputesRaised      Dispute[]                 @relation("DisputeRaiser")
+  disputesAgainst     Dispute[]                 @relation("DisputeRespondent")
+  blocksMade          Block[]                   @relation("Blocker")
+  blocksReceived      Block[]                   @relation("Blocked")
+  auditLogs           AuditLog[]                @relation("AuditActor")
+  posts               Post[]
+  comments            Comment[]
+  reactions           Reaction[]
+  groupMemberships    GroupMember[]
+  recentlyViewed      RecentlyViewed[]
+  riskEvents          RiskEvent[]
+  files               FileObject[]
+  petTransfersFrom    PetTransfer[]             @relation("TransferFrom")
+  petTransfersTo      PetTransfer[]             @relation("TransferTo")
+  deliveriesAssigned  Delivery[]                @relation("Courier")
+  adCampaigns         AdCampaign[]
+  supportTickets      SupportTicket[]           @relation("TicketAuthor")
+  supportReplies      SupportMessage[]          @relation("TicketReplyAuthor")
+
+  @@index([status])
+  @@index([country, region, city])
+  @@index([trustScore])
+  @@index([createdAt])
+}
+
+/// Roles are rows, not a column, so one account can be BREEDER + VET at once
+/// and a new role never requires migrating existing data.
+model UserRole {
+  id        String   @id @default(cuid())
+  userId    String
+  role      String // USER | BREEDER | SELLER | VET | CLINIC_ADMIN | COURIER | MODERATOR | ADMIN | SUPER_ADMIN
+  grantedAt DateTime @default(now())
+  grantedBy String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, role])
+  @@index([role])
+}
+
+model Session {
+  id         String    @id @default(cuid())
+  userId     String
+  tokenHash  String    @unique // SHA-256 of the cookie value; the raw token never reaches the DB
+  userAgent  String?
+  ip         String?
+  createdAt  DateTime  @default(now())
+  lastSeenAt DateTime  @default(now())
+  expiresAt  DateTime
+  revokedAt  DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model VerificationToken {
+  id         String    @id @default(cuid())
+  userId     String?
+  identifier String // the email the token was issued for
+  purpose    String // EMAIL_VERIFY | PASSWORD_RESET | EMAIL_CHANGE
+  tokenHash  String    @unique
+  payload    String? // JSON, e.g. the new address for EMAIL_CHANGE
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([identifier, purpose])
+  @@index([expiresAt])
+}
+
+/// Drives lockout and risk scoring. Pruned by the `prune.attempts` job.
+model LoginAttempt {
+  id         String   @id @default(cuid())
+  identifier String
+  ip         String?
+  success    Boolean
+  reason     String?
+  createdAt  DateTime @default(now())
+
+  @@index([identifier, createdAt])
+  @@index([ip, createdAt])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  actorRole  String?
+  action     String // listing.publish, payment.refund, user.suspend, ...
+  entityType String?
+  entityId   String?
+  summary    String?
+  metadata   String? // JSON
+  ip         String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  actor User? @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([entityType, entityId])
+  @@index([actorId, createdAt])
+  @@index([action, createdAt])
+}
+
+/// Makes money-moving endpoints exactly-once under retries and double clicks.
+model IdempotencyKey {
+  id          String    @id @default(cuid())
+  key         String
+  scope       String
+  userId      String?
+  requestHash String
+  status      String    @default("IN_PROGRESS") // IN_PROGRESS | COMPLETED | FAILED
+  response    String? // JSON of the original successful response
+  createdAt   DateTime  @default(now())
+  completedAt DateTime?
+
+  @@unique([scope, key])
+  @@index([createdAt])
+}
+
+// ============================================================================
+// PETS — the passport that follows the animal for life
+// ============================================================================
+
+model Breed {
+  id             String  @id @default(cuid())
+  species        String // DOG | CAT | BIRD | RABBIT | REPTILE | SMALL_MAMMAL | HORSE | OTHER
+  name           String
+  slug           String  @unique
+  sizeClass      String? // TOY | SMALL | MEDIUM | LARGE | GIANT
+  avgWeightKgMin Float?
+  avgWeightKgMax Float?
+  lifespanMinY   Int?
+  lifespanMaxY   Int?
+  temperament    String? // comma-delimited, display plus soft matching
+  description    String?
+  careLevel      String? // LOW | MODERATE | HIGH
+  hypoallergenic Boolean @default(false)
+  originCountry  String?
+  imageUrl       String?
+  popularity     Int     @default(0)
+
+  pets             Pet[]
+  breedingProfiles BreedingProfilePreferredBreed[]
+
+  @@unique([species, name])
+  @@index([species])
+}
+
+model Pet {
+  id                  String    @id @default(cuid())
+  ownerId             String
+  name                String
+  species             String
+  breedId             String?
+  breedText           String? // free text for mixed breeds not in the catalogue
+  sex                 String // MALE | FEMALE | UNKNOWN
+  birthDate           DateTime?
+  birthDateIsEstimate Boolean   @default(false)
+  weightKg            Float?
+  color               String?
+  description         String?
+  microchipId         String?   @unique
+  passportNo          String    @unique // PetMate identifier, e.g. PM-8F3K-2QD9
+  isNeutered          Boolean   @default(false)
+  temperament         String? // comma-delimited tags
+  status              String    @default("ACTIVE") // ACTIVE | LISTED | RESERVED | REHOMED | DECEASED | ARCHIVED
+  availability        String    @default("NOT_AVAILABLE") // NOT_AVAILABLE | FOR_SALE | FOR_ADOPTION | FOR_BREEDING
+  visibility          String    @default("PUBLIC") // PUBLIC | UNLISTED | PRIVATE
+
+  verifiedAt        DateTime?
+  verifiedById      String?
+  verificationLevel String    @default("NONE") // NONE | OWNER_CLAIMED | DOCUMENTED | CLINIC_VERIFIED
+
+  // Lineage makes provenance and inbreeding checks real rather than claimed.
+  damId    String?
+  sireId   String?
+  litterId String?
+
+  country String?
+  region  String?
+  city    String?
+  lat     Float?
+  lng     Float?
+
+  healthScore      Int       @default(0) // 0-100, derived from records by HealthService
+  healthComputedAt DateTime?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  owner                   User              @relation("PetOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  breed                   Breed?            @relation(fields: [breedId], references: [id], onDelete: SetNull)
+  dam                     Pet?              @relation("Dam", fields: [damId], references: [id], onDelete: SetNull)
+  damOffspring            Pet[]             @relation("Dam")
+  sire                    Pet?              @relation("Sire", fields: [sireId], references: [id], onDelete: SetNull)
+  sireOffspring           Pet[]             @relation("Sire")
+  litter                  Litter?           @relation("LitterOffspring", fields: [litterId], references: [id], onDelete: SetNull)
+  photos                  PetPhoto[]
+  documents               PetDocument[]
+  healthRecords           HealthRecord[]
+  reminders               HealthReminder[]
+  listings                Listing[]
+  breedingProfile         BreedingProfile?
+  appointments            Appointment[]
+  transfers               PetTransfer[]
+  littersAsDam            Litter[]          @relation("LitterDam")
+  littersAsSire           Litter[]          @relation("LitterSire")
+  breedingReqsAsInitiator BreedingRequest[] @relation("InitiatorPet")
+  breedingReqsAsReceiver  BreedingRequest[] @relation("ReceiverPet")
+  matchesAsA              BreedingMatch[]   @relation("MatchPetA")
+  matchesAsB              BreedingMatch[]   @relation("MatchPetB")
+
+  @@index([ownerId])
+  @@index([species, breedId])
+  @@index([availability, status])
+  @@index([damId])
+  @@index([sireId])
+}
+
+model PetPhoto {
+  id        String   @id @default(cuid())
+  petId     String
+  fileId    String?
+  url       String
+  width     Int?
+  height    Int?
+  alt       String?
+  position  Int      @default(0)
+  isPrimary Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  pet Pet @relation(fields: [petId], references: [id], onDelete: Cascade)
+
+  @@index([petId, position])
+}
+
+model PetDocument {
+  id           String    @id @default(cuid())
+  petId        String
+  type         String // VACCINATION_CARD | PEDIGREE | MICROCHIP | HEALTH_CERT | DNA_TEST | INSURANCE | OTHER
+  title        String
+  fileId       String
+  issuedBy     String?
+  issuedAt     DateTime?
+  expiresAt    DateTime?
+  verifiedById String?
+  verifiedAt   DateTime?
+  clinicId     String?
+  createdAt    DateTime  @default(now())
+
+  pet  Pet        @relation(fields: [petId], references: [id], onDelete: Cascade)
+  file FileObject @relation(fields: [fileId], references: [id])
+
+  @@index([petId, type])
+}
+
+/// Every change of ownership, so provenance is auditable end to end.
+model PetTransfer {
+  id          String    @id @default(cuid())
+  petId       String
+  fromUserId  String
+  toUserId    String
+  reason      String // SALE | ADOPTION | GIFT | RESCUE | CORRECTION
+  orderId     String?
+  listingId   String?
+  status      String    @default("PENDING") // PENDING | ACCEPTED | DECLINED | CANCELLED
+  note        String?
+  createdAt   DateTime  @default(now())
+  respondedAt DateTime?
+
+  pet  Pet  @relation(fields: [petId], references: [id], onDelete: Cascade)
+  from User @relation("TransferFrom", fields: [fromUserId], references: [id])
+  to   User @relation("TransferTo", fields: [toUserId], references: [id])
+
+  @@index([petId])
+  @@index([toUserId, status])
+}
+
+model Litter {
+  id                String    @id @default(cuid())
+  damPetId          String
+  sirePetId         String?
+  breedingRequestId String?   @unique
+  bornAt            DateTime?
+  expectedAt        DateTime?
+  count             Int?
+  survivingCount    Int?
+  notes             String?
+  createdAt         DateTime  @default(now())
+
+  dam             Pet              @relation("LitterDam", fields: [damPetId], references: [id], onDelete: Cascade)
+  sire            Pet?             @relation("LitterSire", fields: [sirePetId], references: [id], onDelete: SetNull)
+  breedingRequest BreedingRequest? @relation(fields: [breedingRequestId], references: [id], onDelete: SetNull)
+  offspring       Pet[]            @relation("LitterOffspring")
+
+  @@index([damPetId])
+}
+
+// ============================================================================
+// HEALTH
+// ============================================================================
+
+model VaccineCatalog {
+  id            String  @id @default(cuid())
+  species       String
+  code          String
+  name          String
+  description   String?
+  coreVaccine   Boolean @default(false)
+  boosterMonths Int? // default recurrence, used to schedule the next dose
+
+  records HealthRecord[]
+
+  @@unique([species, code])
+}
+
+model HealthRecord {
+  id          String    @id @default(cuid())
+  petId       String
+  type        String // VACCINATION | CHECKUP | TREATMENT | SURGERY | MEDICATION | ALLERGY | WEIGHT | TEST | NOTE
+  title       String
+  description String?
+  occurredAt  DateTime
+  nextDueAt   DateTime?
+  vaccineId   String?
+  batchNumber String?
+  medication  String?
+  dosage      String?
+  resultValue Float? // WEIGHT / TEST
+  resultUnit  String?
+  data        String? // JSON for type-specific extras
+
+  clinicId      String?
+  vetId         String?
+  appointmentId String?
+  documentId    String?
+  createdById   String
+
+  // A record written by a clinic from its own account is authoritative; an
+  // owner-entered record is not, and every surface that shows it says so.
+  source             String    @default("OWNER") // OWNER | CLINIC | IMPORT
+  verifiedAt         DateTime?
+  verifiedByClinicId String?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  pet         Pet              @relation(fields: [petId], references: [id], onDelete: Cascade)
+  vaccine     VaccineCatalog?  @relation(fields: [vaccineId], references: [id], onDelete: SetNull)
+  clinic      Clinic?          @relation(fields: [clinicId], references: [id], onDelete: SetNull)
+  appointment Appointment?     @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+  reminders   HealthReminder[]
+
+  @@index([petId, occurredAt])
+  @@index([petId, type])
+  @@index([nextDueAt])
+}
+
+model HealthReminder {
+  id             String    @id @default(cuid())
+  petId          String
+  healthRecordId String?
+  title          String
+  dueAt          DateTime
+  status         String    @default("PENDING") // PENDING | SENT | DONE | DISMISSED
+  notifiedAt     DateTime?
+  completedAt    DateTime?
+  createdAt      DateTime  @default(now())
+
+  pet    Pet           @relation(fields: [petId], references: [id], onDelete: Cascade)
+  record HealthRecord? @relation(fields: [healthRecordId], references: [id], onDelete: Cascade)
+
+  @@index([dueAt, status])
+  @@index([petId, status])
+}
+
+// ============================================================================
+// MARKETPLACE — pet listings (sale, adoption, breeding)
+// ============================================================================
+
+model Listing {
+  id          String @id @default(cuid())
+  petId       String
+  sellerId    String
+  intent      String // SALE | ADOPTION | BREEDING
+  title       String
+  slug        String @unique
+  description String
+
+  priceCents       Int     @default(0)
+  currency         String  @default("USD")
+  negotiable       Boolean @default(false)
+  // Adoption listings use a fee, not a price; kept separate so the two never mix.
+  adoptionFeeCents Int     @default(0)
+  studFeeCents     Int     @default(0)
+
+  status       String  @default("DRAFT") // DRAFT | PENDING_REVIEW | ACTIVE | PAUSED | RESERVED | COMPLETED | REJECTED | EXPIRED | REMOVED
+  statusReason String?
+
+  country String?
+  region  String?
+  city    String?
+  lat     Float?
+  lng     Float?
+
+  // Lowercased, accent-folded haystack. Portable substring search on both
+  // engines without Postgres-only `mode: insensitive`. See lib/search/text.ts.
+  searchText String @default("")
+
+  viewCount     Int @default(0)
+  favoriteCount Int @default(0)
+  inquiryCount  Int @default(0)
+
+  featuredUntil DateTime?
+  boostScore    Int       @default(0)
+
+  moderationStatus String? // PENDING | APPROVED | FLAGGED | REJECTED
+  moderationNote   String?
+  moderatedAt      DateTime?
+  moderatedById    String?
+
+  publishedAt DateTime?
+  expiresAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  pet           Pet                   @relation(fields: [petId], references: [id], onDelete: Cascade)
+  seller        User                  @relation("ListingSeller", fields: [sellerId], references: [id], onDelete: Cascade)
+  favorites     Favorite[]
+  applications  AdoptionApplication[]
+  questions     ListingQuestion[]
+  views         ListingView[]
+  conversations Conversation[]
+  orders        PetOrder[]
+
+  @@index([status, intent, publishedAt])
+  @@index([sellerId, status])
+  @@index([petId])
+  @@index([country, region, city])
+  @@index([priceCents])
+  @@index([featuredUntil])
+}
+
+model ListingQuestion {
+  id        String  @id @default(cuid())
+  listingId String
+  prompt    String
+  required  Boolean @default(false)
+  position  Int     @default(0)
+
+  listing Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@index([listingId, position])
+}
+
+model Favorite {
+  id        String   @id @default(cuid())
+  userId    String
+  listingId String
+  createdAt DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  listing Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, listingId])
+  @@index([listingId])
+}
+
+model SavedSearch {
+  id            String    @id @default(cuid())
+  userId        String
+  name          String
+  entity        String    @default("LISTING") // LISTING | PRODUCT | CLINIC
+  query         String // JSON of the filter state
+  alertsEnabled Boolean   @default(true)
+  lastRunAt     DateTime?
+  lastSeenCount Int       @default(0)
+  createdAt     DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([alertsEnabled, lastRunAt])
+}
+
+/// One row per view, deduplicated per viewer per hour by the service layer.
+/// Powers conversion analytics and "recently viewed".
+model ListingView {
+  id        String   @id @default(cuid())
+  listingId String
+  userId    String?
+  anonId    String?
+  source    String? // SEARCH | FEED | DIRECT | RECOMMENDATION | SHARE
+  createdAt DateTime @default(now())
+
+  listing Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@index([listingId, createdAt])
+  @@index([userId, createdAt])
+}
+
+model RecentlyViewed {
+  id         String   @id @default(cuid())
+  userId     String
+  entityType String // LISTING | PRODUCT | CLINIC | PET
+  entityId   String
+  viewedAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, entityType, entityId])
+  @@index([userId, viewedAt])
+}
+
+// ============================================================================
+// ADOPTION
+// ============================================================================
+
+model AdoptionApplication {
+  id          String @id @default(cuid())
+  listingId   String
+  applicantId String
+
+  status String @default("SUBMITTED") // SUBMITTED | IN_REVIEW | APPROVED | REJECTED | WITHDRAWN | COMPLETED
+
+  // Structured household questions. Rescues reject most applications on these
+  // facts, so they are columns, not free text, and can be filtered on.
+  homeType        String? // APARTMENT | HOUSE | FARM | OTHER
+  hasYard         Boolean @default(false)
+  hasOtherPets    Boolean @default(false)
+  otherPetsInfo   String?
+  hasChildren     Boolean @default(false)
+  childrenAges    String?
+  hoursAloneDaily Int?
+  experienceLevel String? // FIRST_TIME | SOME | EXPERIENCED
+  previousPets    String?
+  motivation      String?
+  answers         String? // JSON keyed by ListingQuestion id
+  agreedToTerms   Boolean @default(false)
+
+  score          Int? // deterministic fit score, see AdoptionService
+  decisionNote   String?
+  decidedAt      DateTime?
+  decidedById    String?
+  conversationId String?
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  withdrawnAt DateTime?
+
+  listing   Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  applicant User    @relation("Applicant", fields: [applicantId], references: [id], onDelete: Cascade)
+
+  @@unique([listingId, applicantId])
+  @@index([listingId, status])
+  @@index([applicantId, status])
+}
+
+// ============================================================================
+// BREEDING NETWORK
+// ============================================================================
+
+model BreedingProfile {
+  id      String @id @default(cuid())
+  petId   String @unique
+  ownerId String
+
+  status String @default("ACTIVE") // ACTIVE | PAUSED | RETIRED
+
+  goals             String? // PEDIGREE | COMPANION | WORKING | SHOW
+  studFeeCents      Int     @default(0)
+  currency          String  @default("USD")
+  feeType           String  @default("FEE") // FEE | PICK_OF_LITTER | SPLIT | FREE
+  willingToTravelKm Int     @default(50)
+
+  minPartnerAgeMonths Int?
+  maxPartnerAgeMonths Int?
+  requiresHealthTests Boolean @default(true)
+  requiresVaccination Boolean @default(true)
+  requiresPedigree    Boolean @default(false)
+  allowsMixedBreed    Boolean @default(false)
+
+  temperamentTags String? // comma-delimited
+  notes           String?
+
+  availableFrom DateTime?
+  availableTo   DateTime?
+
+  timesBred           Int @default(0)
+  successfulBreedings Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  pet             Pet                             @relation(fields: [petId], references: [id], onDelete: Cascade)
+  preferredBreeds BreedingProfilePreferredBreed[]
+
+  @@index([ownerId, status])
+  @@index([status])
+}
+
+model BreedingProfilePreferredBreed {
+  id        String @id @default(cuid())
+  profileId String
+  breedId   String
+
+  profile BreedingProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  breed   Breed           @relation(fields: [breedId], references: [id], onDelete: Cascade)
+
+  @@unique([profileId, breedId])
+}
+
+/// Cached output of the deterministic compatibility engine. Recomputed by the
+/// `breeding.refreshMatches` job; never presented as a learned model.
+model BreedingMatch {
+  id         String   @id @default(cuid())
+  petAId     String
+  petBId     String
+  score      Int // 0-100
+  breakdown  String // JSON: per-factor contributions, shown to the user
+  computedAt DateTime @default(now())
+  engine     String   @default("rules-v1")
+
+  petA Pet @relation("MatchPetA", fields: [petAId], references: [id], onDelete: Cascade)
+  petB Pet @relation("MatchPetB", fields: [petBId], references: [id], onDelete: Cascade)
+
+  @@unique([petAId, petBId])
+  @@index([petAId, score])
+}
+
+model BreedingRequest {
+  id              String @id @default(cuid())
+  initiatorPetId  String
+  receiverPetId   String
+  initiatorUserId String
+  receiverUserId  String
+
+  status String @default("PENDING") // PENDING | ACCEPTED | DECLINED | WITHDRAWN | TERMS_PROPOSED | AGREED | SCHEDULED | COMPLETED | CANCELLED
+
+  message                String?
+  compatibilityScore     Int?
+  compatibilityBreakdown String? // JSON snapshot at request time
+
+  // Terms, agreed by both sides before anything is scheduled.
+  feeCents          Int       @default(0)
+  currency          String    @default("USD")
+  feeType           String    @default("FEE")
+  termsText         String?
+  termsProposedById String?
+  initiatorAgreedAt DateTime?
+  receiverAgreedAt  DateTime?
+
+  scheduledAt    DateTime?
+  locationNote   String?
+  completedAt    DateTime?
+  outcome        String? // SUCCESSFUL | UNSUCCESSFUL | CANCELLED
+  conversationId String?
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  respondedAt DateTime?
+
+  initiatorPet  Pet     @relation("InitiatorPet", fields: [initiatorPetId], references: [id], onDelete: Cascade)
+  receiverPet   Pet     @relation("ReceiverPet", fields: [receiverPetId], references: [id], onDelete: Cascade)
+  initiatorUser User    @relation("BreedingInitiator", fields: [initiatorUserId], references: [id], onDelete: Cascade)
+  receiverUser  User    @relation("BreedingReceiver", fields: [receiverUserId], references: [id], onDelete: Cascade)
+  litter        Litter?
+
+  @@index([receiverUserId, status])
+  @@index([initiatorUserId, status])
+  @@index([status, createdAt])
+}
+
+// ============================================================================
+// VETERINARY
+// ============================================================================
+
+model Clinic {
+  id          String  @id @default(cuid())
+  ownerUserId String
+  name        String
+  slug        String  @unique
+  description String?
+  email       String
+  phone       String?
+  website     String?
+
+  addressLine String?
+  city        String?
+  region      String?
+  country     String?
+  postalCode  String?
+  lat         Float?
+  lng         Float?
+
+  logoUrl   String?
+  bannerUrl String?
+
+  status        String    @default("PENDING") // PENDING | ACTIVE | SUSPENDED | CLOSED
+  verifiedAt    DateTime?
+  licenseNumber String?
+
+  emergencyServices Boolean @default(false)
+  homeVisits        Boolean @default(false)
+  acceptsWalkIns    Boolean @default(false)
+
+  // Per-clinic override of the platform booking commission, in basis points.
+  // Null means "use the platform default from PlatformSetting".
+  commissionBps Int?
+
+  bookingLeadHours  Int @default(2)
+  cancellationHours Int @default(24)
+
+  ratingAvgBps Int @default(0)
+  ratingCount  Int @default(0)
+  bookingCount Int @default(0)
+
+  searchText String @default("")
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  owner         User                    @relation("ClinicOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
+  members       ClinicMember[]
+  vets          Vet[]
+  services      Service[]
+  hours         ClinicHours[]
+  exceptions    AvailabilityException[]
+  appointments  Appointment[]
+  healthRecords HealthRecord[]
+
+  @@index([status, country, region, city])
+  @@index([ownerUserId])
+}
+
+model ClinicMember {
+  id       String   @id @default(cuid())
+  clinicId String
+  userId   String
+  role     String // OWNER | ADMIN | VET | STAFF
+  joinedAt DateTime @default(now())
+
+  clinic Clinic @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([clinicId, userId])
+  @@index([userId])
+}
+
+model Vet {
+  id                String    @id @default(cuid())
+  userId            String    @unique
+  clinicId          String?
+  licenseNumber     String?
+  licenseVerifiedAt DateTime?
+  specialties       String? // comma-delimited
+  bio               String?
+  yearsExperience   Int?
+  languages         String?
+  acceptingNew      Boolean   @default(true)
+  ratingAvgBps      Int       @default(0)
+  ratingCount       Int       @default(0)
+  createdAt         DateTime  @default(now())
+
+  user         User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clinic       Clinic?                 @relation(fields: [clinicId], references: [id], onDelete: SetNull)
+  services     Service[]
+  appointments Appointment[]
+  hours        ClinicHours[]
+  exceptions   AvailabilityException[]
+
+  @@index([clinicId])
+}
+
+model Service {
+  id              String  @id @default(cuid())
+  clinicId        String
+  vetId           String?
+  name            String
+  description     String?
+  category        String // CONSULTATION | VACCINATION | SURGERY | DENTAL | GROOMING | DIAGNOSTIC | EMERGENCY | WELLNESS
+  species         String? // comma-delimited, empty means all
+  durationMinutes Int     @default(30)
+  priceCents      Int
+  currency        String  @default("USD")
+  isActive        Boolean @default(true)
+  position        Int     @default(0)
+
+  clinic       Clinic        @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  vet          Vet?          @relation(fields: [vetId], references: [id], onDelete: SetNull)
+  appointments Appointment[]
+
+  @@index([clinicId, isActive])
+}
+
+/// Recurring weekly opening hours. Minutes since midnight in the clinic tz.
+model ClinicHours {
+  id          String  @id @default(cuid())
+  clinicId    String
+  vetId       String?
+  weekday     Int // 0 = Sunday
+  startMinute Int
+  endMinute   Int
+  slotMinutes Int     @default(30)
+
+  clinic Clinic @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  vet    Vet?   @relation(fields: [vetId], references: [id], onDelete: Cascade)
+
+  @@index([clinicId, weekday])
+}
+
+/// One-off overrides: holidays, extra hours, a vet away for the afternoon.
+model AvailabilityException {
+  id          String   @id @default(cuid())
+  clinicId    String
+  vetId       String?
+  date        DateTime // midnight UTC of the affected day
+  isClosed    Boolean  @default(true)
+  startMinute Int?
+  endMinute   Int?
+  note        String?
+
+  clinic Clinic @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  vet    Vet?   @relation(fields: [vetId], references: [id], onDelete: Cascade)
+
+  @@index([clinicId, date])
+}
+
+model Appointment {
+  id        String @id @default(cuid())
+  reference String @unique
+  clinicId  String
+  vetId     String
+  serviceId String
+  petId     String
+  userId    String
+
+  startAt DateTime
+  endAt   DateTime
+
+  status String @default("PENDING_PAYMENT") // PENDING_PAYMENT | CONFIRMED | CHECKED_IN | COMPLETED | CANCELLED | NO_SHOW | RESCHEDULED
+
+  priceCents      Int
+  currency        String    @default("USD")
+  commissionCents Int       @default(0)
+  paymentIntentId String?
+  paidAt          DateTime?
+
+  reasonForVisit String?
+  clinicNotes    String? // visible to clinic staff only
+  outcome        String?
+
+  cancelledAt        DateTime?
+  cancelledById      String?
+  cancellationReason String?
+  rescheduledFromId  String?
+
+  reminder24hSentAt DateTime?
+  reminder2hSentAt  DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  clinic        Clinic         @relation(fields: [clinicId], references: [id], onDelete: Cascade)
+  vet           Vet            @relation(fields: [vetId], references: [id], onDelete: Cascade)
+  service       Service        @relation(fields: [serviceId], references: [id])
+  pet           Pet            @relation(fields: [petId], references: [id], onDelete: Cascade)
+  user          User           @relation("AppointmentCustomer", fields: [userId], references: [id], onDelete: Cascade)
+  paymentIntent PaymentIntent? @relation(fields: [paymentIntentId], references: [id], onDelete: SetNull)
+  healthRecords HealthRecord[]
+
+  // The database, not the application, is what prevents a double booking.
+  @@unique([vetId, startAt])
+  @@index([clinicId, startAt])
+  @@index([userId, startAt])
+  @@index([petId])
+  @@index([status, startAt])
+}
+
+// ============================================================================
+// COMMERCE
+// ============================================================================
+
+model Shop {
+  id          String  @id @default(cuid())
+  ownerUserId String
+  name        String
+  slug        String  @unique
+  description String?
+  logoUrl     String?
+  bannerUrl   String?
+  email       String
+  phone       String?
+
+  country String?
+  region  String?
+  city    String?
+
+  status     String    @default("PENDING") // PENDING | ACTIVE | SUSPENDED | CLOSED
+  verifiedAt DateTime?
+
+  commissionBps  Int? // null means platform default
+  payoutHoldDays Int  @default(7)
+
+  ratingAvgBps Int @default(0)
+  ratingCount  Int @default(0)
+  orderCount   Int @default(0)
+
+  freeShippingThresholdCents Int?
+  flatShippingCents          Int  @default(599)
+
+  searchText String @default("")
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  owner      User        @relation("ShopOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
+  products   Product[]
+  orderItems OrderItem[]
+  deliveries Delivery[]
+
+  @@index([status])
+  @@index([ownerUserId])
+}
+
+model Category {
+  id       String  @id @default(cuid())
+  parentId String?
+  name     String
+  slug     String  @unique
+  species  String? // comma-delimited
+  icon     String?
+  position Int     @default(0)
+
+  parent   Category?  @relation("CategoryTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children Category[] @relation("CategoryTree")
+  products Product[]
+
+  @@index([parentId, position])
+}
+
+model Product {
+  id          String  @id @default(cuid())
+  shopId      String
+  categoryId  String?
+  title       String
+  slug        String  @unique
+  description String
+  brand       String?
+  sku         String?
+
+  status String @default("DRAFT") // DRAFT | ACTIVE | OUT_OF_STOCK | ARCHIVED
+
+  priceCents     Int
+  compareAtCents Int?
+  currency       String @default("USD")
+
+  trackInventory Boolean @default(true)
+  stock          Int     @default(0)
+  lowStockAt     Int     @default(5)
+
+  weightGrams Int?
+  attributes  String? // JSON: species, lifeStage, flavour, size, ...
+  searchText  String  @default("")
+
+  ratingAvgBps Int @default(0)
+  ratingCount  Int @default(0)
+  soldCount    Int @default(0)
+  viewCount    Int @default(0)
+
+  publishedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  shop     Shop             @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  category Category?        @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  images   ProductImage[]
+  variants ProductVariant[]
+
+  @@index([shopId, status])
+  @@index([categoryId, status])
+  @@index([status, publishedAt])
+  @@index([priceCents])
+}
+
+model ProductImage {
+  id        String   @id @default(cuid())
+  productId String
+  url       String
+  alt       String?
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId, position])
+}
+
+/// Every product has at least one variant, so pricing and stock have exactly
+/// one home and the order path never branches on "simple vs variable".
+model ProductVariant {
+  id         String  @id @default(cuid())
+  productId  String
+  name       String  @default("Default")
+  sku        String?
+  priceCents Int
+  stock      Int     @default(0)
+  isDefault  Boolean @default(true)
+  position   Int     @default(0)
+
+  product    Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  cartItems  CartItem[]
+  orderItems OrderItem[]
+
+  @@index([productId])
+}
+
+model CartItem {
+  id        String   @id @default(cuid())
+  userId    String?
+  anonId    String?
+  variantId String
+  quantity  Int      @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user    User?          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  variant ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, variantId])
+  @@unique([anonId, variantId])
+  @@index([userId])
+}
+
+model Order {
+  id          String @id @default(cuid())
+  orderNumber String @unique
+  buyerId     String
+
+  status String @default("PENDING_PAYMENT") // PENDING_PAYMENT | PAID | PROCESSING | SHIPPED | DELIVERED | CANCELLED | REFUNDED | PARTIALLY_REFUNDED
+
+  subtotalCents    Int
+  shippingCents    Int    @default(0)
+  taxCents         Int    @default(0)
+  discountCents    Int    @default(0)
+  totalCents       Int
+  platformFeeCents Int    @default(0)
+  currency         String @default("USD")
+
+  shippingName    String
+  shippingPhone   String?
+  shippingLine1   String
+  shippingLine2   String?
+  shippingCity    String
+  shippingRegion  String?
+  shippingCountry String
+  shippingPostal  String?
+  shippingNote    String?
+
+  paymentIntentId String?
+  placedAt        DateTime?
+  cancelledAt     DateTime?
+  cancelReason    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  buyer         User           @relation("OrderBuyer", fields: [buyerId], references: [id], onDelete: Cascade)
+  items         OrderItem[]
+  deliveries    Delivery[]
+  paymentIntent PaymentIntent? @relation(fields: [paymentIntentId], references: [id], onDelete: SetNull)
+  disputes      Dispute[]
+
+  @@index([buyerId, createdAt])
+  @@index([status, createdAt])
+}
+
+model OrderItem {
+  id        String @id @default(cuid())
+  orderId   String
+  shopId    String
+  variantId String
+
+  // Snapshots: an order must never change because a seller edited a product.
+  titleSnapshot   String
+  variantSnapshot String
+  imageSnapshot   String?
+  unitPriceCents  Int
+  quantity        Int
+  totalCents      Int
+
+  commissionBps       Int
+  commissionCents     Int
+  sellerEarningsCents Int
+
+  fulfillmentStatus String @default("PENDING") // PENDING | PACKED | SHIPPED | DELIVERED | CANCELLED | RETURNED
+  refundedCents     Int    @default(0)
+
+  order   Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  shop    Shop           @relation(fields: [shopId], references: [id])
+  variant ProductVariant @relation(fields: [variantId], references: [id])
+
+  @@index([orderId])
+  @@index([shopId, fulfillmentStatus])
+}
+
+/// A pet sale is not a product order: it moves an animal and a passport, it is
+/// escrowed, and it needs a handover both parties confirm.
+model PetOrder {
+  id          String @id @default(cuid())
+  orderNumber String @unique
+  listingId   String
+  petId       String
+  buyerId     String
+  sellerId    String
+
+  status String @default("PENDING_PAYMENT") // PENDING_PAYMENT | IN_ESCROW | HANDOVER_PENDING | COMPLETED | CANCELLED | REFUNDED | DISPUTED
+
+  amountCents       Int
+  currency          String @default("USD")
+  platformFeeCents  Int    @default(0)
+  sellerPayoutCents Int    @default(0)
+
+  paymentIntentId  String?
+  escrowReleasedAt DateTime?
+
+  buyerConfirmedAt  DateTime?
+  sellerConfirmedAt DateTime?
+  meetingNote       String?
+  transferId        String?
+
+  autoReleaseAt DateTime? // escrow releases after this if nobody disputes
+  cancelledAt   DateTime?
+  cancelReason  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  listing       Listing        @relation(fields: [listingId], references: [id])
+  paymentIntent PaymentIntent? @relation(fields: [paymentIntentId], references: [id], onDelete: SetNull)
+  disputes      Dispute[]
+
+  @@index([buyerId, status])
+  @@index([sellerId, status])
+  @@index([status, autoReleaseAt])
+}
+
+// ============================================================================
+// DELIVERY
+// ============================================================================
+
+model Delivery {
+  id        String  @id @default(cuid())
+  orderId   String
+  shopId    String
+  courierId String?
+
+  provider       String  @default("INTERNAL") // INTERNAL | DHL | ARAMEX | LOCAL_COURIER
+  trackingNumber String  @unique
+  carrierRef     String?
+
+  status String @default("PENDING") // PENDING | ASSIGNED | PICKED_UP | IN_TRANSIT | OUT_FOR_DELIVERY | DELIVERED | FAILED | RETURNED | CANCELLED
+
+  // The OTP is stored hashed; the courier app verifies, it is never displayed
+  // to anyone but the buyer.
+  otpHash     String?
+  otpAttempts Int     @default(0)
+
+  recipientName String
+  addressLine   String
+  city          String
+  country       String
+  lat           Float?
+  lng           Float?
+
+  assignedAt    DateTime?
+  pickedUpAt    DateTime?
+  deliveredAt   DateTime?
+  failedAt      DateTime?
+  failureReason String?
+  attemptCount  Int       @default(0)
+
+  proofFileId String?
+  signedBy    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  order   Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  shop    Shop            @relation(fields: [shopId], references: [id])
+  courier User?           @relation("Courier", fields: [courierId], references: [id], onDelete: SetNull)
+  events  DeliveryEvent[]
+
+  @@index([orderId])
+  @@index([courierId, status])
+  @@index([status])
+}
+
+model DeliveryEvent {
+  id         String   @id @default(cuid())
+  deliveryId String
+  status     String
+  note       String?
+  lat        Float?
+  lng        Float?
+  actorId    String?
+  createdAt  DateTime @default(now())
+
+  delivery Delivery @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+
+  @@index([deliveryId, createdAt])
+}
+
+// ============================================================================
+// MONEY — payments, double-entry ledger, payouts, subscriptions
+// ============================================================================
+
+model PaymentIntent {
+  id          String  @id @default(cuid())
+  userId      String
+  provider    String // stripe | ledger
+  providerRef String? @unique
+
+  purpose     String // PET_PURCHASE | PRODUCT_ORDER | APPOINTMENT | SUBSCRIPTION | FEATURED_LISTING | AD_CAMPAIGN | WALLET_TOPUP
+  amountCents Int
+  currency    String @default("USD")
+
+  status String @default("REQUIRES_PAYMENT") // REQUIRES_PAYMENT | PROCESSING | SUCCEEDED | FAILED | CANCELLED | REFUNDED | PARTIALLY_REFUNDED
+
+  // The amount is always recomputed server-side from the referenced entity.
+  // Nothing about the amount is ever taken from the client.
+  referenceType String?
+  referenceId   String?
+
+  idempotencyKey String  @unique
+  clientSecret   String? // provider-issued, never logged
+  metadata       String? // JSON
+
+  failureCode    String?
+  failureMessage String?
+
+  capturedAt    DateTime?
+  refundedCents Int       @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user          User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orders        Order[]
+  petOrders     PetOrder[]
+  appointments  Appointment[]
+  refunds       Refund[]
+  invoice       Invoice?
+  transactions  LedgerTransaction[]
+  subscriptions Subscription[]
+
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
+  @@index([purpose, createdAt])
+}
+
+model Refund {
+  id              String    @id @default(cuid())
+  paymentIntentId String
+  amountCents     Int
+  currency        String    @default("USD")
+  reason          String // REQUESTED_BY_CUSTOMER | DUPLICATE | FRAUDULENT | DISPUTE_RESOLUTION | CANCELLED_ORDER
+  status          String    @default("PENDING") // PENDING | SUCCEEDED | FAILED
+  note            String?
+  approvedById    String
+  providerRef     String?
+  idempotencyKey  String    @unique
+  createdAt       DateTime  @default(now())
+  completedAt     DateTime?
+
+  paymentIntent PaymentIntent @relation(fields: [paymentIntentId], references: [id], onDelete: Cascade)
+
+  @@index([paymentIntentId])
+}
+
+/// Double-entry accounting. Every movement of money is a transaction whose
+/// entries sum to zero; balances are derived, never stored on a user row.
+model LedgerAccount {
+  id        String   @id @default(cuid())
+  ownerType String // USER | SHOP | CLINIC | PLATFORM | ESCROW | EXTERNAL
+  ownerId   String // "platform" / "escrow" for the singleton system accounts
+  kind      String // AVAILABLE | PENDING | PAYABLE | REVENUE | FEES | ESCROW | GATEWAY
+  currency  String   @default("USD")
+  createdAt DateTime @default(now())
+
+  entries LedgerEntry[]
+
+  @@unique([ownerType, ownerId, kind, currency])
+  @@index([ownerType, ownerId])
+}
+
+model LedgerTransaction {
+  id              String   @id @default(cuid())
+  kind            String // CHARGE | ESCROW_HOLD | ESCROW_RELEASE | COMMISSION | PAYOUT | REFUND | ADJUSTMENT | SUBSCRIPTION
+  description     String
+  referenceType   String?
+  referenceId     String?
+  paymentIntentId String?
+  currency        String   @default("USD")
+  createdAt       DateTime @default(now())
+  createdById     String?
+
+  entries       LedgerEntry[]
+  paymentIntent PaymentIntent? @relation(fields: [paymentIntentId], references: [id], onDelete: SetNull)
+
+  @@index([referenceType, referenceId])
+  @@index([kind, createdAt])
+}
+
+model LedgerEntry {
+  id            String   @id @default(cuid())
+  transactionId String
+  accountId     String
+  /// Signed minor units. Positive credits the account, negative debits it.
+  /// The sum of every entry in a transaction must be exactly 0.
+  amountCents   Int
+  currency      String   @default("USD")
+  createdAt     DateTime @default(now())
+
+  transaction LedgerTransaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  account     LedgerAccount     @relation(fields: [accountId], references: [id])
+
+  @@index([accountId, createdAt])
+  @@index([transactionId])
+}
+
+model Payout {
+  id           String    @id @default(cuid())
+  ownerType    String // SHOP | CLINIC | USER
+  ownerId      String
+  amountCents  Int
+  currency     String    @default("USD")
+  status       String    @default("REQUESTED") // REQUESTED | APPROVED | PAID | REJECTED | FAILED
+  method       String    @default("BANK_TRANSFER")
+  destination  String? // masked reference only, never full bank details
+  providerRef  String?
+  note         String?
+  requestedAt  DateTime  @default(now())
+  approvedById String?
+  paidAt       DateTime?
+
+  @@index([ownerType, ownerId, status])
+  @@index([status, requestedAt])
+}
+
+model Invoice {
+  id              String   @id @default(cuid())
+  number          String   @unique
+  userId          String
+  paymentIntentId String   @unique
+  totalCents      Int
+  taxCents        Int      @default(0)
+  currency        String   @default("USD")
+  lines           String // JSON
+  billingName     String
+  billingAddress  String?
+  issuedAt        DateTime @default(now())
+
+  paymentIntent PaymentIntent @relation(fields: [paymentIntentId], references: [id], onDelete: Cascade)
+
+  @@index([userId, issuedAt])
+}
+
+model Plan {
+  id                String  @id @default(cuid())
+  code              String  @unique // free, plus, breeder-pro, seller-pro, clinic-pro
+  name              String
+  tagline           String?
+  audience          String // CONSUMER | BREEDER | SELLER | CLINIC
+  priceMonthlyCents Int     @default(0)
+  priceYearlyCents  Int     @default(0)
+  currency          String  @default("USD")
+  features          String // JSON array of human-readable feature strings
+  limits            String // JSON map consumed by lib/billing/entitlements.ts
+  isActive          Boolean @default(true)
+  position          Int     @default(0)
+
+  subscriptions Subscription[]
+}
+
+model Subscription {
+  id     String @id @default(cuid())
+  userId String
+  planId String
+
+  status String @default("ACTIVE") // ACTIVE | PAST_DUE | CANCELLED | EXPIRED | TRIALING
+
+  interval           String    @default("MONTH") // MONTH | YEAR
+  currentPeriodStart DateTime
+  currentPeriodEnd   DateTime
+  cancelAtPeriodEnd  Boolean   @default(false)
+  cancelledAt        DateTime?
+  trialEndsAt        DateTime?
+
+  providerRef     String?
+  paymentIntentId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan          Plan           @relation(fields: [planId], references: [id])
+  paymentIntent PaymentIntent? @relation(fields: [paymentIntentId], references: [id], onDelete: SetNull)
+
+  @@index([userId, status])
+  @@index([status, currentPeriodEnd])
+}
+
+/// Paid visibility. Kept separate from the listing so the commercial record
+/// survives the listing being edited, paused or deleted.
+model FeaturedPlacement {
+  id              String   @id @default(cuid())
+  entityType      String // LISTING | PRODUCT | CLINIC | SHOP
+  entityId        String
+  tier            String   @default("STANDARD") // STANDARD | PREMIUM
+  startAt         DateTime
+  endAt           DateTime
+  amountCents     Int
+  currency        String   @default("USD")
+  paymentIntentId String?
+  impressions     Int      @default(0)
+  clicks          Int      @default(0)
+  createdAt       DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([endAt])
+}
+
+model AdCampaign {
+  id             String   @id @default(cuid())
+  advertiserId   String
+  name           String
+  slot           String // HOME_HERO | SEARCH_INLINE | CLINIC_SIDEBAR | NEWSLETTER
+  status         String   @default("DRAFT") // DRAFT | PENDING_REVIEW | ACTIVE | PAUSED | COMPLETED | REJECTED
+  budgetCents    Int
+  spentCents     Int      @default(0)
+  cpmCents       Int      @default(500)
+  targeting      String? // JSON
+  headline       String
+  body           String?
+  imageUrl       String?
+  destinationUrl String
+  startAt        DateTime
+  endAt          DateTime
+  impressions    Int      @default(0)
+  clicks         Int      @default(0)
+  createdAt      DateTime @default(now())
+
+  advertiser User @relation(fields: [advertiserId], references: [id], onDelete: Cascade)
+
+  @@index([status, startAt, endAt])
+}
+
+/// Every commercial rule the business may want to change without a deploy.
+model PlatformSetting {
+  key         String   @id
+  value       String // JSON
+  description String?
+  category    String   @default("GENERAL")
+  updatedById String?
+  updatedAt   DateTime @updatedAt
+}
+
+// ============================================================================
+// TRUST & SAFETY
+// ============================================================================
+
+model Verification {
+  id          String  @id @default(cuid())
+  subjectType String // USER | PET | CLINIC | SHOP
+  subjectId   String
+  userId      String? // the account that submitted it
+  type        String // IDENTITY | ADDRESS | BREEDER | CLINIC_LICENSE | BUSINESS | PET_DOCUMENTS | HEALTH
+
+  status    String  @default("PENDING") // PENDING | IN_REVIEW | APPROVED | REJECTED | EXPIRED
+  documents String? // JSON array of FileObject ids
+  notes     String?
+
+  reviewedById    String?
+  reviewedAt      DateTime?
+  rejectionReason String?
+  expiresAt       DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User? @relation("VerificationSubject", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([subjectType, subjectId])
+  @@index([status, createdAt])
+}
+
+/// Individual positive or negative signals. The trust score is the sum, so it
+/// is always explainable: the profile can show exactly what earned it.
+model TrustSignal {
+  id        String    @id @default(cuid())
+  userId    String
+  kind      String // EMAIL_VERIFIED | ID_VERIFIED | SALE_COMPLETED | REVIEW_5 | DISPUTE_LOST | REPORT_UPHELD | ...
+  weight    Int
+  reference String?
+  note      String?
+  createdAt DateTime  @default(now())
+  expiresAt DateTime?
+
+  @@index([userId, createdAt])
+}
+
+model Report {
+  id         String  @id @default(cuid())
+  reporterId String
+  entityType String // LISTING | USER | MESSAGE | PRODUCT | POST | COMMENT | REVIEW | CLINIC
+  entityId   String
+  reason     String // FRAUD | ANIMAL_WELFARE | MISLEADING | PROHIBITED | SPAM | HARASSMENT | COUNTERFEIT | OTHER
+  details    String?
+  evidence   String? // JSON array of FileObject ids
+
+  status       String    @default("OPEN") // OPEN | IN_REVIEW | UPHELD | DISMISSED | DUPLICATE
+  priority     String    @default("NORMAL") // LOW | NORMAL | HIGH | URGENT
+  resolution   String?
+  resolvedById String?
+  resolvedAt   DateTime?
+
+  createdAt DateTime @default(now())
+
+  reporter User @relation("Reporter", fields: [reporterId], references: [id], onDelete: Cascade)
+
+  @@index([entityType, entityId])
+  @@index([status, priority, createdAt])
+}
+
+/// Support conversations. Deliberately separate from Report (which is about
+/// someone else's content) and Dispute (which is about money that already
+/// moved). A ticket can be opened by a signed-out visitor, so `userId` is
+/// nullable and `email` is always captured.
+model SupportTicket {
+  id        String  @id @default(cuid())
+  reference String  @unique
+  userId    String?
+  email     String
+  name      String
+  topic     String // ACCOUNT | PAYMENT | LISTING | SAFETY | CLINIC | TECHNICAL | OTHER
+  subject   String
+  status    String  @default("OPEN") // OPEN | AWAITING_USER | RESOLVED | CLOSED
+  priority  String  @default("NORMAL") // LOW | NORMAL | HIGH | URGENT
+
+  orderRef String? // whatever reference the reporter pasted, free text
+  ipHash   String? // for abuse rate limiting on anonymous submissions
+
+  assignedToId String?
+  resolvedAt   DateTime?
+  lastReplyAt  DateTime  @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user     User?            @relation("TicketAuthor", fields: [userId], references: [id], onDelete: SetNull)
+  messages SupportMessage[]
+
+  @@index([status, priority, lastReplyAt])
+  @@index([userId, createdAt])
+  @@index([email])
+}
+
+model SupportMessage {
+  id         String   @id @default(cuid())
+  ticketId   String
+  authorId   String?
+  authorName String
+  isStaff    Boolean  @default(false)
+  body       String
+  createdAt  DateTime @default(now())
+
+  ticket SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  author User?         @relation("TicketReplyAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+
+  @@index([ticketId, createdAt])
+}
+
+model Dispute {
+  id            String  @id @default(cuid())
+  reference     String  @unique
+  orderId       String?
+  petOrderId    String?
+  appointmentId String?
+  raisedById    String
+  againstId     String
+
+  reason      String // NOT_AS_DESCRIBED | NOT_DELIVERED | HEALTH_ISSUE | FRAUD | DAMAGED | OTHER
+  details     String
+  amountCents Int    @default(0)
+
+  status String @default("OPEN") // OPEN | AWAITING_RESPONSE | IN_REVIEW | RESOLVED_BUYER | RESOLVED_SELLER | RESOLVED_SPLIT | WITHDRAWN
+
+  resolution    String?
+  refundCents   Int       @default(0)
+  resolvedById  String?
+  resolvedAt    DateTime?
+  responseDueAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  raisedBy User             @relation("DisputeRaiser", fields: [raisedById], references: [id], onDelete: Cascade)
+  against  User             @relation("DisputeRespondent", fields: [againstId], references: [id], onDelete: Cascade)
+  order    Order?           @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  petOrder PetOrder?        @relation(fields: [petOrderId], references: [id], onDelete: SetNull)
+  messages DisputeMessage[]
+
+  @@index([status, createdAt])
+  @@index([raisedById])
+  @@index([againstId])
+}
+
+model DisputeMessage {
+  id        String   @id @default(cuid())
+  disputeId String
+  authorId  String
+  body      String
+  evidence  String? // JSON array of FileObject ids
+  isStaff   Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  dispute Dispute @relation(fields: [disputeId], references: [id], onDelete: Cascade)
+
+  @@index([disputeId, createdAt])
+}
+
+model RiskEvent {
+  id         String   @id @default(cuid())
+  userId     String?
+  type       String // RAPID_LISTING | PRICE_ANOMALY | DUPLICATE_IMAGE | MANY_FAILED_LOGINS | OFF_PLATFORM_CONTACT | NEW_ACCOUNT_HIGH_VALUE
+  score      Int
+  entityType String?
+  entityId   String?
+  details    String? // JSON
+  handled    Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([handled, score])
+}
+
+model Block {
+  id        String   @id @default(cuid())
+  blockerId String
+  blockedId String
+  reason    String?
+  createdAt DateTime @default(now())
+
+  blocker User @relation("Blocker", fields: [blockerId], references: [id], onDelete: Cascade)
+  blocked User @relation("Blocked", fields: [blockedId], references: [id], onDelete: Cascade)
+
+  @@unique([blockerId, blockedId])
+  @@index([blockedId])
+}
+
+model Review {
+  id       String @id @default(cuid())
+  authorId String
+
+  targetType String // SELLER | SHOP | CLINIC | VET | PRODUCT | BREEDER
+  targetId   String
+
+  rating Int // 1-5
+  title  String?
+  body   String?
+
+  // A review is only shown as verified when it is tied to a completed
+  // transaction the author actually took part in.
+  orderId       String?
+  petOrderId    String?
+  appointmentId String?
+  isVerified    Boolean @default(false)
+
+  status            String    @default("PUBLISHED") // PUBLISHED | HIDDEN | REMOVED
+  sellerResponse    String?
+  sellerRespondedAt DateTime?
+
+  helpfulCount Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  author User @relation("ReviewAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@unique([authorId, targetType, targetId, orderId])
+  @@index([targetType, targetId, status])
+}
+
+// ============================================================================
+// MESSAGING
+// ============================================================================
+
+model Conversation {
+  id   String @id @default(cuid())
+  type String @default("DIRECT") // DIRECT | LISTING | BREEDING | ORDER | APPOINTMENT | ADOPTION | SUPPORT | DISPUTE
+
+  contextType String?
+  contextId   String?
+  listingId   String?
+  subject     String?
+
+  lastMessageAt      DateTime @default(now())
+  lastMessagePreview String?
+  messageCount       Int      @default(0)
+
+  createdById String
+  createdAt   DateTime @default(now())
+
+  listing      Listing?                  @relation(fields: [listingId], references: [id], onDelete: SetNull)
+  participants ConversationParticipant[]
+  messages     Message[]
+
+  @@index([contextType, contextId])
+  @@index([lastMessageAt])
+}
+
+model ConversationParticipant {
+  id             String    @id @default(cuid())
+  conversationId String
+  userId         String
+  lastReadAt     DateTime?
+  unreadCount    Int       @default(0)
+  isArchived     Boolean   @default(false)
+  mutedUntil     DateTime?
+  leftAt         DateTime?
+  joinedAt       DateTime  @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, userId])
+  @@index([userId, isArchived])
+}
+
+model Message {
+  id             String  @id @default(cuid())
+  conversationId String
+  senderId       String?
+
+  body        String
+  attachments String? // JSON array of FileObject ids
+
+  // System messages narrate state changes inside the thread: "Offer accepted",
+  // "Appointment confirmed". They have no sender.
+  systemType String?
+  systemData String? // JSON
+
+  editedAt  DateTime?
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  flagged    Boolean @default(false)
+  flagReason String?
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User?        @relation(fields: [senderId], references: [id], onDelete: SetNull)
+
+  @@index([conversationId, createdAt])
+  @@index([senderId])
+}
+
+// ============================================================================
+// NOTIFICATIONS
+// ============================================================================
+
+model Notification {
+  id     String @id @default(cuid())
+  userId String
+
+  category String // MESSAGE | LISTING | ORDER | PAYMENT | APPOINTMENT | BREEDING | ADOPTION | HEALTH | DELIVERY | SECURITY | SYSTEM | MARKETING
+  type     String
+  title    String
+  body     String?
+  url      String?
+  imageUrl String?
+
+  entityType String?
+  entityId   String?
+
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt, createdAt])
+  @@index([userId, category])
+}
+
+model NotificationPreference {
+  id       String  @id @default(cuid())
+  userId   String
+  category String
+  inApp    Boolean @default(true)
+  email    Boolean @default(true)
+  push     Boolean @default(false)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, category])
+}
+
+/// Transactional email outbox. Rows are written inside the business
+/// transaction and delivered by the worker, so an email is never lost when
+/// the provider is down and never sent for a transaction that rolled back.
+model EmailMessage {
+  id       String  @id @default(cuid())
+  to       String
+  toName   String?
+  subject  String
+  html     String
+  text     String
+  template String?
+  category String  @default("TRANSACTIONAL")
+
+  status      String    @default("QUEUED") // QUEUED | SENT | FAILED | SUPPRESSED
+  provider    String?
+  providerRef String?
+  error       String?
+  attempts    Int       @default(0)
+  sentAt      DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([status, createdAt])
+  @@index([to])
+}
+
+// ============================================================================
+// COMMUNITY
+// ============================================================================
+
+model Group {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  description String?
+  species     String?
+  breedId     String?
+  imageUrl    String?
+  visibility  String   @default("PUBLIC") // PUBLIC | PRIVATE
+  ownerId     String
+  memberCount Int      @default(0)
+  postCount   Int      @default(0)
+  rules       String?
+  createdAt   DateTime @default(now())
+
+  members GroupMember[]
+  posts   Post[]
+
+  @@index([species])
+}
+
+model GroupMember {
+  id       String   @id @default(cuid())
+  groupId  String
+  userId   String
+  role     String   @default("MEMBER") // MEMBER | MODERATOR | OWNER
+  joinedAt DateTime @default(now())
+
+  group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, userId])
+  @@index([userId])
+}
+
+model Post {
+  id       String  @id @default(cuid())
+  groupId  String?
+  authorId String
+  type     String  @default("DISCUSSION") // DISCUSSION | QUESTION | PHOTO | MILESTONE | LOST_FOUND
+  title    String?
+  body     String
+  images   String? // JSON array of urls
+  petId    String?
+
+  status String @default("PUBLISHED") // PUBLISHED | HIDDEN | REMOVED
+
+  likeCount    Int @default(0)
+  commentCount Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  group    Group?    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  author   User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  comments Comment[]
+
+  @@index([groupId, createdAt])
+  @@index([authorId, createdAt])
+  @@index([status, createdAt])
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  postId    String
+  authorId  String
+  parentId  String?
+  body      String
+  status    String   @default("PUBLISHED")
+  likeCount Int      @default(0)
+  createdAt DateTime @default(now())
+
+  post     Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
+  author   User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  parent   Comment?  @relation("CommentTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children Comment[] @relation("CommentTree")
+
+  @@index([postId, createdAt])
+}
+
+model Reaction {
+  id         String   @id @default(cuid())
+  userId     String
+  targetType String // POST | COMMENT | REVIEW
+  targetId   String
+  kind       String   @default("LIKE")
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, targetType, targetId])
+  @@index([targetType, targetId])
+}
+
+// ============================================================================
+// PLATFORM INFRASTRUCTURE
+// ============================================================================
+
+model FileObject {
+  id        String  @id @default(cuid())
+  ownerId   String?
+  key       String  @unique
+  url       String
+  mime      String
+  sizeBytes Int
+  width     Int?
+  height    Int?
+  checksum  String?
+  purpose   String // PET_PHOTO | PET_DOCUMENT | PRODUCT_IMAGE | AVATAR | BANNER | VERIFICATION | EVIDENCE | DELIVERY_PROOF | MESSAGE_ATTACHMENT
+  storage   String  @default("local") // local | s3
+
+  // Uploads are only referenced by a business record after validation passes.
+  scanStatus String @default("CLEAN") // PENDING | CLEAN | REJECTED
+
+  createdAt DateTime @default(now())
+
+  owner        User?         @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  petDocuments PetDocument[]
+
+  @@index([ownerId, purpose])
+}
+
+/// Durable background work. The worker claims rows with a conditional update,
+/// so several workers can run without stepping on each other.
+model Job {
+  id          String    @id @default(cuid())
+  type        String
+  payload     String // JSON
+  status      String    @default("PENDING") // PENDING | RUNNING | COMPLETED | FAILED | DEAD
+  runAt       DateTime  @default(now())
+  attempts    Int       @default(0)
+  maxAttempts Int       @default(5)
+  lockedAt    DateTime?
+  lockedBy    String?
+  lastError   String?
+  uniqueKey   String?   @unique
+  createdAt   DateTime  @default(now())
+  completedAt DateTime?
+
+  @@index([status, runAt])
+  @@index([type, status])
+}
+
+/// First-party product analytics. No third-party tracker ships by default.
+model AnalyticsEvent {
+  id         String   @id @default(cuid())
+  name       String
+  userId     String?
+  anonId     String?
+  sessionId  String?
+  entityType String?
+  entityId   String?
+  valueCents Int?
+  props      String? // JSON
+  path       String?
+  referrer   String?
+  createdAt  DateTime @default(now())
+
+  @@index([name, createdAt])
+  @@index([userId, createdAt])
+  @@index([entityType, entityId])
+}
+
+model SearchQueryLog {
+  id          String   @id @default(cuid())
+  entity      String // LISTING | PRODUCT | CLINIC
+  query       String
+  filters     String? // JSON
+  resultCount Int
+  userId      String?
+  clickedId   String?
+  createdAt   DateTime @default(now())
+
+  @@index([entity, createdAt])
+  @@index([query])
+}
+
+/// Sliding-window counters for rate limiting. Durable so limits survive a
+/// restart and hold across instances when the DB is shared.
+model RateLimitCounter {
+  id        String   @id @default(cuid())
+  bucket    String   @unique
+  count     Int      @default(0)
+  expiresAt DateTime
+
+  @@index([expiresAt])
+}

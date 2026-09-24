@@ -1,0 +1,596 @@
+You are a senior Staff Software Engineer, Security Engineer, DevSecOps Engineer, SEO specialist, and QA engineer.
+
+I have an existing full-stack web application that is intended to be deployed to production.
+
+Your job is NOT to blindly modify the code.
+
+Your first priority is to deeply inspect and understand the existing codebase, architecture, frontend, backend, APIs, authentication, database, environment configuration, dependencies, deployment configuration, and user flows.
+
+Perform a COMPLETE PRODUCTION-READINESS AUDIT.
+
+==================================================
+PHASE 1 — UNDERSTAND THE PROJECT
+==================================================
+
+Before changing anything:
+
+1. Inspect the entire repository structure.
+2. Identify:
+   - Frontend framework and architecture
+   - Backend framework and architecture
+   - Database and ORM
+   - Authentication system
+   - Authorization / RBAC
+   - API architecture
+   - External services
+   - Environment variables
+   - Deployment configuration
+   - Build configuration
+   - Testing setup
+   - Logging and monitoring
+3. Identify the main application entry points.
+4. Identify all API routes/endpoints.
+5. Identify admin/protected routes.
+6. Identify database models and sensitive data.
+7. Identify all places where secrets, credentials, tokens, or API keys could potentially be exposed.
+8. Understand the existing architecture before proposing changes.
+
+DO NOT make assumptions about the project.
+
+==================================================
+PHASE 2 — SECURITY AUDIT
+==================================================
+
+Perform a serious security audit of the entire application.
+
+Check at minimum:
+
+### Secrets & Credentials
+- Search for hardcoded API keys
+- Search for passwords
+- Search for tokens
+- Search for private keys
+- Search for database credentials
+- Search Git history where practical for accidentally committed secrets
+- Check .env handling
+- Check .gitignore
+- Check frontend bundles for exposed secrets
+- Verify server-only secrets never reach the client
+
+If you find credentials that appear compromised:
+- DO NOT expose them in your response
+- Mark them as COMPROMISED
+- Recommend rotation/revocation
+- Explain where the exposure occurred
+
+### Authentication
+Audit:
+- Login
+- Signup
+- Logout
+- Session management
+- Token handling
+- Password reset
+- Email verification
+- Authentication middleware
+- JWT/session security
+- Cookie configuration
+- Secure / HttpOnly / SameSite settings
+- Session expiration
+- Refresh token handling
+- Brute-force protection
+
+### Authorization
+Check:
+- User permissions
+- Role-based access control
+- Admin routes
+- Object-level authorization
+- IDOR vulnerabilities
+- Privilege escalation
+- Horizontal privilege escalation
+- Vertical privilege escalation
+
+NEVER trust user IDs, roles, permissions, or ownership information coming from the client.
+
+Every sensitive operation must validate authorization on the server.
+
+### API Security
+Audit every endpoint for:
+- Authentication requirements
+- Authorization
+- Input validation
+- Output validation
+- Rate limiting
+- Request size limits
+- Error handling
+- Sensitive data leakage
+- Mass assignment
+- Parameter tampering
+- IDOR
+- Injection vulnerabilities
+- Abuse scenarios
+
+### Injection & Web Security
+Check protection against:
+- SQL Injection
+- NoSQL Injection
+- XSS
+- CSRF
+- Command Injection
+- Path Traversal
+- SSRF
+- Open Redirects
+- Prototype Pollution
+- Unsafe deserialization
+- File upload vulnerabilities
+
+### Input Handling
+Check every form and API input.
+
+Implement/verify:
+- Strict validation
+- Sanitization where appropriate
+- Schema validation
+- Type validation
+- Length limits
+- File type/size restrictions
+- Safe error messages
+
+Do not rely exclusively on frontend validation.
+
+### Password Security
+Verify:
+- Passwords are never stored in plaintext
+- Strong password hashing is used
+- Appropriate hashing configuration
+- Secure password reset flow
+- No passwords appear in logs
+- No passwords appear in API responses
+
+### CORS
+Review CORS configuration.
+
+Reject overly permissive configurations such as:
+- Allowing arbitrary origins
+- Using "*" unnecessarily
+- Allowing credentials with unsafe origins
+
+Only allow trusted origins where appropriate.
+
+### Security Headers
+Verify appropriate security headers, including where applicable:
+- Content-Security-Policy
+- Strict-Transport-Security
+- X-Content-Type-Options
+- Referrer-Policy
+- Permissions-Policy
+- Frame protection / clickjacking protection
+
+Do not blindly add headers that break the application. Test compatibility.
+
+### Debug & Production Configuration
+Check for:
+- Debug mode
+- Verbose stack traces
+- Development-only endpoints
+- Swagger/API docs exposure if inappropriate
+- Test routes
+- Console logging of sensitive data
+- Development credentials
+- Unsafe production defaults
+
+Production must not run in debug mode.
+
+### Dependencies
+Check:
+- Unused packages
+- Outdated packages
+- Known vulnerable dependencies
+- Duplicate dependencies
+- Unnecessary dependencies
+
+Do not remove a package simply because it appears unused without verifying whether it is actually required.
+
+==================================================
+PHASE 3 — DATABASE SECURITY
+==================================================
+
+Audit database access.
+
+Check:
+- Database credentials
+- Connection security
+- ORM configuration
+- Query safety
+- SQL injection risks
+- Authorization at the data-access layer
+- Sensitive fields
+- Password storage
+- Excessive data exposure
+- Database connection limits
+- Migration safety
+- Production migration strategy
+- Backup considerations
+
+Ensure users cannot access another user's private data by manipulating IDs or API requests.
+
+==================================================
+PHASE 4 — FRONTEND SECURITY
+==================================================
+
+Audit the frontend for:
+
+- Exposed secrets
+- Unsafe localStorage usage
+- Sensitive data stored client-side
+- XSS
+- Unsafe HTML rendering
+- Dangerous URL handling
+- Insecure redirects
+- Authentication state handling
+- Token exposure
+- Form validation
+- Error leakage
+- Dependency vulnerabilities
+
+Do not assume frontend code is trusted.
+
+==================================================
+PHASE 5 — PERFORMANCE AUDIT
+==================================================
+
+Audit production performance.
+
+Check:
+
+### Frontend
+- Bundle size
+- Code splitting
+- Lazy loading
+- Image optimization
+- Image compression
+- WebP/AVIF where appropriate
+- Responsive images
+- Lazy loading images
+- Font loading
+- Unnecessary JavaScript
+- Unused CSS
+- Rendering performance
+
+### Backend
+- Slow API endpoints
+- N+1 queries
+- Inefficient database queries
+- Missing indexes
+- Excessive API calls
+- Large payloads
+- Pagination
+- Caching opportunities
+
+### Website
+Check Core Web Vitals where applicable:
+- LCP
+- INP
+- CLS
+
+Identify the biggest performance bottlenecks and fix them where safe.
+
+==================================================
+PHASE 6 — SEO AUDIT
+==================================================
+
+Audit the website's technical SEO.
+
+Check:
+
+- Page titles
+- Meta descriptions
+- Canonical URLs
+- robots.txt
+- sitemap.xml
+- Open Graph metadata
+- Twitter/X metadata
+- Social preview image
+- Heading hierarchy
+- Semantic HTML
+- Image alt text
+- Internal links
+- Broken links
+- URL structure
+- 404 page
+- Redirect handling
+- Indexability
+- Duplicate content
+- Structured data/schema where appropriate
+
+Make sure important pages can actually be discovered and indexed.
+
+==================================================
+PHASE 7 — ACCESSIBILITY
+==================================================
+
+Audit accessibility.
+
+Check:
+- Color contrast
+- Keyboard navigation
+- Focus states
+- Form labels
+- Accessible buttons
+- ARIA usage
+- Semantic HTML
+- Screen-reader compatibility
+- Image alt text
+- Error messages
+- Modal accessibility
+- Mobile usability
+
+Follow WCAG principles where practical.
+
+==================================================
+PHASE 8 — MOBILE & RESPONSIVE UX
+==================================================
+
+Test the UI conceptually and through the code for:
+
+- Mobile responsiveness
+- Tablet layouts
+- Desktop layouts
+- Overflow issues
+- Touch targets
+- Navigation
+- Forms
+- Modals
+- Tables
+- Images
+- Typography
+- Loading states
+- Empty states
+- Error states
+
+The application should feel polished, not merely technically responsive.
+
+==================================================
+PHASE 9 — FORMS & USER INPUT
+==================================================
+
+Audit every important form.
+
+Check:
+- Required fields
+- Validation
+- Server-side validation
+- Error messages
+- Loading states
+- Duplicate submissions
+- Spam protection
+- Rate limiting
+- CSRF where applicable
+- Input sanitization
+- File uploads
+- Success states
+
+==================================================
+PHASE 10 — RELIABILITY & ERROR HANDLING
+==================================================
+
+Check:
+
+- Global error handling
+- API error handling
+- Frontend error boundaries
+- Loading states
+- Empty states
+- 404 handling
+- 500 handling
+- Network failure handling
+- Database failure handling
+- Third-party service failure handling
+- Retry behavior
+- Timeout handling
+
+Never expose internal stack traces or sensitive implementation details to users.
+
+==================================================
+PHASE 11 — PRODUCTION CONFIGURATION
+==================================================
+
+Audit:
+
+- Environment variables
+- Production build
+- Development vs production configuration
+- HTTPS
+- Domain configuration
+- CORS
+- Cookies
+- Logging
+- Monitoring
+- Health checks
+- Database migrations
+- Deployment configuration
+- Cache configuration
+- CDN configuration where applicable
+
+Verify that the production environment does not accidentally use development settings.
+
+==================================================
+PHASE 12 — ANALYTICS & BUSINESS READINESS
+==================================================
+
+Check whether the website has:
+
+- Analytics
+- Error tracking
+- Important conversion events
+- Contact/form tracking where appropriate
+- Clear primary CTA
+- Clear navigation
+- Conversion-friendly user flow
+
+Do not add invasive tracking unnecessarily.
+
+==================================================
+PHASE 13 — CODE QUALITY
+==================================================
+
+Review:
+
+- Dead code
+- Unused imports
+- Unused packages
+- Duplicate logic
+- Poor abstractions
+- Dangerous shortcuts
+- TODO/FIXME items
+- Inconsistent error handling
+- Type safety
+- Poor naming
+- Maintainability
+- Architecture problems
+
+Do not refactor code merely for aesthetics.
+
+Prioritize changes that improve:
+1. Security
+2. Reliability
+3. Performance
+4. Maintainability
+
+==================================================
+PHASE 14 — AUTOMATED VERIFICATION
+==================================================
+
+After making safe fixes, run all available:
+
+- Typecheck
+- Lint
+- Unit tests
+- Integration tests
+- E2E tests
+- Build
+- Security/dependency audits
+
+If a command is unavailable, explain why.
+
+DO NOT claim something is fixed unless you actually verified it.
+
+==================================================
+IMPORTANT RULES
+==================================================
+
+1. DO NOT blindly rewrite the application.
+2. DO NOT change business logic unless required for security/reliability.
+3. DO NOT remove dependencies without verifying they are unused.
+4. DO NOT expose secrets in your response.
+5. DO NOT weaken existing security controls.
+6. DO NOT introduce breaking changes without clearly explaining them.
+7. Preserve the current design and functionality unless a change is necessary.
+8. Prefer minimal, production-safe changes.
+9. Follow the existing project's coding conventions.
+10. Reuse existing utilities/components instead of creating duplicates.
+11. Do not replace working architecture just because you prefer another stack.
+12. If you are uncertain, inspect more code before making a decision.
+
+==================================================
+FINAL REPORT
+==================================================
+
+At the end, produce a professional Production Readiness Report with:
+
+### 1. Executive Summary
+Give the overall status:
+- READY
+- READY WITH WARNINGS
+- NOT READY
+
+### 2. Security Score
+Score from 0–100.
+
+### 3. Production Readiness Score
+Score from 0–100.
+
+### 4. Critical Findings
+List vulnerabilities that MUST be fixed before deployment.
+
+For each finding:
+- Severity: CRITICAL / HIGH / MEDIUM / LOW
+- Location/file
+- Problem
+- Why it matters
+- Recommended fix
+- Whether you fixed it
+- Verification status
+
+### 5. Security Checklist
+Mark each item:
+- PASS
+- FAIL
+- WARNING
+- NOT APPLICABLE
+
+### 6. SEO Checklist
+Mark each item:
+- PASS
+- FAIL
+- WARNING
+- NOT APPLICABLE
+
+### 7. Performance Checklist
+Mark each item:
+- PASS
+- FAIL
+- WARNING
+- NOT APPLICABLE
+
+### 8. Accessibility Checklist
+Mark each item:
+- PASS
+- FAIL
+- WARNING
+- NOT APPLICABLE
+
+### 9. UX & Mobile Checklist
+Mark each item:
+- PASS
+- FAIL
+- WARNING
+- NOT APPLICABLE
+
+### 10. Files Changed
+List every file you modified and briefly explain why.
+
+### 11. Verification
+Report the exact checks you successfully ran:
+- Typecheck
+- Lint
+- Tests
+- Build
+- Dependency audit
+- Other relevant checks
+
+### 12. Remaining Risks
+Clearly state anything that still needs attention.
+
+### 13. Final Deployment Decision
+Answer:
+
+"Would you deploy this application to production right now?"
+
+Answer YES or NO.
+
+If NO, give the exact blockers.
+
+If YES, list the final recommended pre-deployment checks.
+
+IMPORTANT:
+Do not stop after finding the first issue.
+
+Perform a systematic audit of the entire codebase and fix safe issues you can verify.
+
+Think like this application is about to receive real users, real traffic, real payments/data, and potentially malicious requests.
+
+The goal is not to make the code look clean.
+
+The goal is to make the application genuinely production-ready, secure, fast, accessible, SEO-friendly, reliable, and maintainable.

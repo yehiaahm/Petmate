@@ -1,0 +1,152 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A new push supersedes the run in flight: there is no value in finishing a
+# build for a commit nobody will deploy.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NEXT_TELEMETRY_DISABLED: "1"
+
+jobs:
+  verify:
+    name: Typecheck, test and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    env:
+      # SQLite in CI so the suite runs with no service container. The schema is
+      # the portable subset, so anything that passes here also runs on
+      # PostgreSQL — which the `postgres-schema` job below proves separately.
+      PETMATE_DATABASE_URL: "file:./ci.db"
+      NEXT_PUBLIC_APP_URL: "http://localhost:3000"
+      APP_URL: "http://localhost:3000"
+      AUTH_SECRET: "ci-only-secret-not-used-anywhere-0123456789abcdef"
+      EMAIL_PROVIDER: "outbox"
+      PAYMENT_PROVIDER: "ledger"
+      SEED_DEMO_DATA: "false"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Create the test database
+        run: npx prisma db push --skip-generate
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+  postgres-schema:
+    name: PostgreSQL schema applies cleanly
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    # The point of this job: the portable schema is only portable if somebody
+    # checks. Generating it and applying it to a real PostgreSQL catches a
+    # SQLite-only construct before it reaches production rather than after.
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: petmate
+          POSTGRES_PASSWORD: petmate
+          POSTGRES_DB: petmate_ci
+        options: >-
+          --health-cmd "pg_isready -U petmate"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    env:
+      PETMATE_DATABASE_URL: "postgresql://petmate:petmate@localhost:5432/petmate_ci?schema=public"
+      PETMATE_DIRECT_URL: "postgresql://petmate:petmate@localhost:5432/petmate_ci?schema=public"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Generate the PostgreSQL schema
+        run: npm run pg:schema
+
+      - name: Fail if the generated schema is not committed
+        run: |
+          if ! git diff --quiet -- prisma/schema.postgres.prisma; then
+            echo "prisma/schema.postgres.prisma is out of date."
+            echo "Run 'npm run pg:schema' and commit the result."
+            git --no-pager diff -- prisma/schema.postgres.prisma
+            exit 1
+          fi
+
+      - name: Apply it to PostgreSQL
+        run: npx prisma db push --schema prisma/schema.postgres.prisma --skip-generate
+
+      - name: Seed reference data
+        run: npx prisma generate --schema prisma/schema.postgres.prisma && npm run db:seed
+        env:
+          SEED_DEMO_DATA: "false"
+          AUTH_SECRET: "ci-only-secret-not-used-anywhere-0123456789abcdef"
+          NEXT_PUBLIC_APP_URL: "http://localhost:3000"
+
+  docker:
+    name: Docker image builds
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # Only on main: the image build is slow and the verify job already covers
+    # whether the code is correct.
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          target: runner
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build the worker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          target: worker
+          cache-from: type=gha

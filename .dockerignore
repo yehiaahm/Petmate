@@ -1,0 +1,16 @@
+node_modules
+.next
+.git
+.github
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+prisma/dev.db*
+public/uploads
+.env
+.env.local
+coverage
+tests
+*.log
+.DS_Store
