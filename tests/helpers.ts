@@ -306,7 +306,7 @@ export async function resetDatabase() {
     "Review", "Reaction", "Comment", "Post", "GroupMember", "Group",
     "Subscription", "PaymentIntent", "Payout", "FeaturedPlacement", "AdCampaign",
     "FileObject", "Job", "AnalyticsEvent", "SearchQueryLog", "RateLimitCounter",
-    "IdempotencyKey", "AuditLog", "LoginAttempt", "VerificationToken", "Session", "UserRole",
+    "IdempotencyKey", "AuditLog", "LoginAttempt", "VerificationToken", "TwoFactorBackupCode", "Session", "UserRole",
     "RecentlyViewed", "User",
   ];
 

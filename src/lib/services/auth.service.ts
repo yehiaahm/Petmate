@@ -276,7 +276,11 @@ export interface LoginInput {
   userAgent?: string | null;
 }
 
-export async function login(input: LoginInput): Promise<SessionUser> {
+export type LoginResult =
+  | { kind: "SIGNED_IN"; user: SessionUser }
+  | { kind: "TWO_FACTOR"; challenge: string };
+
+export async function login(input: LoginInput): Promise<LoginResult> {
   const email = normalizeEmail(input.email);
 
   await enforceRateLimit("login", email);
@@ -309,6 +313,7 @@ export async function login(input: LoginInput): Promise<SessionUser> {
       lat: true,
       lng: true,
       deletedAt: true,
+      twoFactorEnabledAt: true,
       roles: { select: { role: true } },
     },
   });
@@ -347,22 +352,55 @@ export async function login(input: LoginInput): Promise<SessionUser> {
       .catch((e) => logger.exception("password rehash failed", e, { userId: user.id }));
   }
 
+  // The password was right, but it is only the first factor. No session
+  // exists until the second one is checked.
+  if (user.twoFactorEnabledAt) {
+    const { issueTwoFactorChallenge } = await import("./two-factor.service");
+    return { kind: "TWO_FACTOR", challenge: await issueTwoFactorChallenge(user.id, email) };
+  }
+
+  return { kind: "SIGNED_IN", user: await finishLogin(user, { email, ip: input.ip, userAgent: input.userAgent }) };
+}
+
+type LoginUser = {
+  id: string;
+  email: string;
+  name: string;
+  handle: string;
+  avatarUrl: string | null;
+  status: string;
+  emailVerifiedAt: Date | null;
+  trustScore: number;
+  currency: string;
+  city: string | null;
+  country: string | null;
+  lat: number | null;
+  lng: number | null;
+  roles: { role: string }[];
+};
+
+/** Opens the session once every factor has been checked. */
+export async function finishLogin(
+  user: LoginUser,
+  context: { email: string; ip?: string | null; userAgent?: string | null; method?: string },
+): Promise<SessionUser> {
   const { token, expiresAt } = await createSession(user.id, {
-    ip: input.ip,
-    userAgent: input.userAgent,
+    ip: context.ip,
+    userAgent: context.userAgent,
   });
   await setSessionCookie(token, expiresAt);
 
   await Promise.all([
-    recordLoginAttempt(email, true, { ip: input.ip }),
+    recordLoginAttempt(context.email, true, { ip: context.ip }),
     db.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } }),
     audit({
       action: "auth.login",
       actorId: user.id,
       entityType: "USER",
       entityId: user.id,
-      ip: input.ip,
-      userAgent: input.userAgent,
+      summary: context.method,
+      ip: context.ip,
+      userAgent: context.userAgent,
     }),
   ]);
 

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { useAppPathname } from "@/components/i18n/use-app-pathname";
 import { Home, Search, MessageSquare, PawPrint, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -21,7 +21,7 @@ const ITEMS = [
 ];
 
 export function BottomNav({ signedIn, unread = 0 }: { signedIn: boolean; unread?: number }) {
-  const pathname = usePathname();
+  const pathname = useAppPathname();
 
   const items = signedIn
     ? ITEMS

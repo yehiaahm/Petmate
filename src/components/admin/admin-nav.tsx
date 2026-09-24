@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { useAppPathname } from "@/components/i18n/use-app-pathname";
 import {
   LayoutDashboard,
   ShieldAlert,
@@ -17,7 +17,7 @@ export function AdminNav({
 }: {
   can: { moderation: boolean; users: boolean; finance: boolean; settings: boolean };
 }) {
-  const pathname = usePathname();
+  const pathname = useAppPathname();
 
   const items = [
     { href: "/admin", label: "Overview", icon: LayoutDashboard, exact: true, show: true },

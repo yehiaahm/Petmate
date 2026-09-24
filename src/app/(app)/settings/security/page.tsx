@@ -6,17 +6,30 @@ import { PasswordForm } from "@/components/settings/password-form";
 import { SessionList } from "@/components/settings/session-list";
 import { PageHeader, Card, CardHeader, DataRow, Badge } from "@/components/ui/primitives";
 import { ResendVerification } from "@/components/auth/resend-verification";
-import { formatDate, formatDateTime } from "@/lib/utils";
+import { TwoFactorPanel } from "@/components/settings/two-factor-panel";
+import { getTwoFactorStatus } from "@/lib/services/two-factor.service";
+import { getI18n } from "@/lib/i18n/server";
 
-export const metadata: Metadata = {
-  title: "Security",
-  robots: { index: false, follow: false },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return { title: t("Security"), robots: { index: false, follow: false } };
+}
 
 export default async function SecuritySettingsPage() {
-  const auth = await requireAuth();
+  const [auth, { t, fmt }] = await Promise.all([requireAuth(), getI18n()]);
 
-  const [sessions, user, recentAuthEvents] = await Promise.all([
+  const AUTH_EVENT_LABEL: Record<string, string> = {
+    "auth.login": t("Signed in"),
+    "auth.password_changed": t("Password changed"),
+    "auth.sessions_revoked": t("All other devices signed out"),
+    "auth.password_reset_completed": t("Password reset completed"),
+    "auth.email_verified": t("Email address confirmed"),
+    "auth.two_factor_enabled": t("Two-step sign-in turned on"),
+    "auth.two_factor_disabled": t("Two-step sign-in turned off"),
+    "auth.backup_codes_regenerated": t("New backup codes made"),
+  };
+
+  const [sessions, user, recentAuthEvents, twoFactor] = await Promise.all([
     listSessions(auth.user.id, auth.sessionId),
     db.user.findUniqueOrThrow({
       where: { id: auth.user.id },
@@ -32,6 +45,9 @@ export default async function SecuritySettingsPage() {
             "auth.sessions_revoked",
             "auth.password_reset_completed",
             "auth.email_verified",
+            "auth.two_factor_enabled",
+            "auth.two_factor_disabled",
+            "auth.backup_codes_regenerated",
           ],
         },
       },
@@ -39,31 +55,32 @@ export default async function SecuritySettingsPage() {
       take: 10,
       select: { id: true, action: true, ip: true, createdAt: true, summary: true },
     }),
+    getTwoFactorStatus(auth.user.id),
   ]);
 
   return (
     <>
       <PageHeader
-        title="Security"
-        description="Your password, where you are signed in, and what has happened on this account."
+        title={t("Security")}
+        description={t("Your password, where you are signed in, and what has happened on this account.")}
       />
 
       <div className="mt-6 space-y-5">
         <Card>
-          <CardHeader title="Email address" />
+          <CardHeader title={t("Email address")} />
           <div className="p-5">
             <dl>
-            <DataRow label="Address" value={user.email} />
+            <DataRow label={t("Address")} value={user.email} />
             <DataRow
-              label="Status"
+              label={t("Status")}
               value={
                 user.emailVerifiedAt ? (
                   <Badge tone="success" size="sm">
-                    Confirmed {formatDate(user.emailVerifiedAt)}
+                    {t("Confirmed {date}", { date: fmt.date(user.emailVerifiedAt) })}
                   </Badge>
                 ) : (
                   <Badge tone="warning" size="sm">
-                    Not confirmed
+                    {t("Not confirmed")}
                   </Badge>
                 )
               }
@@ -71,20 +88,19 @@ export default async function SecuritySettingsPage() {
             </dl>
             {!user.emailVerifiedAt && (
               <div className="mt-4 max-w-xs">
-                <ResendVerification variant="outline" label="Send the link again" />
+                <ResendVerification variant="outline" label={t("Send the link again")} />
               </div>
             )}
             <p className="mt-4 text-xs leading-relaxed text-fg-subtle">
-              Changing the address on an account is a common account-takeover step, so it is not
-              self-service. Contact support and we will verify both addresses.
+              {t("Changing the address on an account is a common account-takeover step, so it is not self-service. Contact support and we will verify both addresses.")}
             </p>
           </div>
         </Card>
 
         <Card>
           <CardHeader
-            title="Password"
-            description="Changing it signs out every other device."
+            title={t("Password")}
+            description={t("Changing it signs out every other device.")}
           />
           <div className="p-5">
             <PasswordForm />
@@ -93,8 +109,18 @@ export default async function SecuritySettingsPage() {
 
         <Card>
           <CardHeader
-            title="Signed-in devices"
-            description="If you do not recognise one, revoke it and change your password."
+            title={t("Two-step sign-in")}
+            description={t("After your password, you also enter a code from an app on your phone, so a leaked password alone cannot open your account or your wallet.")}
+          />
+          <div className="p-5">
+            <TwoFactorPanel enabled={twoFactor.enabled} backupCodesLeft={twoFactor.backupCodesLeft} />
+          </div>
+        </Card>
+
+        <Card>
+          <CardHeader
+            title={t("Signed-in devices")}
+            description={t("If you do not recognise one, revoke it and change your password.")}
           />
           <div className="p-5">
             <SessionList
@@ -112,12 +138,12 @@ export default async function SecuritySettingsPage() {
 
         <Card>
           <CardHeader
-            title="Recent account activity"
-            description="Security events we recorded. This log is append-only."
+            title={t("Recent account activity")}
+            description={t("Security events we recorded. This log is append-only.")}
           />
           <div className="p-5">
             {recentAuthEvents.length === 0 ? (
-              <p className="text-sm text-fg-muted">Nothing recorded yet.</p>
+              <p className="text-sm text-fg-muted">{t("Nothing recorded yet.")}</p>
             ) : (
               <ul className="divide-y divide-[var(--border)]">
                 {recentAuthEvents.map((event) => (
@@ -130,7 +156,7 @@ export default async function SecuritySettingsPage() {
                       dateTime={event.createdAt.toISOString()}
                       className="shrink-0 text-xs text-fg-subtle tabular"
                     >
-                      {formatDateTime(event.createdAt)}
+                      {fmt.dateTime(event.createdAt)}
                     </time>
                   </li>
                 ))}
@@ -142,11 +168,3 @@ export default async function SecuritySettingsPage() {
     </>
   );
 }
-
-const AUTH_EVENT_LABEL: Record<string, string> = {
-  "auth.login": "Signed in",
-  "auth.password_changed": "Password changed",
-  "auth.sessions_revoked": "All other devices signed out",
-  "auth.password_reset_completed": "Password reset completed",
-  "auth.email_verified": "Email address confirmed",
-};

@@ -10,6 +10,12 @@ import {
   revokeSession,
 } from "@/lib/services/auth.service";
 import { revokeAllSessions, destroySession } from "@/lib/auth/session";
+import {
+  beginTwoFactorSetup,
+  confirmTwoFactorSetup,
+  disableTwoFactor,
+  regenerateBackupCodes,
+} from "@/lib/services/two-factor.service";
 import { awardTrustSignal, getTrustBreakdown } from "@/lib/services/trust.service";
 import { assertOwnsFile } from "@/lib/services/upload.service";
 import { getUsage } from "@/lib/billing/entitlements";
@@ -126,6 +132,14 @@ export const POST = route({
     z.object({ action: z.literal("cancel-subscription"), immediate: z.boolean().default(false) }),
     z.object({ action: z.literal("resume-subscription") }),
     z.object({ action: z.literal("delete-account"), confirm: z.literal("DELETE") }),
+    z.object({ action: z.literal("2fa-begin") }),
+    z.object({ action: z.literal("2fa-confirm"), code: z.string().trim().min(6).max(8) }),
+    z.object({
+      action: z.literal("2fa-disable"),
+      password: z.string().min(1).max(200),
+      code: z.string().trim().min(6).max(20),
+    }),
+    z.object({ action: z.literal("2fa-backup-codes"), code: z.string().trim().min(6).max(20) }),
   ]),
   async handler({ body, ip }) {
     const auth = await requireActive();
@@ -206,6 +220,18 @@ export const POST = route({
       case "revoke-session":
         await revokeSession(auth.user.id, body.sessionId);
         return { ok: true };
+
+      case "2fa-begin":
+        return beginTwoFactorSetup(auth);
+
+      case "2fa-confirm":
+        return confirmTwoFactorSetup(auth, body.code);
+
+      case "2fa-disable":
+        return disableTwoFactor(auth, body.password, body.code);
+
+      case "2fa-backup-codes":
+        return regenerateBackupCodes(auth, body.code);
 
       case "revoke-all-sessions":
         await revokeAllSessions(auth.user.id, auth.sessionId);

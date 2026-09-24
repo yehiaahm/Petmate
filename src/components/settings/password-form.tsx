@@ -7,9 +7,11 @@ import { Field, Input } from "@/components/ui/field";
 import { Alert } from "@/components/ui/primitives";
 import { useToast } from "@/components/ui/toast";
 import { api, ApiError } from "@/lib/api-client";
+import { useI18n } from "@/components/i18n/i18n-provider";
 import { PasswordStrength } from "@/components/auth/password-strength";
 
 export function PasswordForm() {
+  const { t } = useI18n();
   const router = useRouter();
   const toast = useToast();
 
@@ -32,14 +34,14 @@ export function PasswordForm() {
         currentPassword,
         newPassword,
       });
-      toast.success("Password changed", "Other devices have been signed out.");
+      toast.success(t("Password changed"), t("Other devices have been signed out."));
       setCurrentPassword("");
       setNewPassword("");
       setConfirm("");
       router.refresh();
     } catch (err) {
       if (err instanceof ApiError) setError(err);
-      else toast.error("Could not change password", "Please try again.");
+      else toast.error(t("Could not change password"), t("Please try again."));
     } finally {
       setSaving(false);
     }
@@ -49,7 +51,7 @@ export function PasswordForm() {
     <form onSubmit={submit} className="max-w-md space-y-5" noValidate>
       {error && !error.isValidation && <Alert tone="danger">{error.message}</Alert>}
 
-      <Field label="Current password" required error={error?.fieldError("currentPassword")}>
+      <Field label={t("Current password")} required error={error?.fieldError("currentPassword")}>
         {({ id, invalid }) => (
           <Input
             id={id}
@@ -63,7 +65,7 @@ export function PasswordForm() {
         )}
       </Field>
 
-      <Field label="New password" required error={error?.fieldError("newPassword")}>
+      <Field label={t("New password")} required error={error?.fieldError("newPassword")}>
         {({ id, invalid }) => (
           <>
             <Input
@@ -81,9 +83,9 @@ export function PasswordForm() {
       </Field>
 
       <Field
-        label="Confirm new password"
+        label={t("Confirm new password")}
         required
-        error={mismatch ? "The two passwords do not match." : undefined}
+        error={mismatch ? t("The two passwords do not match.") : undefined}
       >
         {({ id, invalid }) => (
           <Input
@@ -101,10 +103,10 @@ export function PasswordForm() {
       <Button
         type="submit"
         loading={saving}
-        loadingText="Changing…"
+        loadingText={t("Changing…")}
         disabled={!currentPassword || !newPassword || mismatch}
       >
-        Change password
+        {t("Change password")}
       </Button>
     </form>
   );

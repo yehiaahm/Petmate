@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/components/i18n/i18n-provider";
 
 /**
  * Mirrors `assessPassword` in lib/auth/password.ts.
@@ -77,13 +78,14 @@ export function PasswordStrength({
   context?: string[];
   className?: string;
 }) {
+  const { t } = useI18n();
   const strength = useMemo(() => assessPasswordClient(password, context), [password, context]);
 
   if (!password) return null;
 
   return (
     <div className={className}>
-      <div className="flex gap-1" role="img" aria-label={`Password strength: ${strength.label}`}>
+      <div className="flex gap-1" role="img" aria-label={t("Password strength: {label}", { label: t(strength.label) })}>
         {[0, 1, 2, 3].map((i) => (
           <span
             key={i}
@@ -106,7 +108,7 @@ export function PasswordStrength({
           strength.problems.length ? "text-[var(--warning)]" : "text-fg-muted",
         )}
       >
-        {strength.problems[0] ?? strength.label}
+        {t(strength.problems[0] ?? strength.label)}
       </p>
     </div>
   );

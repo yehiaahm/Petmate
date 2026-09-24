@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
+import { useAppPathname } from "@/components/i18n/use-app-pathname";
 import { Menu, X, LogOut, Shield, Stethoscope, Store } from "lucide-react";
 import { Avatar, Badge } from "@/components/ui/primitives";
 import { Button, ButtonLink } from "@/components/ui/button";
@@ -28,7 +29,7 @@ export function MobileNav({
 }) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
-  const pathname = usePathname();
+  const pathname = useAppPathname();
   const router = useRouter();
 
   // The drawer closes when the route changes. Storing the route it was opened
