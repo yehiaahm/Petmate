@@ -308,7 +308,7 @@ function Ecosystem() {
             <p className="mt-2 flex-1 text-sm leading-relaxed text-fg-muted">{pillar.body}</p>
             <span className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-brand">
               {pillar.cta}
-              <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" aria-hidden />
+              <ArrowRight className="rtl:-scale-x-100 size-4 transition-transform group-hover:translate-x-0.5 rtl:group-hover:-translate-x-0.5" aria-hidden />
             </span>
           </Link>
         ))}
@@ -344,7 +344,7 @@ function Section({
         </div>
         <ButtonLink href={href} variant="outline" size="sm" className="shrink-0">
           {linkLabel}
-          <ArrowRight className="size-4" aria-hidden />
+          <ArrowRight className="rtl:-scale-x-100 size-4" aria-hidden />
         </ButtonLink>
       </div>
       {children}

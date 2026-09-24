@@ -163,7 +163,7 @@ export function ClinicSetup({
                     <span className="block text-sm font-medium text-fg">
                       {s.name}
                       {!s.isActive && (
-                        <Badge tone="neutral" size="sm" className="ml-2">
+                        <Badge tone="neutral" size="sm" className="ms-2">
                           inactive
                         </Badge>
                       )}

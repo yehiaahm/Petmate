@@ -32,6 +32,7 @@ import {
   currencySchema,
 } from "@/lib/validation/common";
 import { LIMITS } from "@/lib/constants";
+import { LOCALES } from "@/lib/i18n/config";
 
 export const GET = route({
   auth: true,
@@ -115,6 +116,7 @@ export const POST = route({
       currentPassword: z.string().min(1).max(200),
       newPassword: passwordSchema,
     }),
+    z.object({ action: z.literal("set-locale"), locale: z.enum(LOCALES) }),
     z.object({ action: z.literal("revoke-session"), sessionId: cuidSchema }),
     z.object({ action: z.literal("revoke-all-sessions") }),
     z.object({
@@ -131,6 +133,12 @@ export const POST = route({
     const auth = await requireActive();
 
     switch (body.action) {
+      case "set-locale": {
+        // Stored so email, SMS and notifications written without a request
+        // (by the worker) arrive in the language the person chose.
+        await db.user.update({ where: { id: auth.user.id }, data: { locale: body.locale } });
+        return { ok: true };
+      }
       case "update-profile": {
         if (body.handle && body.handle !== auth.user.handle) {
           const taken = await db.user.findUnique({

@@ -81,7 +81,7 @@ export default async function AccountSettingsPage() {
           <div className="space-y-4 p-5">
             <div className="text-sm leading-relaxed text-fg-muted">
               <p className="font-medium text-fg">What happens</p>
-              <ul className="mt-2 list-disc space-y-1 pl-5">
+              <ul className="mt-2 list-disc space-y-1 ps-5">
                 <li>Your name, photo, bio, phone number and location are removed.</li>
                 <li>Your email address is replaced with a non-routable placeholder.</li>
                 <li>Active listings are withdrawn.</li>
@@ -89,7 +89,7 @@ export default async function AccountSettingsPage() {
               </ul>
 
               <p className="mt-4 font-medium text-fg">What survives, and why</p>
-              <ul className="mt-2 list-disc space-y-1 pl-5">
+              <ul className="mt-2 list-disc space-y-1 ps-5">
                 <li>Invoices and completed transactions — tax and accounting law requires it.</li>
                 <li>
                   Reviews you wrote, attributed to a deleted member — removing them would distort

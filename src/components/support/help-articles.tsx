@@ -43,7 +43,7 @@ export function HelpArticles({ articles }: { articles: HelpArticle[] }) {
     <div>
       <div className="relative">
         <Search
-          className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-fg-subtle"
+          className="pointer-events-none absolute start-3.5 top-1/2 size-4 -translate-y-1/2 text-fg-subtle"
           aria-hidden
         />
         <Input
@@ -52,7 +52,7 @@ export function HelpArticles({ articles }: { articles: HelpArticle[] }) {
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search help — escrow, refund, verification…"
           aria-label="Search help articles"
-          className="pl-10"
+          className="ps-10"
         />
       </div>
 
@@ -109,7 +109,7 @@ export function HelpArticles({ articles }: { articles: HelpArticle[] }) {
                     onClick={() => setOpen(expanded ? null : article.id)}
                     aria-expanded={expanded}
                     aria-controls={`answer-${article.id}`}
-                    className="flex w-full items-start justify-between gap-4 px-5 py-4 text-left hover:bg-bg-sunken"
+                    className="flex w-full items-start justify-between gap-4 px-5 py-4 text-start hover:bg-bg-sunken"
                   >
                     <span className="min-w-0">
                       <span className="block text-[15px] font-medium text-fg">

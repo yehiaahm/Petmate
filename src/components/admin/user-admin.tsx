@@ -93,7 +93,7 @@ export function UserAdmin({
             {({ id, invalid }) => (
               <div className="relative">
                 <Search
-                  className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-fg-subtle"
+                  className="pointer-events-none absolute start-3.5 top-1/2 size-4 -translate-y-1/2 text-fg-subtle"
                   aria-hidden
                 />
                 <Input
@@ -102,7 +102,7 @@ export function UserAdmin({
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="Name, handle or email"
-                  className="pl-10"
+                  className="ps-10"
                 />
               </div>
             )}
@@ -143,7 +143,7 @@ export function UserAdmin({
                           className="text-xs text-fg-subtle hover:underline"
                         >
                           @{user.handle}
-                          <ExternalLink className="ml-0.5 inline size-3" aria-hidden />
+                          <ExternalLink className="ms-0.5 inline size-3" aria-hidden />
                         </Link>
                         <Badge tone={STATUS_TONE[user.status] ?? "neutral"} size="sm">
                           {user.status.toLowerCase()}

@@ -358,14 +358,14 @@ export function PetForm({
             >
               <Image src={photo.url} alt="" fill sizes="96px" className="object-cover" />
               {index === 0 && (
-                <span className="absolute left-1 top-1 rounded-full bg-brand px-1.5 py-0.5 text-[9px] font-bold text-brand-fg">
+                <span className="absolute start-1 top-1 rounded-full bg-brand px-1.5 py-0.5 text-[9px] font-bold text-brand-fg">
                   MAIN
                 </span>
               )}
               <button
                 type="button"
                 onClick={() => setPhotos((p) => p.filter((x) => x.id !== photo.id))}
-                className="absolute right-1 top-1 rounded-full bg-[var(--overlay)] p-1 text-white opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+                className="absolute end-1 top-1 rounded-full bg-[var(--overlay)] p-1 text-white opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
                 aria-label="Remove photo"
               >
                 <X className="size-3" aria-hidden />

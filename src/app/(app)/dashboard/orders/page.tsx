@@ -121,7 +121,7 @@ export default async function OrdersPage() {
                             : ""}
                         </p>
                       </div>
-                      <div className="shrink-0 text-right">
+                      <div className="shrink-0 text-end">
                         <p className="text-sm font-semibold tabular text-fg">
                           {formatMoney(order.amountCents, order.currency)}
                         </p>
@@ -161,7 +161,7 @@ export default async function OrdersPage() {
                           {formatDate(order.createdAt)}
                         </p>
                       </div>
-                      <div className="shrink-0 text-right">
+                      <div className="shrink-0 text-end">
                         <p className="text-sm font-semibold tabular text-fg">
                           {formatMoney(order.sellerPayoutCents, order.currency)}
                         </p>
@@ -200,7 +200,7 @@ export default async function OrdersPage() {
                         {formatDate(order.createdAt)}
                       </p>
                     </div>
-                    <div className="shrink-0 text-right">
+                    <div className="shrink-0 text-end">
                       <p className="text-sm font-semibold tabular text-fg">
                         {formatMoney(order.totalCents, order.currency)}
                       </p>

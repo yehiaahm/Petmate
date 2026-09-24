@@ -146,7 +146,7 @@ export function SearchBar({
     <div ref={containerRef} className={cn("relative", className)}>
       <div className="relative">
         <Search
-          className="pointer-events-none absolute left-3.5 top-1/2 size-[18px] -translate-y-1/2 text-fg-subtle"
+          className="pointer-events-none absolute start-3.5 top-1/2 size-[18px] -translate-y-1/2 text-fg-subtle"
           aria-hidden
         />
         <input
@@ -167,19 +167,19 @@ export function SearchBar({
           aria-autocomplete="list"
           role="combobox"
           aria-controls="search-suggestions"
-          className="h-11 w-full rounded-full border border-[var(--border-strong)] bg-bg-elevated pl-11 pr-11 text-[15px] text-fg placeholder:text-fg-subtle focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+          className="h-11 w-full rounded-full border border-[var(--border-strong)] bg-bg-elevated ps-11 pe-11 text-[15px] text-fg placeholder:text-fg-subtle focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
         />
         <button
           type="button"
           onClick={() => void runSearch()}
           disabled={!value.trim() || interpreting}
           aria-label="Search"
-          className="absolute right-1.5 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-full bg-brand text-brand-fg transition-colors hover:bg-brand-hover disabled:opacity-40"
+          className="absolute end-1.5 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-full bg-brand text-brand-fg transition-colors hover:bg-brand-hover disabled:opacity-40"
         >
           {interpreting ? (
             <Loader2 className="size-4 animate-spin" aria-hidden />
           ) : (
-            <ArrowRight className="size-4" aria-hidden />
+            <ArrowRight className="rtl:-scale-x-100 size-4" aria-hidden />
           )}
         </button>
       </div>
@@ -188,7 +188,7 @@ export function SearchBar({
         <div
           id="search-suggestions"
           role="listbox"
-          className="absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-[var(--radius-card)] border border-[var(--border)] bg-bg-elevated shadow-[var(--shadow-pop)]"
+          className="absolute start-0 end-0 top-full z-50 mt-2 overflow-hidden rounded-[var(--radius-card)] border border-[var(--border)] bg-bg-elevated shadow-[var(--shadow-pop)]"
         >
           {visibleSuggestions.map((suggestion, index) => (
             <button
@@ -203,7 +203,7 @@ export function SearchBar({
                 onNavigate?.();
               }}
               className={cn(
-                "flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors",
+                "flex w-full items-center gap-3 px-4 py-2.5 text-start transition-colors",
                 index === highlighted ? "bg-bg-sunken" : "hover:bg-bg-sunken",
               )}
             >
@@ -221,7 +221,7 @@ export function SearchBar({
             <button
               type="button"
               onClick={() => void runSearch()}
-              className="flex w-full items-center gap-2.5 border-t border-[var(--border)] px-4 py-3 text-left text-sm text-fg-muted transition-colors hover:bg-bg-sunken"
+              className="flex w-full items-center gap-2.5 border-t border-[var(--border)] px-4 py-3 text-start text-sm text-fg-muted transition-colors hover:bg-bg-sunken"
             >
               <Sparkles className="size-4 shrink-0 text-brand" aria-hidden />
               <span className="min-w-0 flex-1 truncate">

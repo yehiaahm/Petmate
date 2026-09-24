@@ -74,7 +74,7 @@ export default async function MyPetsPage() {
                       )}
 
                       {pet.verificationLevel !== "NONE" && (
-                        <div className="absolute left-3 top-3">
+                        <div className="absolute start-3 top-3">
                           <Badge tone="success" size="sm">
                             {VERIFICATION_LEVEL_LABEL[pet.verificationLevel as VerificationLevel]}
                           </Badge>

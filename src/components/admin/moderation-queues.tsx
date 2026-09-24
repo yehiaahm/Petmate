@@ -439,7 +439,7 @@ function ListingQueue({ rows }: { rows: ListingRow[] }) {
                       className="mt-3"
                       icon={<AlertTriangle className="size-4" aria-hidden />}
                     >
-                      <ul className="mt-0.5 list-disc space-y-0.5 pl-4">
+                      <ul className="mt-0.5 list-disc space-y-0.5 ps-4">
                         {listing.riskFlags.map((flag) => (
                           <li key={flag}>{flag}</li>
                         ))}
@@ -555,7 +555,7 @@ function VerificationQueue({ rows }: { rows: VerificationRow[] }) {
                   className="text-xs text-fg-subtle hover:underline"
                 >
                   @{v.userHandle}
-                  <ExternalLink className="ml-0.5 inline size-3" aria-hidden />
+                  <ExternalLink className="ms-0.5 inline size-3" aria-hidden />
                 </Link>
               )}
               <span className="text-xs text-fg-subtle">

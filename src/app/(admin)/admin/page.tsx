@@ -80,7 +80,7 @@ export default async function AdminOverviewPage() {
           }
           icon={<AlertTriangle className="size-4" aria-hidden />}
         >
-          <ul className="mt-1 list-disc space-y-0.5 pl-5">
+          <ul className="mt-1 list-disc space-y-0.5 ps-5">
             {problems.map((problem) => (
               <li key={problem}>{problem}</li>
             ))}
@@ -245,7 +245,7 @@ export default async function AdminOverviewPage() {
                 </p>
                 <p className="text-xs text-fg-muted">Completed</p>
               </div>
-              <CalendarCheck className="ml-auto size-5 self-center text-fg-subtle" aria-hidden />
+              <CalendarCheck className="ms-auto size-5 self-center text-fg-subtle" aria-hidden />
             </div>
           </Card>
         </div>
@@ -259,12 +259,12 @@ export default async function AdminOverviewPage() {
             action={
               ledger.ok ? (
                 <Badge tone="success">
-                  <CheckCircle2 className="mr-1 size-3.5" aria-hidden />
+                  <CheckCircle2 className="me-1 size-3.5" aria-hidden />
                   Balanced
                 </Badge>
               ) : (
                 <Badge tone="danger">
-                  <AlertTriangle className="mr-1 size-3.5" aria-hidden />
+                  <AlertTriangle className="me-1 size-3.5" aria-hidden />
                   Unbalanced
                 </Badge>
               )

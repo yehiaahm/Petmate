@@ -118,7 +118,7 @@ export default async function BreedsPage({
             <section key={species}>
               <h2 className="font-display text-2xl font-semibold tracking-tight text-fg">
                 {SPECIES_LABEL[species as Species]}
-                <span className="ml-2 text-base font-normal text-fg-subtle tabular">
+                <span className="ms-2 text-base font-normal text-fg-subtle tabular">
                   {list.length}
                 </span>
               </h2>

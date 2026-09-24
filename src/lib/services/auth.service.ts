@@ -21,6 +21,7 @@ import {
 import { awardTrustSignal } from "./trust.service";
 import { seedNotificationPreferences } from "./notification.service";
 import { getSettings } from "@/lib/settings";
+import { getLocale } from "@/lib/i18n/server";
 import { generateToken, slugify, readableCode, addDays } from "@/lib/utils";
 import type { Role } from "@/lib/constants";
 
@@ -116,6 +117,8 @@ export async function register(input: RegisterInput): Promise<{ userId: string }
   const passwordHash = await hashPassword(input.password);
   const handle = await generateUniqueHandle(input.name);
   const role = input.role ?? "USER";
+  // The language they signed up in is the language their email arrives in.
+  const locale = await getLocale();
 
   const user = await db.$transaction(async (tx) => {
     const created = await tx.user.create({
@@ -127,6 +130,7 @@ export async function register(input: RegisterInput): Promise<{ userId: string }
         handle,
         acceptedTermsAt: new Date(),
         currency: settings.defaultCurrency,
+        locale,
         roles: {
           create:
             role === "USER"

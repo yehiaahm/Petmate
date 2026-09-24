@@ -156,13 +156,13 @@ export default async function ProfilePage({
 
           <div className="mt-4 flex flex-wrap gap-2">
             <Badge tone={trust.score >= 60 ? "success" : trust.score >= 30 ? "brand" : "neutral"}>
-              <ShieldCheck className="mr-1 size-3.5" aria-hidden />
+              <ShieldCheck className="me-1 size-3.5" aria-hidden />
               Trust {trust.score} · {TRUST_TIER_LABEL[trust.tier as TrustTier] ?? trust.tier}
             </Badge>
             {user.verifications.map((v) =>
               VERIFICATION_BADGE[v.type] ? (
                 <Badge key={v.type} tone="success">
-                  <BadgeCheck className="mr-1 size-3.5" aria-hidden />
+                  <BadgeCheck className="me-1 size-3.5" aria-hidden />
                   {VERIFICATION_BADGE[v.type]}
                 </Badge>
               ) : null,

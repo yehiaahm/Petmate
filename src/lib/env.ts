@@ -82,6 +82,22 @@ const serverSchema = z.object({
 const clientSchema = z.object({
   NEXT_PUBLIC_APP_URL: z.string().url().default("http://localhost:3000"),
   NEXT_PUBLIC_APP_NAME: z.string().default("PetMate"),
+  /**
+   * The time zone every date and time is shown in. Without one, a server in
+   * UTC renders a 10:00 Cairo appointment as 07:00 and the browser then
+   * renders the same component differently. IANA name.
+   */
+  NEXT_PUBLIC_APP_TIMEZONE: z
+    .string()
+    .refine((tz) => {
+      try {
+        new Intl.DateTimeFormat("en-US", { timeZone: tz });
+        return true;
+      } catch {
+        return false;
+      }
+    }, "NEXT_PUBLIC_APP_TIMEZONE must be an IANA time zone such as Africa/Cairo")
+    .default("Africa/Cairo"),
 });
 
 type ServerEnv = z.infer<typeof serverSchema>;
@@ -101,11 +117,16 @@ function parseServer(): ServerEnv {
 const parsedClient = clientSchema.safeParse({
   NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
   NEXT_PUBLIC_APP_NAME: process.env.NEXT_PUBLIC_APP_NAME,
+  NEXT_PUBLIC_APP_TIMEZONE: process.env.NEXT_PUBLIC_APP_TIMEZONE,
 });
 
 export const clientEnv: ClientEnv = parsedClient.success
   ? parsedClient.data
-  : { NEXT_PUBLIC_APP_URL: "http://localhost:3000", NEXT_PUBLIC_APP_NAME: "PetMate" };
+  : {
+      NEXT_PUBLIC_APP_URL: "http://localhost:3000",
+      NEXT_PUBLIC_APP_NAME: "PetMate",
+      NEXT_PUBLIC_APP_TIMEZONE: "Africa/Cairo",
+    };
 
 let cachedServerEnv: ServerEnv | null = null;
 

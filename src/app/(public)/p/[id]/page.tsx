@@ -133,7 +133,7 @@ export default async function PetPassportPage({ params }: { params: Promise<{ id
               </Badge>
               {health.vaccinated && (
                 <Badge tone={health.vaccinationsCurrent ? "success" : "warning"}>
-                  <Syringe className="mr-1 size-3.5" aria-hidden />
+                  <Syringe className="me-1 size-3.5" aria-hidden />
                   {health.vaccinationsCurrent ? "Vaccinations current" : "Vaccinations overdue"}
                 </Badge>
               )}

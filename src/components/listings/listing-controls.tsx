@@ -226,7 +226,7 @@ export function ListingControls({
               type="button"
               onClick={() => void buyFeatured(option.days)}
               disabled={Boolean(working)}
-              className="flex w-full items-center justify-between gap-4 rounded-[var(--radius-field)] border border-[var(--border-strong)] p-4 text-left transition-colors hover:border-brand hover:bg-brand-soft disabled:opacity-60"
+              className="flex w-full items-center justify-between gap-4 rounded-[var(--radius-field)] border border-[var(--border-strong)] p-4 text-start transition-colors hover:border-brand hover:bg-brand-soft disabled:opacity-60"
             >
               <span>
                 <span className="block font-semibold text-fg">{option.label}</span>

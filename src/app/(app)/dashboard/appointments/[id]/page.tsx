@@ -185,7 +185,7 @@ export default async function AppointmentPage({
                       <span className="text-sm text-fg">
                         {record.title}
                         {record.source === "CLINIC" && (
-                          <Badge tone="success" size="sm" className="ml-2">
+                          <Badge tone="success" size="sm" className="ms-2">
                             Clinic verified
                           </Badge>
                         )}

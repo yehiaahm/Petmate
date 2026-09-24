@@ -127,7 +127,7 @@ export function TrustMeter({ trust }: { trust: TrustBreakdown }) {
             className="mt-2.5 inline-flex items-center gap-1 text-xs font-semibold text-brand hover:underline"
           >
             Get verified
-            <ArrowRight className="size-3" aria-hidden />
+            <ArrowRight className="rtl:-scale-x-100 size-3" aria-hidden />
           </Link>
         </div>
       )}

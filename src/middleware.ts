@@ -1,11 +1,19 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { issueCsrfTokenEdge } from "@/lib/auth/csrf-edge";
+import {
+  DEFAULT_LOCALE,
+  LOCALE_COOKIE,
+  LOCALE_HEADER,
+  isLocale,
+  negotiateLocale,
+  splitLocalePath,
+} from "@/lib/i18n/config";
 
 /**
  * Middleware.
  *
- * Two jobs: mint a CSRF token for every visitor, and set a per-request
- * Content-Security-Policy nonce.
+ * Three jobs: mint a CSRF token for every visitor, set a per-request
+ * Content-Security-Policy nonce, and resolve the visitor's language.
  *
  * The CSRF token matters for visitors who have never signed in. Registration, sign-in and password reset are all mutating
  * requests made by anonymous users, and login CSRF is a real attack — logging
@@ -66,8 +74,42 @@ export async function middleware(request: NextRequest) {
   requestHeaders.set("x-nonce", nonce);
   requestHeaders.set("content-security-policy", contentSecurityPolicy(nonce));
 
-  const response = NextResponse.next({ request: { headers: requestHeaders } });
+  // ---- Language ------------------------------------------------------------
+  // `/ar/...` and `/en/...` are real, indexable URLs (they are what hreflang and
+  // the sitemap point at) served by the same page files as the unprefixed
+  // path. A prefix wins and is remembered; otherwise an earlier choice in the
+  // cookie; otherwise the browser's Accept-Language; otherwise Arabic.
+  const { locale: prefixed, path } = splitLocalePath(request.nextUrl.pathname);
+  const remembered = request.cookies.get(LOCALE_COOKIE)?.value;
+  const locale =
+    prefixed ??
+    (isLocale(remembered) ? remembered : null) ??
+    negotiateLocale(request.headers.get("accept-language")) ??
+    DEFAULT_LOCALE;
+  // Always overwritten, so a client cannot choose it by sending the header.
+  requestHeaders.set(LOCALE_HEADER, locale);
+
+  let response: NextResponse;
+  if (prefixed) {
+    const url = request.nextUrl.clone();
+    url.pathname = path;
+    response = NextResponse.rewrite(url, { request: { headers: requestHeaders } });
+    if (remembered !== prefixed) {
+      response.cookies.set(LOCALE_COOKIE, prefixed, {
+        httpOnly: false,
+        secure: isProduction,
+        sameSite: "lax",
+        path: "/",
+        maxAge: 60 * 60 * 24 * 365,
+      });
+    }
+  } else {
+    response = NextResponse.next({ request: { headers: requestHeaders } });
+  }
   response.headers.set("content-security-policy", contentSecurityPolicy(nonce));
+  // The same URL renders in two languages depending on the cookie, so no
+  // shared cache may serve one visitor's page to another.
+  response.headers.append("vary", "Cookie, Accept-Language");
 
   if (!request.cookies.get(CSRF_COOKIE)) {
     const secret =

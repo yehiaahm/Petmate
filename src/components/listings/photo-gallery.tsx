@@ -71,7 +71,7 @@ export function PhotoGallery({ photos, petName }: { photos: Photo[]; petName: st
           <button
             type="button"
             onClick={() => setLightbox(true)}
-            className="absolute right-3 top-3 inline-flex size-9 items-center justify-center rounded-full bg-[var(--overlay)] text-white opacity-0 backdrop-blur transition-opacity focus-visible:opacity-100 group-hover:opacity-100"
+            className="absolute end-3 top-3 inline-flex size-9 items-center justify-center rounded-full bg-[var(--overlay)] text-white opacity-0 backdrop-blur transition-opacity focus-visible:opacity-100 group-hover:opacity-100"
             aria-label="View full size"
           >
             <Expand className="size-4" aria-hidden />
@@ -87,7 +87,7 @@ export function PhotoGallery({ photos, petName }: { photos: Photo[]; petName: st
                 direction="next"
                 onClick={() => setIndex((i) => (i + 1) % photos.length)}
               />
-              <p className="absolute bottom-3 right-3 rounded-full bg-[var(--overlay)] px-2.5 py-1 text-xs font-medium tabular text-white backdrop-blur">
+              <p className="absolute bottom-3 end-3 rounded-full bg-[var(--overlay)] px-2.5 py-1 text-xs font-medium tabular text-white backdrop-blur">
                 {index + 1} / {photos.length}
               </p>
             </>
@@ -134,7 +134,7 @@ export function PhotoGallery({ photos, petName }: { photos: Photo[]; petName: st
           <button
             type="button"
             onClick={() => setLightbox(false)}
-            className="absolute right-4 top-4 inline-flex size-11 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20"
+            className="absolute end-4 top-4 inline-flex size-11 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20"
             aria-label="Close photo viewer"
             autoFocus
           >
@@ -156,18 +156,18 @@ export function PhotoGallery({ photos, petName }: { photos: Photo[]; petName: st
               <button
                 type="button"
                 onClick={() => setIndex((i) => (i - 1 + photos.length) % photos.length)}
-                className="absolute left-4 inline-flex size-11 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20"
+                className="absolute start-4 inline-flex size-11 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20"
                 aria-label="Previous photo"
               >
-                <ChevronLeft className="size-6" aria-hidden />
+                <ChevronLeft className="rtl:-scale-x-100 size-6" aria-hidden />
               </button>
               <button
                 type="button"
                 onClick={() => setIndex((i) => (i + 1) % photos.length)}
-                className="absolute right-4 top-1/2 inline-flex size-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20"
+                className="absolute end-4 top-1/2 inline-flex size-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20"
                 aria-label="Next photo"
               >
-                <ChevronRight className="size-6" aria-hidden />
+                <ChevronRight className="rtl:-scale-x-100 size-6" aria-hidden />
               </button>
             </>
           )}
@@ -193,7 +193,7 @@ function GalleryArrow({
         "absolute top-1/2 inline-flex size-10 -translate-y-1/2 items-center justify-center rounded-full bg-bg-elevated/90 text-fg shadow-[var(--shadow-card)] backdrop-blur transition-all hover:bg-bg-elevated",
         // Always visible on touch, where there is no hover to reveal them.
         "opacity-100 md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100",
-        direction === "prev" ? "left-3" : "right-3",
+        direction === "prev" ? "start-3" : "end-3",
       )}
       aria-label={direction === "prev" ? "Previous photo" : "Next photo"}
     >

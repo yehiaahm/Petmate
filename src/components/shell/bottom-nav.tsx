@@ -57,7 +57,7 @@ export function BottomNav({ signedIn, unread = 0 }: { signedIn: boolean; unread?
                 <span className="relative">
                   <item.icon className="size-5" aria-hidden />
                   {item.href === "/messages" && unread > 0 && (
-                    <span className="absolute -right-1.5 -top-1 flex min-w-3.5 items-center justify-center rounded-full bg-accent px-1 text-[9px] font-bold leading-[14px] text-accent-fg">
+                    <span className="absolute -end-1.5 -top-1 flex min-w-3.5 items-center justify-center rounded-full bg-accent px-1 text-[9px] font-bold leading-[14px] text-accent-fg">
                       {unread > 9 ? "9+" : unread}
                     </span>
                   )}

@@ -96,7 +96,7 @@ export function OpenDisputeForm({
 
       <div className="rounded-[var(--radius-card)] bg-bg-sunken p-4 text-sm leading-relaxed text-fg-muted">
         <p className="font-medium text-fg">What happens next</p>
-        <ol className="mt-2 list-decimal space-y-1 pl-5">
+        <ol className="mt-2 list-decimal space-y-1 ps-5">
           <li>The money freezes immediately. Neither side can move it.</li>
           <li>The other party has 3 days to respond. They see everything you write here.</li>
           <li>

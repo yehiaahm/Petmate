@@ -187,7 +187,7 @@ export default async function DashboardPage() {
                   <action.icon className="size-[18px]" aria-hidden />
                 </span>
                 <span className="min-w-0 flex-1 text-sm font-medium text-fg">{action.label}</span>
-                <ArrowRight className="size-4 shrink-0 text-fg-subtle" aria-hidden />
+                <ArrowRight className="rtl:-scale-x-100 size-4 shrink-0 text-fg-subtle" aria-hidden />
               </Link>
             </li>
           ))}

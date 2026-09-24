@@ -45,7 +45,7 @@ function LineageBranch({
     node.verificationLevel === "CLINIC_VERIFIED" || node.verificationLevel === "DOCUMENTED";
 
   return (
-    <li className={cn(depth > 0 && "border-l border-[var(--border)] pl-4")}>
+    <li className={cn(depth > 0 && "border-s border-[var(--border)] ps-4")}>
       <div className="flex items-center gap-2.5 py-1.5">
         <span
           className={cn(

@@ -346,7 +346,7 @@ export function DataRow({
   return (
     <div className={cn("flex items-baseline justify-between gap-4 py-2", className)}>
       <dt className="text-sm text-fg-muted">{label}</dt>
-      <dd className="text-right text-sm font-medium text-fg">{value}</dd>
+      <dd className="text-end text-sm font-medium text-fg">{value}</dd>
     </div>
   );
 }

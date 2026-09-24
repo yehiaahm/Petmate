@@ -307,7 +307,7 @@ export default async function ClinicConsolePage({
                       className="flex items-baseline justify-between gap-3 text-sm"
                     >
                       <span className="min-w-0 truncate text-fg-muted">{service.name}</span>
-                      <span className="shrink-0 text-right">
+                      <span className="shrink-0 text-end">
                         <span className="block font-medium tabular text-fg">
                           {formatMoney(service.revenueCents, auth.user.currency)}
                         </span>

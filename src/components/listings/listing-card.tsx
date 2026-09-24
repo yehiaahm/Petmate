@@ -67,7 +67,7 @@ export function ListingCard({
           )}
         </div>
 
-        <div className="absolute left-3 top-3 flex flex-wrap gap-1.5">
+        <div className="absolute start-3 top-3 flex flex-wrap gap-1.5">
           {listing.featured && (
             <Badge tone="accent" size="sm" icon={<Sparkles className="size-3" aria-hidden />}>
               Featured
@@ -87,7 +87,7 @@ export function ListingCard({
       </Link>
 
       {showFavorite && (
-        <div className="absolute right-3 top-3">
+        <div className="absolute end-3 top-3">
           <FavoriteButton listingId={listing.id} initial={listing.isFavorited} />
         </div>
       )}
@@ -99,7 +99,7 @@ export function ListingCard({
               {listing.pet.name}
             </Link>
           </h3>
-          <p className="shrink-0 text-right text-[15px] font-semibold tabular text-fg">
+          <p className="shrink-0 text-end text-[15px] font-semibold tabular text-fg">
             {listing.intent === "SALE" ? (
               price
             ) : (

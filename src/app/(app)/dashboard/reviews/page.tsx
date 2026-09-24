@@ -125,7 +125,7 @@ export default async function ReviewsPage() {
                       </Link>
                     </p>
                     {review.sellerResponse && (
-                      <div className="mt-3 rounded-[var(--radius-field)] border-l-2 border-brand bg-bg-sunken px-3.5 py-2.5">
+                      <div className="mt-3 rounded-[var(--radius-field)] border-s-2 border-brand bg-bg-sunken px-3.5 py-2.5">
                         <p className="text-xs font-semibold text-fg">Your reply</p>
                         <p className="mt-1 text-sm leading-relaxed text-fg-muted">
                           {review.sellerResponse}

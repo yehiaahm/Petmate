@@ -8,6 +8,16 @@ import { enforceRateLimit, type RateLimitName } from "@/lib/rate-limit";
 import { forbidden, unauthenticated } from "@/lib/errors";
 import { permissionsFor, type Permission } from "@/lib/auth/rbac";
 import { LIMITS } from "@/lib/constants";
+import { getLocale, translateFor } from "@/lib/i18n/server";
+import type { Locale } from "@/lib/i18n/config";
+
+/**
+ * Zod's own messages ("Too small: expected string…") appear only for checks a
+ * schema did not give a message to; in Arabic they come from Zod's Arabic
+ * locale. Messages a schema wrote itself are English sentences and are
+ * translated with the rest in `errorResponse`.
+ */
+const zodArabic = z.locales.ar().localeError;
 
 /**
  * The single front door for every route handler.
@@ -56,6 +66,7 @@ export function route<TBody = undefined, TQuery = undefined, TParams = undefined
     const started = performance.now();
     const method = request.method.toUpperCase();
     const path = new URL(request.url).pathname;
+    const locale = await getLocale();
 
     try {
       // ---- 1. CSRF, before anything reads the body -------------------------
@@ -102,7 +113,7 @@ export function route<TBody = undefined, TQuery = undefined, TParams = undefined
       // ---- 4. Input --------------------------------------------------------
       let body = undefined as TBody;
       if (options.body) {
-        body = await parseBody(request, options.body);
+        body = await parseBody(request, options.body, locale);
       }
 
       let query = undefined as TQuery;
@@ -113,13 +124,13 @@ export function route<TBody = undefined, TQuery = undefined, TParams = undefined
           const all = url.searchParams.getAll(key);
           raw[key] = all.length > 1 ? all : all[0]!;
         }
-        query = validate(options.query, raw, "query");
+        query = validate(options.query, raw, "query", locale);
       }
 
       let params = undefined as TParams;
       if (options.params) {
         const raw = ctx?.params ? await ctx.params : {};
-        params = validate(options.params, raw, "params");
+        params = validate(options.params, raw, "params", locale);
       }
 
       // ---- 5. Run ----------------------------------------------------------
@@ -139,12 +150,12 @@ export function route<TBody = undefined, TQuery = undefined, TParams = undefined
       }
       return NextResponse.json(result);
     } catch (error) {
-      return errorResponse(error, { method, path, started });
+      return errorResponse(error, { method, path, started, locale });
     }
   };
 }
 
-async function parseBody<T>(request: Request, schema: z.ZodType<T>): Promise<T> {
+async function parseBody<T>(request: Request, schema: z.ZodType<T>, locale: Locale): Promise<T> {
   const contentLength = Number(request.headers.get("content-length") ?? 0);
   if (contentLength > MAX_BODY_BYTES) {
     throw badRequest("Request body is too large.");
@@ -187,11 +198,11 @@ async function parseBody<T>(request: Request, schema: z.ZodType<T>): Promise<T> 
     }
   }
 
-  return validate(schema, raw, "body");
+  return validate(schema, raw, "body", locale);
 }
 
-function validate<T>(schema: z.ZodType<T>, value: unknown, where: string): T {
-  const parsed = schema.safeParse(value);
+function validate<T>(schema: z.ZodType<T>, value: unknown, where: string, locale: Locale): T {
+  const parsed = schema.safeParse(value, locale === "ar" ? { error: zodArabic } : undefined);
   if (parsed.success) return parsed.data;
 
   const fields = parsed.error.issues.map((i) => ({
@@ -203,7 +214,7 @@ function validate<T>(schema: z.ZodType<T>, value: unknown, where: string): T {
 
 function errorResponse(
   error: unknown,
-  ctx: { method: string; path: string; started: number },
+  ctx: { method: string; path: string; started: number; locale: Locale },
 ): NextResponse {
   const appError = toAppError(error);
   const ms = Math.round(performance.now() - ctx.started);
@@ -228,7 +239,17 @@ function errorResponse(
     headers["Retry-After"] = String(retry);
   }
 
-  return NextResponse.json(appError.toJSON(), { status: appError.status, headers });
+  // Services throw English sentences; the visitor reads them in their own
+  // language. Logging above keeps the English original.
+  const body = appError.toJSON();
+  if (ctx.locale !== "en") {
+    body.error.message = translateFor(ctx.locale, body.error.message);
+    if (body.error.fields) {
+      body.error.fields = body.error.fields.map((f) => ({ ...f, message: translateFor(ctx.locale, f.message) }));
+    }
+  }
+
+  return NextResponse.json(body, { status: appError.status, headers });
 }
 
 // ---------------------------------------------------------------------------

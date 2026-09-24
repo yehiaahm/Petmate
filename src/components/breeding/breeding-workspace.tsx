@@ -205,7 +205,7 @@ function MatchFinder({
                 }}
                 aria-pressed={petId === option.id}
                 className={cn(
-                  "flex w-full items-center gap-3 rounded-[var(--radius-field)] border p-3 text-left transition-colors",
+                  "flex w-full items-center gap-3 rounded-[var(--radius-field)] border p-3 text-start transition-colors",
                   petId === option.id
                     ? "border-brand bg-brand-soft"
                     : "border-[var(--border-strong)] hover:bg-bg-sunken",
@@ -316,7 +316,7 @@ function MatchFinder({
                             </p>
                           </div>
 
-                          <div className="shrink-0 text-right">
+                          <div className="shrink-0 text-end">
                             <p
                               className={cn(
                                 "font-display text-3xl font-semibold tabular",

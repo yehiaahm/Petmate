@@ -180,19 +180,19 @@ export default async function SellerConsolePage() {
               />
             ) : (
               <div className="-mx-5 overflow-x-auto px-5">
-                <table className="w-full text-left text-sm">
+                <table className="w-full text-start text-sm">
                   <thead>
                     <tr className="border-b border-[var(--border)] text-xs text-fg-subtle">
-                      <th scope="col" className="py-2 pr-3 font-medium">
+                      <th scope="col" className="py-2 pe-3 font-medium">
                         Listing
                       </th>
-                      <th scope="col" className="py-2 pr-3 text-right font-medium">
+                      <th scope="col" className="py-2 pe-3 text-end font-medium">
                         Views
                       </th>
-                      <th scope="col" className="py-2 pr-3 text-right font-medium">
+                      <th scope="col" className="py-2 pe-3 text-end font-medium">
                         Saved
                       </th>
-                      <th scope="col" className="py-2 text-right font-medium">
+                      <th scope="col" className="py-2 text-end font-medium">
                         Enquiry rate
                       </th>
                     </tr>
@@ -203,14 +203,14 @@ export default async function SellerConsolePage() {
                         key={listing.id}
                         className="border-b border-[var(--border)] last:border-0"
                       >
-                        <td className="py-2.5 pr-3">
+                        <td className="py-2.5 pe-3">
                           <Link
                             href={`/dashboard/listings/${listing.id}`}
                             className="font-medium text-fg hover:underline"
                           >
                             {listing.title}
                           </Link>
-                          <span className="ml-2 inline-block align-middle">
+                          <span className="ms-2 inline-block align-middle">
                             <Badge tone={LISTING_TONE[listing.status] ?? "neutral"} size="sm">
                               {listing.status.replaceAll("_", " ").toLowerCase()}
                             </Badge>
@@ -222,13 +222,13 @@ export default async function SellerConsolePage() {
                               : " · not published"}
                           </span>
                         </td>
-                        <td className="py-2.5 pr-3 text-right tabular text-fg-muted">
+                        <td className="py-2.5 pe-3 text-end tabular text-fg-muted">
                           {listing.viewCount}
                         </td>
-                        <td className="py-2.5 pr-3 text-right tabular text-fg-muted">
+                        <td className="py-2.5 pe-3 text-end tabular text-fg-muted">
                           {listing.favoriteCount}
                         </td>
-                        <td className="py-2.5 text-right tabular text-fg-muted">
+                        <td className="py-2.5 text-end tabular text-fg-muted">
                           {listing.conversionRate}%
                         </td>
                       </tr>

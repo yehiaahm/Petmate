@@ -117,7 +117,7 @@ function AppointmentRow({
                 {appointment.vet?.user.name ? ` · ${appointment.vet.user.name}` : ""}
               </p>
             </div>
-            <div className="text-right">
+            <div className="text-end">
               <p className="text-sm font-semibold tabular text-fg">
                 {formatMoney(appointment.priceCents, appointment.currency)}
               </p>

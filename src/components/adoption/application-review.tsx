@@ -167,7 +167,7 @@ export function ApplicationReview({
                   </div>
                 </div>
 
-                <div className="shrink-0 text-right">
+                <div className="shrink-0 text-end">
                   <p
                     className={cn(
                       "font-display text-2xl font-semibold tabular",
@@ -190,9 +190,9 @@ export function ApplicationReview({
                     <li key={reason.label}>
                       <Badge tone={reason.positive ? "success" : "warning"} size="sm">
                         {reason.positive ? (
-                          <ThumbsUp className="mr-1 size-3" aria-hidden />
+                          <ThumbsUp className="me-1 size-3" aria-hidden />
                         ) : (
-                          <ThumbsDown className="mr-1 size-3" aria-hidden />
+                          <ThumbsDown className="me-1 size-3" aria-hidden />
                         )}
                         {reason.label}
                       </Badge>

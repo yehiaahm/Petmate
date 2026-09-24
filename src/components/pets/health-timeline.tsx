@@ -202,7 +202,7 @@ export function HealthTimeline({
             }
           />
         ) : (
-          <ol className="relative space-y-3 border-l border-[var(--border)] pl-6">
+          <ol className="relative space-y-3 border-s border-[var(--border)] ps-6">
             {records.map((record) => {
               const Icon = TYPE_ICON[record.type] ?? StickyNote;
               const clinicVerified = record.source === "CLINIC";
@@ -211,7 +211,7 @@ export function HealthTimeline({
                 <li key={record.id} className="relative">
                   <span
                     className={cn(
-                      "absolute -left-[31px] flex size-6 items-center justify-center rounded-full ring-4 ring-[var(--bg)]",
+                      "absolute -start-[31px] flex size-6 items-center justify-center rounded-full ring-4 ring-[var(--bg)]",
                       clinicVerified
                         ? "bg-[var(--success-soft)] text-[var(--success)]"
                         : "bg-bg-inset text-fg-muted",

@@ -80,7 +80,7 @@ export function ReviewList({ reviews }: { reviews: Review[] }) {
                 )}
 
                 {review.sellerResponse && (
-                  <div className="mt-3 rounded-[var(--radius-field)] border-l-2 border-brand bg-bg-sunken px-3.5 py-2.5">
+                  <div className="mt-3 rounded-[var(--radius-field)] border-s-2 border-brand bg-bg-sunken px-3.5 py-2.5">
                     <p className="text-xs font-semibold text-fg">Seller replied</p>
                     <p className="mt-1 text-sm leading-relaxed text-fg-muted">
                       {review.sellerResponse}
@@ -107,7 +107,7 @@ export function RatingSummary({
 }) {
   return (
     <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
-      <div className="text-center sm:text-left">
+      <div className="text-center sm:text-start">
         <p className="font-display text-4xl font-semibold tabular text-fg">
           {average.toFixed(1)}
         </p>
@@ -131,7 +131,7 @@ export function RatingSummary({
                   style={{ width: `${percent}%` }}
                 />
               </div>
-              <span className="w-8 shrink-0 text-right tabular text-fg-subtle">{row.count}</span>
+              <span className="w-8 shrink-0 text-end tabular text-fg-subtle">{row.count}</span>
             </div>
           );
         })}

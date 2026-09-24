@@ -204,8 +204,8 @@ export function MessageThread({
                       className={cn(
                         "rounded-2xl px-3.5 py-2.5",
                         mine
-                          ? "rounded-br-sm bg-brand text-brand-fg"
-                          : "rounded-bl-sm bg-bg-sunken text-fg",
+                          ? "rounded-ee-sm bg-brand text-brand-fg"
+                          : "rounded-es-sm bg-bg-sunken text-fg",
                       )}
                     >
                       {/* Rendered as text. Never dangerouslySetInnerHTML here. */}
@@ -217,7 +217,7 @@ export function MessageThread({
                     <p
                       className={cn(
                         "mt-1 px-1 text-[11px] text-fg-subtle",
-                        mine && "text-right",
+                        mine && "text-end",
                       )}
                     >
                       {relativeTime(message.createdAt)}
@@ -270,7 +270,7 @@ export function MessageThread({
             {sending ? (
               <Loader2 className="size-4 animate-spin" aria-hidden />
             ) : (
-              <Send className="size-4" aria-hidden />
+              <Send className="rtl:-scale-x-100 size-4" aria-hidden />
             )}
           </button>
         </div>

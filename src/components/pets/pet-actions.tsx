@@ -64,7 +64,7 @@ export function PetActions({
 
         <div className="mt-3 space-y-2">
           <Button variant="outline" size="sm" fullWidth onClick={() => setTransferOpen(true)}>
-            <Send className="size-4" aria-hidden />
+            <Send className="rtl:-scale-x-100 size-4" aria-hidden />
             Transfer {petName}
           </Button>
 

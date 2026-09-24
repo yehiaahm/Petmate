@@ -114,7 +114,7 @@ export default async function FinancePage() {
           action={
             ledger.ok ? (
               <Badge tone="success">
-                <CheckCircle2 className="mr-1 size-3.5" aria-hidden />
+                <CheckCircle2 className="me-1 size-3.5" aria-hidden />
                 Balanced
               </Badge>
             ) : (
@@ -166,7 +166,7 @@ export default async function FinancePage() {
                     {refund.reason.replaceAll("_", " ").toLowerCase()} ·{" "}
                     <span className="text-xs">{refund.status.toLowerCase()}</span>
                   </span>
-                  <span className="shrink-0 text-right">
+                  <span className="shrink-0 text-end">
                     <span className="block text-sm font-semibold tabular text-fg">
                       {formatMoney(refund.amountCents, refund.currency)}
                     </span>

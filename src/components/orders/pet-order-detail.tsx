@@ -186,7 +186,7 @@ export function PetOrderDetail({ order }: { order: PetOrderView }) {
             </p>
           </div>
 
-          <div className="shrink-0 text-right">
+          <div className="shrink-0 text-end">
             <p className="font-display text-2xl font-semibold tabular text-fg">
               {formatMoney(order.amountCents, order.currency)}
             </p>

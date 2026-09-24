@@ -232,7 +232,7 @@ export function BookingPanel({
                 contact the clinic directly.
               </Alert>
             ) : (
-              <div className="max-h-72 space-y-3 overflow-y-auto pr-1">
+              <div className="max-h-72 space-y-3 overflow-y-auto pe-1">
                 {days.map(([day, daySlots]) => (
                   <div key={day}>
                     <p className="text-xs font-semibold uppercase tracking-wider text-fg-subtle">

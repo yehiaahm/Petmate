@@ -240,12 +240,12 @@ export function CareAssistant({
                     <Badge tone={turn.source === "ai" ? "brand" : "neutral"} size="sm">
                       {turn.source === "ai" ? (
                         <>
-                          <Sparkles className="mr-1 size-3" aria-hidden />
+                          <Sparkles className="me-1 size-3" aria-hidden />
                           AI answer
                         </>
                       ) : (
                         <>
-                          <ListChecks className="mr-1 size-3" aria-hidden />
+                          <ListChecks className="me-1 size-3" aria-hidden />
                           Rule-based
                         </>
                       )}
@@ -257,7 +257,7 @@ export function CareAssistant({
                   {turn.content}
                   {turn.role === "assistant" && streaming && index === turns.length - 1 && (
                     <span
-                      className="ml-0.5 inline-block h-4 w-1.5 animate-pulse rounded-sm bg-brand align-text-bottom"
+                      className="ms-0.5 inline-block h-4 w-1.5 animate-pulse rounded-sm bg-brand align-text-bottom"
                       aria-hidden
                     />
                   )}
@@ -272,7 +272,7 @@ export function CareAssistant({
                           className="inline-flex items-center gap-1.5 text-sm font-medium text-brand hover:underline"
                         >
                           {link.label}
-                          <ArrowRight className="size-3.5" aria-hidden />
+                          <ArrowRight className="rtl:-scale-x-100 size-3.5" aria-hidden />
                         </Link>
                       </li>
                     ))}
@@ -332,7 +332,7 @@ export function CareAssistant({
             loadingText="Thinking…"
             disabled={question.trim().length < 2}
           >
-            <Send className="size-4" aria-hidden />
+            <Send className="rtl:-scale-x-100 size-4" aria-hidden />
             Ask
           </Button>
         </div>

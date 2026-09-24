@@ -216,7 +216,7 @@ export function NotificationFeed({
                   onClick={() => {
                     if (isUnread) void markOne(n.id);
                   }}
-                  className="block w-full text-left rounded-[var(--radius-card)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ring)]"
+                  className="block w-full text-start rounded-[var(--radius-card)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ring)]"
                 >
                   {inner}
                 </button>

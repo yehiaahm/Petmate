@@ -93,7 +93,7 @@ export default async function BillingSettingsPage() {
                             : ""}
                         </p>
                       </div>
-                      <div className="text-right">
+                      <div className="text-end">
                         <p className="text-sm font-semibold tabular text-fg">
                           {formatMoney(invoice.totalCents, invoice.currency)}
                         </p>

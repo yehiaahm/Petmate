@@ -126,22 +126,22 @@ export function TrendChart({ series, currency }: { series: Point[]; currency: st
           Show the data
         </summary>
         <div className="mt-2 max-h-56 overflow-auto">
-          <table className="w-full text-left text-xs">
+          <table className="w-full text-start text-xs">
             <thead className="sticky top-0 bg-bg-elevated">
               <tr className="text-fg-subtle">
-                <th scope="col" className="py-1 pr-3 font-medium">Date</th>
-                <th scope="col" className="py-1 pr-3 text-right font-medium">Members</th>
-                <th scope="col" className="py-1 pr-3 text-right font-medium">Listings</th>
-                <th scope="col" className="py-1 text-right font-medium">Value</th>
+                <th scope="col" className="py-1 pe-3 font-medium">Date</th>
+                <th scope="col" className="py-1 pe-3 text-end font-medium">Members</th>
+                <th scope="col" className="py-1 pe-3 text-end font-medium">Listings</th>
+                <th scope="col" className="py-1 text-end font-medium">Value</th>
               </tr>
             </thead>
             <tbody className="text-fg-muted">
               {series.map((d) => (
                 <tr key={d.date} className="border-t border-[var(--border)]">
-                  <td className="py-1 pr-3 tabular">{d.date}</td>
-                  <td className="py-1 pr-3 text-right tabular">{d.users}</td>
-                  <td className="py-1 pr-3 text-right tabular">{d.listings}</td>
-                  <td className="py-1 text-right tabular">{formatMoney(d.gmvCents, currency)}</td>
+                  <td className="py-1 pe-3 tabular">{d.date}</td>
+                  <td className="py-1 pe-3 text-end tabular">{d.users}</td>
+                  <td className="py-1 pe-3 text-end tabular">{d.listings}</td>
+                  <td className="py-1 text-end tabular">{formatMoney(d.gmvCents, currency)}</td>
                 </tr>
               ))}
             </tbody>

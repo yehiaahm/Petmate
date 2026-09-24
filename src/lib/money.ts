@@ -1,4 +1,5 @@
 import { CURRENCY_SYMBOL, type Currency } from "./constants";
+import { intlLocale, type Locale } from "./i18n/config";
 
 /**
  * Money is always an integer in the currency minor unit (cents).
@@ -7,14 +8,33 @@ import { CURRENCY_SYMBOL, type Currency } from "./constants";
  * user reads, produced here at the very edge.
  */
 
+const FREE_LABEL: Record<Locale, string> = { en: "Free", ar: "مجاناً" };
+
 export function formatMoney(
   cents: number,
   currency: string = "USD",
-  opts: { compact?: boolean; showFree?: boolean } = {},
+  opts: { compact?: boolean; showFree?: boolean; locale?: Locale } = {},
 ): string {
-  if (opts.showFree && cents === 0) return "Free";
+  const locale = opts.locale ?? "en";
+  if (opts.showFree && cents === 0) return FREE_LABEL[locale];
 
   const cur = (currency as Currency) in CURRENCY_SYMBOL ? (currency as Currency) : "USD";
+
+  // Arabic is written by Intl, which knows where the currency sign goes in a
+  // right-to-left sentence and what it is called ("ج.م." for EGP). English
+  // keeps the hand-rolled format below, which the rest of the product and its
+  // tests were written against.
+  if (locale !== "en") {
+    const whole = cents % 100 === 0;
+    return new Intl.NumberFormat(intlLocale(locale), {
+      style: "currency",
+      currency: cur,
+      ...(opts.compact && Math.abs(cents) >= 100_000
+        ? { notation: "compact" as const, maximumFractionDigits: 1 }
+        : { minimumFractionDigits: whole ? 0 : 2, maximumFractionDigits: whole ? 0 : 2 }),
+    }).format(cents / 100);
+  }
+
   const symbol = CURRENCY_SYMBOL[cur];
   const value = cents / 100;
 

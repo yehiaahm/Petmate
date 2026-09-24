@@ -93,7 +93,7 @@ export function RegisterForm({ next }: { next: string }) {
               onClick={() => setRole(option.value)}
               aria-pressed={role === option.value}
               className={cn(
-                "relative rounded-[var(--radius-field)] border p-3 text-left transition-colors",
+                "relative rounded-[var(--radius-field)] border p-3 text-start transition-colors",
                 role === option.value
                   ? "border-brand bg-brand-soft"
                   : "border-[var(--border-strong)] hover:border-[var(--border-strong)] hover:bg-bg-sunken",

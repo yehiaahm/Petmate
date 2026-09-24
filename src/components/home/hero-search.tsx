@@ -10,7 +10,7 @@ import { SearchBar } from "@/components/shell/search-bar";
  */
 export function HeroSearch() {
   return (
-    <div className="[&_input]:h-14 [&_input]:pl-12 [&_input]:text-base [&_input]:shadow-[var(--shadow-card)]">
+    <div className="[&_input]:h-14 [&_input]:ps-12 [&_input]:text-base [&_input]:shadow-[var(--shadow-card)]">
       <SearchBar placeholder="Describe the pet you are looking for…" />
     </div>
   );

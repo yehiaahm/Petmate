@@ -57,7 +57,7 @@ export function StoreFilters({
               type="button"
               onClick={() => update({ category: null })}
               className={cn(
-                "w-full rounded-[var(--radius-field)] px-2.5 py-1.5 text-left text-sm transition-colors",
+                "w-full rounded-[var(--radius-field)] px-2.5 py-1.5 text-start text-sm transition-colors",
                 !activeCategory ? "bg-brand-soft font-medium text-brand-soft-fg" : "text-fg-muted hover:bg-bg-sunken hover:text-fg",
               )}
             >
@@ -72,7 +72,7 @@ export function StoreFilters({
                   type="button"
                   onClick={() => update({ category: parent.id })}
                   className={cn(
-                    "flex w-full items-center justify-between gap-2 rounded-[var(--radius-field)] px-2.5 py-1.5 text-left text-sm transition-colors",
+                    "flex w-full items-center justify-between gap-2 rounded-[var(--radius-field)] px-2.5 py-1.5 text-start text-sm transition-colors",
                     activeCategory === parent.id
                       ? "bg-brand-soft font-medium text-brand-soft-fg"
                       : "text-fg-muted hover:bg-bg-sunken hover:text-fg",
@@ -87,14 +87,14 @@ export function StoreFilters({
                 </button>
 
                 {children.some((c) => c.id === activeCategory) && (
-                  <ul className="ml-3 mt-0.5 space-y-0.5 border-l border-[var(--border)] pl-2">
+                  <ul className="ms-3 mt-0.5 space-y-0.5 border-s border-[var(--border)] ps-2">
                     {children.map((child) => (
                       <li key={child.id}>
                         <button
                           type="button"
                           onClick={() => update({ category: child.id })}
                           className={cn(
-                            "w-full rounded px-2 py-1 text-left text-xs transition-colors",
+                            "w-full rounded px-2 py-1 text-start text-xs transition-colors",
                             activeCategory === child.id
                               ? "font-medium text-brand"
                               : "text-fg-muted hover:text-fg",

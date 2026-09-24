@@ -37,7 +37,7 @@ export default async function ConversationPage({ params }: { params: Promise<{ i
         href="/messages"
         className="mb-4 inline-flex items-center gap-1.5 text-sm text-fg-muted transition-colors hover:text-fg"
       >
-        <ArrowLeft className="size-4" aria-hidden />
+        <ArrowLeft className="rtl:-scale-x-100 size-4" aria-hidden />
         All messages
       </Link>
 

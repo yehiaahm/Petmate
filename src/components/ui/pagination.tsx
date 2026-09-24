@@ -48,7 +48,7 @@ export function Pagination({
           rel="prev"
           className="inline-flex h-10 items-center gap-1 rounded-[var(--radius-field)] border border-[var(--border-strong)] px-3 text-sm font-medium text-fg transition-colors hover:bg-bg-sunken"
         >
-          <ChevronLeft className="size-4" aria-hidden />
+          <ChevronLeft className="rtl:-scale-x-100 size-4" aria-hidden />
           <span className="hidden sm:inline">Previous</span>
         </Link>
       ) : (
@@ -56,7 +56,7 @@ export function Pagination({
           className="inline-flex h-10 items-center gap-1 rounded-[var(--radius-field)] border border-[var(--border)] px-3 text-sm text-fg-subtle"
           aria-disabled="true"
         >
-          <ChevronLeft className="size-4" aria-hidden />
+          <ChevronLeft className="rtl:-scale-x-100 size-4" aria-hidden />
           <span className="hidden sm:inline">Previous</span>
         </span>
       )}
@@ -98,7 +98,7 @@ export function Pagination({
           className="inline-flex h-10 items-center gap-1 rounded-[var(--radius-field)] border border-[var(--border-strong)] px-3 text-sm font-medium text-fg transition-colors hover:bg-bg-sunken"
         >
           <span className="hidden sm:inline">Next</span>
-          <ChevronRight className="size-4" aria-hidden />
+          <ChevronRight className="rtl:-scale-x-100 size-4" aria-hidden />
         </Link>
       ) : (
         <span
@@ -106,7 +106,7 @@ export function Pagination({
           aria-disabled="true"
         >
           <span className="hidden sm:inline">Next</span>
-          <ChevronRight className="size-4" aria-hidden />
+          <ChevronRight className="rtl:-scale-x-100 size-4" aria-hidden />
         </span>
       )}
     </nav>

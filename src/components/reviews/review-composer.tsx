@@ -92,7 +92,7 @@ export function ReviewComposer({
 
       <fieldset>
         <legend className="text-sm font-medium text-fg">
-          How was {label}?<span className="ml-0.5 text-[var(--danger)]" aria-hidden>*</span>
+          How was {label}?<span className="ms-0.5 text-[var(--danger)]" aria-hidden>*</span>
         </legend>
         <div className="mt-2 flex gap-1" onMouseLeave={() => setHovered(0)}>
           {[1, 2, 3, 4, 5].map((star) => (

@@ -114,11 +114,11 @@ export default async function VerificationSettingsPage() {
                   status ? (
                     <Badge tone={status.tone}>
                       {status.tone === "success" ? (
-                        <BadgeCheck className="mr-1 size-3.5" aria-hidden />
+                        <BadgeCheck className="me-1 size-3.5" aria-hidden />
                       ) : status.tone === "danger" ? (
-                        <XCircle className="mr-1 size-3.5" aria-hidden />
+                        <XCircle className="me-1 size-3.5" aria-hidden />
                       ) : (
-                        <Clock className="mr-1 size-3.5" aria-hidden />
+                        <Clock className="me-1 size-3.5" aria-hidden />
                       )}
                       {status.label}
                     </Badge>

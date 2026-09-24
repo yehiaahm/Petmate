@@ -8,6 +8,11 @@
  */
 const script = `(function(){try{var t=localStorage.getItem("pm-theme");if(t!=="light"&&t!=="dark"){t=window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"}document.documentElement.setAttribute("data-theme",t)}catch(e){document.documentElement.setAttribute("data-theme","light")}})();`;
 
-export function ThemeScript() {
-  return <script dangerouslySetInnerHTML={{ __html: script }} suppressHydrationWarning />;
+/**
+ * Production's CSP allows only nonced inline scripts, so the per-request nonce
+ * from middleware has to be on this tag; without it the browser refuses the
+ * script and a dark-mode user gets the white flash this exists to prevent.
+ */
+export function ThemeScript({ nonce }: { nonce?: string }) {
+  return <script nonce={nonce} dangerouslySetInnerHTML={{ __html: script }} suppressHydrationWarning />;
 }

@@ -113,7 +113,7 @@ export default async function WalletPage() {
                         {credit ? (
                           <ArrowDownLeft className="size-4" aria-hidden />
                         ) : (
-                          <ArrowUpRight className="size-4" aria-hidden />
+                          <ArrowUpRight className="rtl:-scale-x-100 size-4" aria-hidden />
                         )}
                       </span>
                       <div className="min-w-0 flex-1">

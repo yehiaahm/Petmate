@@ -126,7 +126,7 @@ export default async function StorePage({ searchParams }: { searchParams: Search
                           )}
 
                           {discounted && (
-                            <span className="absolute left-2 top-2">
+                            <span className="absolute start-2 top-2">
                               <Badge tone="accent" size="sm">
                                 Save{" "}
                                 {formatMoney(

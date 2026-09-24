@@ -213,7 +213,7 @@ export function CartView({
                         type="button"
                         onClick={() => void changeQuantity(item.id, 0)}
                         disabled={updating === item.id}
-                        className="ml-1 inline-flex size-8 items-center justify-center rounded-[var(--radius-field)] text-fg-subtle transition-colors hover:bg-[var(--danger-soft)] hover:text-[var(--danger)] disabled:opacity-50"
+                        className="ms-1 inline-flex size-8 items-center justify-center rounded-[var(--radius-field)] text-fg-subtle transition-colors hover:bg-[var(--danger-soft)] hover:text-[var(--danger)] disabled:opacity-50"
                         aria-label={`Remove ${item.product.title}`}
                       >
                         <Trash2 className="size-3.5" aria-hidden />

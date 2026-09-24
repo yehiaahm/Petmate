@@ -113,7 +113,7 @@ export default async function SupportPage({
                 ].map(([label, value]) => (
                   <div key={label} className="flex items-baseline justify-between gap-3">
                     <dt className="text-fg-muted">{label}</dt>
-                    <dd className="text-right font-medium text-fg">{value}</dd>
+                    <dd className="text-end font-medium text-fg">{value}</dd>
                   </div>
                 ))}
               </dl>

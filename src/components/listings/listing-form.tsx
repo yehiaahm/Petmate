@@ -195,7 +195,7 @@ export function ListingForm({
                 onClick={() => setPetId(option.id)}
                 aria-pressed={petId === option.id}
                 className={cn(
-                  "flex w-full items-center gap-3 rounded-[var(--radius-field)] border p-3 text-left transition-colors",
+                  "flex w-full items-center gap-3 rounded-[var(--radius-field)] border p-3 text-start transition-colors",
                   petId === option.id
                     ? "border-brand bg-brand-soft"
                     : "border-[var(--border-strong)] hover:bg-bg-sunken",
@@ -508,7 +508,7 @@ export function ListingForm({
 
       {blockingIssues.length > 0 && (
         <Alert tone="warning" title="Fix these before publishing">
-          <ul className="mt-1 list-disc space-y-0.5 pl-4">
+          <ul className="mt-1 list-disc space-y-0.5 ps-4">
             {blockingIssues.map((issue, i) => (
               <li key={i}>{issue.issue.replace("[required] ", "")}</li>
             ))}

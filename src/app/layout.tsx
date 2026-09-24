@@ -1,9 +1,13 @@
 import type { Metadata, Viewport } from "next";
-import { Fraunces, Plus_Jakarta_Sans } from "next/font/google";
+import { headers } from "next/headers";
+import { Fraunces, Plus_Jakarta_Sans, IBM_Plex_Sans_Arabic, Noto_Kufi_Arabic } from "next/font/google";
 import "./globals.css";
 import { ThemeScript } from "@/components/theme-script";
 import { ToastProvider } from "@/components/ui/toast";
+import { I18nProvider } from "@/components/i18n/i18n-provider";
 import { clientEnv } from "@/lib/env";
+import { getI18n } from "@/lib/i18n/server";
+import { messagesFor } from "@/lib/i18n/messages";
 
 /**
  * Fraunces carries the headlines: a soft serif with real character, which reads
@@ -23,6 +27,28 @@ const jakarta = Plus_Jakarta_Sans({
   display: "swap",
   variable: "--font-jakarta",
   weight: ["400", "500", "600", "700", "800"],
+});
+
+/**
+ * Arabic has its own pair, chosen for the same jobs: Noto Kufi Arabic is a
+ * structured display face for headlines, IBM Plex Sans Arabic a calm UI text
+ * face with clear numerals. Neither is preloaded — the CSS only asks for them
+ * on an Arabic page, so English visitors never download them.
+ */
+const kufi = Noto_Kufi_Arabic({
+  subsets: ["arabic"],
+  display: "swap",
+  variable: "--font-arabic-display",
+  weight: ["500", "600", "700"],
+  preload: false,
+});
+
+const plexArabic = IBM_Plex_Sans_Arabic({
+  subsets: ["arabic"],
+  display: "swap",
+  variable: "--font-arabic",
+  weight: ["400", "500", "600", "700"],
+  preload: false,
 });
 
 const appUrl = clientEnv.NEXT_PUBLIC_APP_URL;
@@ -78,17 +104,27 @@ export const viewport: Viewport = {
   ],
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const [{ locale, dir, t }, requestHeaders] = await Promise.all([getI18n(), headers()]);
+  const nonce = requestHeaders.get("x-nonce") ?? undefined;
+
   return (
-    <html lang="en" suppressHydrationWarning className={`${fraunces.variable} ${jakarta.variable}`}>
+    <html
+      lang={locale}
+      dir={dir}
+      suppressHydrationWarning
+      className={`${fraunces.variable} ${jakarta.variable} ${kufi.variable} ${plexArabic.variable}`}
+    >
       <head>
-        <ThemeScript />
+        <ThemeScript nonce={nonce} />
       </head>
       <body className="min-h-dvh bg-bg text-fg antialiased">
         <a href="#main" className="skip-link">
-          Skip to main content
+          {t("Skip to main content")}
         </a>
-        <ToastProvider>{children}</ToastProvider>
+        <I18nProvider locale={locale} messages={messagesFor(locale)}>
+          <ToastProvider>{children}</ToastProvider>
+        </I18nProvider>
       </body>
     </html>
   );

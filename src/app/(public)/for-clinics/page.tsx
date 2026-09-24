@@ -138,7 +138,7 @@ export default async function ForClinicsPage() {
               "Rates are set in the admin console and shown here live, so this page cannot go stale.",
             ].map((line) => (
               <li key={line} className="flex items-start gap-2.5">
-                <ArrowRight className="mt-1 size-3.5 shrink-0 text-brand" aria-hidden />
+                <ArrowRight className="rtl:-scale-x-100 mt-1 size-3.5 shrink-0 text-brand" aria-hidden />
                 {line}
               </li>
             ))}

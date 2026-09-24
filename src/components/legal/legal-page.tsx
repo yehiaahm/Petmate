@@ -62,7 +62,7 @@ export function LegalPage({
             <div className="mt-3 space-y-3">
               {section.paragraphs.map((paragraph, i) =>
                 Array.isArray(paragraph) ? (
-                  <ul key={i} className="list-disc space-y-1.5 pl-5">
+                  <ul key={i} className="list-disc space-y-1.5 ps-5">
                     {paragraph.map((item) => (
                       <li key={item} className="text-[15px] leading-relaxed text-fg-muted">
                         {item}

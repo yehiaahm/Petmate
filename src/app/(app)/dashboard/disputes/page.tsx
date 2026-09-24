@@ -72,7 +72,7 @@ export default async function DisputesPage() {
                           : ""}
                       </p>
                     </div>
-                    <div className="text-right">
+                    <div className="text-end">
                       <p className="text-sm font-semibold tabular text-fg">
                         {formatMoney(
                           dispute.amountCents,
