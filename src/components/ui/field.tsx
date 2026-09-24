@@ -234,7 +234,10 @@ export function Switch({
       >
         <span
           className={cn(
-            "absolute top-0.5 size-5 rounded-full bg-white shadow-sm transition-transform duration-200",
+            // Anchored to the start edge explicitly: a button centres its
+            // content, so an un-inset knob started mid-track and the "on"
+            // translate pushed it off the end of the switch.
+            "absolute start-0 top-0.5 size-5 rounded-full bg-white shadow-sm transition-transform duration-200",
             checked ? "translate-x-5.5 rtl:-translate-x-5.5" : "translate-x-0.5 rtl:-translate-x-0.5",
           )}
         />
@@ -277,7 +280,7 @@ export function ToggleSwitch({
     >
       <span
         className={cn(
-          "absolute top-0.5 size-5 rounded-full bg-white shadow-sm transition-transform duration-200",
+          "absolute start-0 top-0.5 size-5 rounded-full bg-white shadow-sm transition-transform duration-200",
           checked ? "translate-x-5.5 rtl:-translate-x-5.5" : "translate-x-0.5 rtl:-translate-x-0.5",
         )}
       />

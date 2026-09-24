@@ -162,6 +162,34 @@ describe("Arabic dictionary", () => {
     expect(missing.size, `Untranslated sentences:\n${report}`).toBe(0);
   });
 
+  it("translates every message a service can send back", () => {
+    // Messages given to the AppError helpers, with each interpolation replaced
+    // by a sample value, must come back changed from the Arabic translator.
+    const thrown = new RegExp(
+      String.raw`\b(?:badRequest|forbidden|conflict|unprocessable|unauthenticated|paymentFailed|upgradeRequired|dependencyFailed)\(\s*(\`(?:[^\`\\]|\\.)*\`|"(?:[^"\\]|\\.)*")|new AppError\(\s*"[A-Z_]+",\s*(\`(?:[^\`\\]|\\.)*\`|"(?:[^"\\]|\\.)*")`,
+      "g",
+    );
+    const subject = /\bnotFound\(\s*"([^"]+)"\s*\)/g;
+    const missing: string[] = [];
+    for (const file of sourceFiles(path.join(process.cwd(), "src"))) {
+      if (file.includes(`${path.sep}i18n${path.sep}`)) continue;
+      const code = readFileSync(file, "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+      for (const m of code.matchAll(thrown)) {
+        const literal = (m[1] ?? m[2])!;
+        let n = 0;
+        const sample = literal
+          .slice(1, -1)
+          .replace(/\$\{[^}]*\}/g, () => `X${++n}`)
+          .replace(/\\(["'\`\\])/g, "$1");
+        if (translateMessage("ar", ar, sample) === sample) missing.push(`${path.relative(process.cwd(), file)}: ${sample}`);
+      }
+      for (const m of code.matchAll(subject)) {
+        if (!(m[1]! in ar)) missing.push(`${path.relative(process.cwd(), file)}: notFound subject ${m[1]}`);
+      }
+    }
+    expect([...new Set(missing)], [...new Set(missing)].join("\n")).toEqual([]);
+  });
+
   it("keeps every placeholder in the Arabic sentence", () => {
     const names = (s: string) => [...s.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort();
     const broken: string[] = [];

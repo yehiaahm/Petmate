@@ -8,12 +8,15 @@ import {
   createProduct,
   productSchema,
   updateProduct,
+  archiveProduct,
+  importProducts,
   listCategories,
   updateFulfillment,
   listShopOrders,
 } from "@/lib/services/commerce.service";
 import { cuidSchema } from "@/lib/validation/common";
 import { LIMITS } from "@/lib/constants";
+import { getLocale, translateFor } from "@/lib/i18n/server";
 
 export const GET = route({
   rateLimit: "search",
@@ -68,6 +71,13 @@ export const POST = route({
       productId: cuidSchema,
       product: productSchema.partial(),
     }),
+    z.object({ action: z.literal("archive-product"), productId: cuidSchema }),
+    z.object({
+      action: z.literal("import-products"),
+      shopId: cuidSchema,
+      // 500 rows of a generous width, comfortably inside the 1 MB body limit.
+      csv: z.string().min(1).max(900_000),
+    }),
     z.object({
       action: z.literal("fulfil"),
       orderItemId: cuidSchema,
@@ -89,6 +99,19 @@ export const POST = route({
       case "update-product": {
         const product = await updateProduct(auth, body.productId, body.product);
         return { product };
+      }
+      case "archive-product":
+        await archiveProduct(auth, body.productId);
+        return { ok: true };
+      case "import-products": {
+        const result = await importProducts(auth, body.shopId, body.csv);
+        // Row problems come back in a successful response, so they are put
+        // into the seller's language here rather than by the error handler.
+        const locale = await getLocale();
+        return {
+          ...result,
+          errors: result.errors.map((e) => ({ ...e, message: translateFor(locale, e.message) })),
+        };
       }
       case "fulfil":
         await updateFulfillment(auth, body.orderItemId, body.status);

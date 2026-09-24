@@ -2,10 +2,12 @@ import "server-only";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { audit } from "@/lib/audit";
-import { badRequest, conflict, notFound, unprocessable } from "@/lib/errors";
+import { badRequest, conflict, notFound, unprocessable, upgradeRequired } from "@/lib/errors";
 import { assertOwnsShop, isStaff } from "@/lib/auth/rbac";
 import type { AuthContext } from "@/lib/auth/session";
-import { applyBps } from "@/lib/money";
+import { applyBps, parseMoneyToCents } from "@/lib/money";
+import { csvRecords } from "@/lib/csv";
+import { PRODUCT_IMPORT_COLUMNS, MAX_IMPORT_ROWS } from "@/lib/product-import";
 import { resolveCommissionBps } from "@/lib/settings";
 import { generateOrderNumber, uniqueSlug } from "@/lib/utils";
 import { buildSearchText, searchTextClauses, relevanceScore } from "@/lib/search/text";
@@ -84,12 +86,130 @@ export async function createShop(auth: AuthContext, input: z.infer<typeof shopSc
       update: {},
     });
 
+    // A shop opens PENDING and can list nothing until someone reviews it.
+    // Without this row it never reached the admin review queue, so every new
+    // shop stayed pending forever. Approval (safety.service) activates it.
+    await tx.verification.create({
+      data: {
+        subjectType: "SHOP",
+        subjectId: shop.id,
+        userId: auth.user.id,
+        type: "BUSINESS",
+        status: "PENDING",
+      },
+    });
+
     await audit(
       { action: "user.role_granted", actorId: auth.user.id, entityType: "SHOP", entityId: shop.id, summary: "Shop created" },
       tx,
     );
 
     return shop;
+  });
+}
+
+/** A shop and its whole catalogue, for its owner's console. */
+export async function getShopConsole(auth: AuthContext, shopId: string) {
+  await assertOwnsShop(shopId, auth);
+
+  const [shop, products, pendingVerification] = await Promise.all([
+    db.shop.findUniqueOrThrow({
+      where: { id: shopId },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        status: true,
+        description: true,
+        email: true,
+        phone: true,
+        city: true,
+        country: true,
+        flatShippingCents: true,
+        freeShippingThresholdCents: true,
+        verifiedAt: true,
+        orderCount: true,
+      },
+    }),
+    db.product.findMany({
+      where: { shopId, deletedAt: null },
+      orderBy: [{ updatedAt: "desc" }],
+      take: 500,
+      select: {
+        id: true,
+        title: true,
+        slug: true,
+        sku: true,
+        status: true,
+        priceCents: true,
+        compareAtCents: true,
+        currency: true,
+        stock: true,
+        trackInventory: true,
+        lowStockAt: true,
+        soldCount: true,
+        category: { select: { name: true } },
+        images: { orderBy: { position: "asc" }, take: 1, select: { url: true, alt: true } },
+      },
+    }),
+    db.verification.findFirst({
+      where: { subjectType: "SHOP", subjectId: shopId, status: "PENDING" },
+      select: { id: true, createdAt: true },
+    }),
+  ]);
+
+  return { shop, products, pendingVerification };
+}
+
+/** The product as its owner edits it, including drafts. */
+export async function getProductForEdit(auth: AuthContext, productId: string) {
+  const product = await db.product.findFirst({
+    where: { id: productId, deletedAt: null },
+    select: {
+      id: true,
+      shopId: true,
+      title: true,
+      description: true,
+      categoryId: true,
+      brand: true,
+      sku: true,
+      priceCents: true,
+      compareAtCents: true,
+      stock: true,
+      trackInventory: true,
+      lowStockAt: true,
+      weightGrams: true,
+      status: true,
+      images: { orderBy: { position: "asc" }, select: { url: true, alt: true } },
+    },
+  });
+  if (!product) throw notFound("That product");
+  await assertOwnsShop(product.shopId, auth);
+  return product;
+}
+
+/**
+ * Takes a product off sale for good. Soft-deleted, so past orders keep a
+ * readable line item; a cart holding it simply stops finding it.
+ */
+export async function archiveProduct(auth: AuthContext, productId: string): Promise<void> {
+  const product = await db.product.findFirst({
+    where: { id: productId, deletedAt: null },
+    select: { id: true, shopId: true, title: true },
+  });
+  if (!product) throw notFound("That product");
+  await assertOwnsShop(product.shopId, auth);
+
+  await db.$transaction(async (tx) => {
+    await tx.product.update({
+      where: { id: productId },
+      data: { deletedAt: new Date(), status: "ARCHIVED" },
+    });
+    await tx.cartItem.deleteMany({ where: { variant: { productId } } });
+    await audit(
+      { action: "product.archived", actorId: auth.user.id, entityType: "PRODUCT", entityId: productId, summary: product.title },
+      tx,
+    );
   });
 }
 
@@ -107,7 +227,20 @@ export const productSchema = z.object({
   lowStockAt: z.number().int().min(0).max(1000).default(5),
   weightGrams: z.number().int().min(0).max(500_000).optional(),
   attributes: z.record(z.string(), z.string()).optional(),
-  images: z.array(z.object({ url: z.string().max(1000), alt: optionalText(160) })).max(LIMITS.imagesPerProduct).optional(),
+  images: z
+    .array(
+      z.object({
+        // An uploaded file (a site path) or an https URL — never javascript:,
+        // data: or a plain-http address that would break the page's TLS.
+        url: z
+          .string()
+          .max(1000)
+          .refine((u) => (u.startsWith("/") && !u.startsWith("//")) || u.startsWith("https://"), "That image address is not allowed."),
+        alt: optionalText(160),
+      }),
+    )
+    .max(LIMITS.imagesPerProduct)
+    .optional(),
   publish: z.boolean().default(false),
 });
 
@@ -129,58 +262,346 @@ export async function createProduct(
 
   return db.$transaction(async (tx) => {
     const product = await tx.product.create({
-      data: {
-        shopId,
-        categoryId: input.categoryId ?? null,
-        title: input.title,
-        slug: uniqueSlug(input.title),
-        description: input.description,
-        brand: input.brand ?? null,
-        sku: input.sku ?? null,
-        priceCents: input.priceCents,
-        compareAtCents: input.compareAtCents ?? null,
-        currency: input.currency,
-        stock: input.stock,
-        trackInventory: input.trackInventory,
-        lowStockAt: input.lowStockAt,
-        weightGrams: input.weightGrams ?? null,
-        attributes: input.attributes ? JSON.stringify(input.attributes) : null,
-        status: input.publish ? (input.stock > 0 || !input.trackInventory ? "ACTIVE" : "OUT_OF_STOCK") : "DRAFT",
-        publishedAt: input.publish ? new Date() : null,
-        searchText: buildSearchText(
-          input.title,
-          input.description,
-          input.brand,
-          Object.values(input.attributes ?? {}).join(" "),
-        ),
-        // Every product has exactly one default variant, so the order path
-        // never has to branch on "simple vs variable product".
-        variants: {
-          create: {
-            name: "Default",
-            sku: input.sku ?? null,
-            priceCents: input.priceCents,
-            stock: input.stock,
-            isDefault: true,
-          },
-        },
-        ...(input.images?.length
-          ? {
-              images: {
-                create: input.images.map((img, position) => ({
-                  url: img.url,
-                  alt: img.alt ?? null,
-                  position,
-                })),
-              },
-            }
-          : {}),
-      },
+      data: productCreateData(shopId, input),
       select: { id: true, slug: true, title: true, status: true },
     });
 
     return product;
   });
+}
+
+/** The row a new product is written as. Shared by single create and bulk import. */
+function productCreateData(shopId: string, input: z.infer<typeof productSchema>) {
+  return {
+    shopId,
+    categoryId: input.categoryId ?? null,
+    title: input.title,
+    slug: uniqueSlug(input.title),
+    description: input.description,
+    brand: input.brand ?? null,
+    sku: input.sku ?? null,
+    priceCents: input.priceCents,
+    compareAtCents: input.compareAtCents ?? null,
+    currency: input.currency,
+    stock: input.stock,
+    trackInventory: input.trackInventory,
+    lowStockAt: input.lowStockAt,
+    weightGrams: input.weightGrams ?? null,
+    attributes: input.attributes ? JSON.stringify(input.attributes) : null,
+    status: input.publish ? (input.stock > 0 || !input.trackInventory ? "ACTIVE" : "OUT_OF_STOCK") : "DRAFT",
+    publishedAt: input.publish ? new Date() : null,
+    searchText: buildSearchText(
+      input.title,
+      input.description,
+      input.brand,
+      Object.values(input.attributes ?? {}).join(" "),
+    ),
+    // Every product has exactly one default variant, so the order path
+    // never has to branch on "simple vs variable product".
+    variants: {
+      create: {
+        name: "Default",
+        sku: input.sku ?? null,
+        priceCents: input.priceCents,
+        stock: input.stock,
+        isDefault: true,
+      },
+    },
+    ...(input.images?.length
+      ? {
+          images: {
+            create: input.images.map((img, position) => ({
+              url: img.url,
+              alt: img.alt ?? null,
+              position,
+            })),
+          },
+        }
+      : {}),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Bulk import
+// ---------------------------------------------------------------------------
+
+export interface ImportRowError {
+  /** The spreadsheet row, counting the header as row 1, so it matches Excel. */
+  row: number;
+  column?: string;
+  message: string;
+}
+
+export interface ImportResult {
+  /** False when any row failed: an import is all or nothing. */
+  applied: boolean;
+  created: number;
+  updated: number;
+  errors: ImportRowError[];
+}
+
+const YES = new Set(["yes", "y", "true", "1", "نعم", "اه", "أيوه"]);
+const NO = new Set(["no", "n", "false", "0", "لا"]);
+
+function parseYesNo(value: string | undefined): boolean | undefined | "invalid" {
+  if (value === undefined || value === "") return undefined;
+  const v = value.trim().toLowerCase();
+  if (YES.has(v)) return true;
+  if (NO.has(v)) return false;
+  return "invalid";
+}
+
+function parseWhole(value: string | undefined): number | undefined | "invalid" {
+  if (value === undefined || value === "") return undefined;
+  const cleaned = normalizeDigits(value).replace(/[\s,]/g, "");
+  return /^\d+$/.test(cleaned) ? Number(cleaned) : "invalid";
+}
+
+function parsePrice(value: string | undefined): number | undefined | "invalid" {
+  if (value === undefined || value === "") return undefined;
+  const cents = parseMoneyToCents(normalizeDigits(value).replace(/,/g, ""));
+  return cents === null ? "invalid" : cents;
+}
+
+/** Arabic-Indic digits and the Arabic decimal separator, as Excel in Arabic writes them. */
+function normalizeDigits(value: string): string {
+  return value
+    .replace(/[\u0660-\u0669]/g, (d) => String(d.charCodeAt(0) - 0x0660))
+    .replace(/\u066b/g, ".")
+    .replace(/\u066c/g, ",");
+}
+
+/**
+ * Imports or updates a catalogue from a CSV (see `PRODUCT_IMPORT_COLUMNS`).
+ *
+ * A row whose `sku` already exists in this shop updates that product — its
+ * price, stock and whichever other columns are filled in — which is how a
+ * shop keeps a spreadsheet as its inventory system. Any other row creates a
+ * product and must pass the same validation as the single-product form.
+ *
+ * Every row is checked before anything is written, and one bad row applies
+ * none of them: a half-imported catalogue, with the seller unsure which rows
+ * made it, is worse than a clear list of what to fix.
+ */
+export async function importProducts(auth: AuthContext, shopId: string, csv: string): Promise<ImportResult> {
+  const shop = await assertOwnsShop(shopId, auth);
+  if (shop.status !== "ACTIVE" && !isStaff(auth.user)) {
+    throw conflict("Your shop is still being reviewed. You can add products once it is approved.");
+  }
+
+  const entitlements = await getEntitlements(shop.ownerUserId);
+  if (!entitlements.bulkTools) {
+    throw upgradeRequired("Bulk import and inventory updates are part of Seller Pro.", {
+      feature: "bulkTools",
+    });
+  }
+
+  await enforceRateLimit("productImport", auth.user.id);
+
+  const { headers, records } = csvRecords(csv);
+  const fail = (message: string, row = 1): ImportResult => ({
+    applied: false,
+    created: 0,
+    updated: 0,
+    errors: [{ row, message }],
+  });
+
+  if (!headers.length || !records.length) return fail("The file has no rows under its header.");
+  if (!headers.includes("sku") && !headers.includes("title")) {
+    return fail('The header row needs a "title" column, or a "sku" column to update existing products.');
+  }
+  if (records.length > MAX_IMPORT_ROWS) {
+    return fail(`Import up to ${MAX_IMPORT_ROWS} rows at a time; this file has ${records.length}.`);
+  }
+  const unknown = headers.filter((h) => h && !(PRODUCT_IMPORT_COLUMNS as readonly string[]).includes(h));
+  if (unknown.length) return fail(`Unknown columns: ${unknown.join(", ")}.`);
+
+  const [existing, categories] = await Promise.all([
+    db.product.findMany({
+      where: { shopId, deletedAt: null, sku: { not: null } },
+      select: { id: true, sku: true, trackInventory: true, status: true },
+    }),
+    db.category.findMany({ select: { id: true, slug: true } }),
+  ]);
+  const bySku = new Map(existing.map((p) => [p.sku!.toLowerCase(), p]));
+  const categoryBySlug = new Map(categories.map((c) => [c.slug, c.id]));
+
+  type Create = { kind: "create"; input: z.infer<typeof productSchema> };
+  type Update = {
+    kind: "update";
+    id: string;
+    trackInventory: boolean;
+    status: string;
+    data: {
+      title?: string;
+      description?: string;
+      brand?: string;
+      categoryId?: string;
+      priceCents?: number;
+      compareAtCents?: number;
+      stock?: number;
+      weightGrams?: number;
+      publish?: boolean;
+    };
+  };
+  const ops: (Create | Update)[] = [];
+  const errors: ImportRowError[] = [];
+  const seenSkus = new Map<string, number>();
+
+  records.forEach((record, index) => {
+    const row = index + 2;
+    const rowErrors: ImportRowError[] = [];
+    const bad = (column: string, message: string) => rowErrors.push({ row, column, message });
+
+    const sku = record.sku || undefined;
+    if (sku) {
+      const key = sku.toLowerCase();
+      const first = seenSkus.get(key);
+      if (first) bad("sku", `SKU ${sku} is already on row ${first}.`);
+      else seenSkus.set(key, row);
+    }
+
+    const price = parsePrice(record.price);
+    const compareAt = parsePrice(record.compare_at_price);
+    const stock = parseWhole(record.stock);
+    const weight = parseWhole(record.weight_grams);
+    const publish = parseYesNo(record.publish);
+    if (price === "invalid") bad("price", "Price must be a number, like 250 or 249.50.");
+    if (compareAt === "invalid") bad("compare_at_price", "Compare-at price must be a number.");
+    if (stock === "invalid") bad("stock", "Stock must be a whole number.");
+    if (weight === "invalid") bad("weight_grams", "Weight must be a whole number of grams.");
+    if (publish === "invalid") bad("publish", "Publish must be yes or no.");
+
+    let categoryId: string | undefined;
+    if (record.category) {
+      categoryId = categoryBySlug.get(record.category.toLowerCase());
+      if (!categoryId) bad("category", `There is no category "${record.category}".`);
+    }
+
+    const match = sku ? bySku.get(sku.toLowerCase()) : undefined;
+
+    if (rowErrors.length) {
+      errors.push(...rowErrors);
+      return;
+    }
+
+    if (match) {
+      const data: Update["data"] = {
+        ...(record.title ? { title: record.title } : {}),
+        ...(record.description ? { description: record.description } : {}),
+        ...(record.brand ? { brand: record.brand } : {}),
+        ...(categoryId ? { categoryId } : {}),
+        ...(typeof price === "number" ? { priceCents: price } : {}),
+        ...(typeof compareAt === "number" ? { compareAtCents: compareAt } : {}),
+        ...(typeof stock === "number" ? { stock } : {}),
+        ...(typeof weight === "number" ? { weightGrams: weight } : {}),
+        ...(typeof publish === "boolean" ? { publish } : {}),
+      };
+      // Updates are checked with the same rules as the form, field by field.
+      const checked = productSchema.partial().safeParse(data);
+      if (!checked.success) {
+        for (const issue of checked.error.issues) {
+          errors.push({ row, column: String(issue.path[0] ?? ""), message: issue.message });
+        }
+        return;
+      }
+      if (data.priceCents !== undefined && data.priceCents <= 0) {
+        errors.push({ row, column: "price", message: "A product needs a price." });
+        return;
+      }
+      ops.push({ kind: "update", id: match.id, trackInventory: match.trackInventory, status: match.status, data });
+      return;
+    }
+
+    const parsed = productSchema.safeParse({
+      title: record.title ?? "",
+      description: record.description ?? "",
+      brand: record.brand || undefined,
+      sku,
+      categoryId,
+      priceCents: typeof price === "number" ? price : 0,
+      compareAtCents: typeof compareAt === "number" ? compareAt : undefined,
+      stock: typeof stock === "number" ? stock : 0,
+      weightGrams: typeof weight === "number" ? weight : undefined,
+      publish: typeof publish === "boolean" ? publish : false,
+    });
+    if (!parsed.success) {
+      const column = (path: PropertyKey | undefined) =>
+        path === "priceCents" ? "price" : path === "compareAtCents" ? "compare_at_price" : String(path ?? "");
+      for (const issue of parsed.error.issues) {
+        errors.push({ row, column: column(issue.path[0]), message: issue.message });
+      }
+      return;
+    }
+    if (parsed.data.compareAtCents && parsed.data.compareAtCents <= parsed.data.priceCents) {
+      errors.push({ row, column: "compare_at_price", message: "The compare-at price must be above the selling price." });
+      return;
+    }
+    ops.push({ kind: "create", input: parsed.data });
+  });
+
+  if (errors.length) return { applied: false, created: 0, updated: 0, errors };
+
+  let created = 0;
+  let updated = 0;
+  await db.$transaction(
+    async (tx) => {
+      for (const op of ops) {
+        if (op.kind === "create") {
+          await tx.product.create({ data: productCreateData(shopId, op.input), select: { id: true } });
+          created++;
+          continue;
+        }
+
+        const { publish, ...fields } = op.data;
+        const saved = await tx.product.update({
+          where: { id: op.id },
+          data: {
+            ...fields,
+            ...(publish !== undefined
+              ? { status: publish ? "ACTIVE" : "DRAFT", publishedAt: publish ? new Date() : null }
+              : {}),
+          },
+          select: { title: true, description: true, brand: true, status: true, stock: true, trackInventory: true },
+        });
+        if (fields.priceCents !== undefined || fields.stock !== undefined) {
+          await tx.productVariant.updateMany({
+            where: { productId: op.id, isDefault: true },
+            data: {
+              ...(fields.priceCents !== undefined ? { priceCents: fields.priceCents } : {}),
+              ...(fields.stock !== undefined ? { stock: fields.stock } : {}),
+            },
+          });
+        }
+        // Keep the published status honest about stock, as the form does.
+        const status =
+          saved.trackInventory && saved.status === "ACTIVE" && saved.stock <= 0
+            ? "OUT_OF_STOCK"
+            : saved.status === "OUT_OF_STOCK" && saved.stock > 0
+              ? "ACTIVE"
+              : saved.status;
+        await tx.product.update({
+          where: { id: op.id },
+          data: { status, searchText: buildSearchText(saved.title, saved.description, saved.brand) },
+        });
+        updated++;
+      }
+
+      await audit(
+        {
+          action: "product.imported",
+          actorId: auth.user.id,
+          entityType: "SHOP",
+          entityId: shopId,
+          summary: `Imported ${created} new and ${updated} updated products`,
+        },
+        tx,
+      );
+    },
+    { timeout: 60_000 },
+  );
+
+  return { applied: true, created, updated, errors: [] };
 }
 
 export async function updateProduct(
@@ -203,6 +624,8 @@ export async function updateProduct(
         ...(input.description !== undefined ? { description: input.description } : {}),
         ...(input.categoryId !== undefined ? { categoryId: input.categoryId || null } : {}),
         ...(input.brand !== undefined ? { brand: input.brand ?? null } : {}),
+        ...(input.sku !== undefined ? { sku: input.sku ?? null } : {}),
+        ...(input.weightGrams !== undefined ? { weightGrams: input.weightGrams ?? null } : {}),
         ...(input.priceCents !== undefined ? { priceCents: input.priceCents } : {}),
         ...(input.compareAtCents !== undefined ? { compareAtCents: input.compareAtCents ?? null } : {}),
         ...(input.stock !== undefined ? { stock: input.stock } : {}),
@@ -214,6 +637,17 @@ export async function updateProduct(
       },
       select: { id: true, title: true, description: true, brand: true, attributes: true, status: true, stock: true, trackInventory: true },
     });
+
+    // Photos are replaced as a set: the form sends the whole ordered list, so
+    // a removal or a reorder is just the new list.
+    if (input.images !== undefined) {
+      await tx.productImage.deleteMany({ where: { productId } });
+      if (input.images.length) {
+        await tx.productImage.createMany({
+          data: input.images.map((img, position) => ({ productId, url: img.url, alt: img.alt ?? null, position })),
+        });
+      }
+    }
 
     // The default variant mirrors the product's own price and stock.
     if (input.priceCents !== undefined || input.stock !== undefined) {

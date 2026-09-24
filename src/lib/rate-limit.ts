@@ -44,6 +44,7 @@ export const RATE_LIMITS = {
   review: { window: 86400, max: 15 },
   report: { window: 3600, max: 10 },
   upload: { window: 600, max: 40 },
+  productImport: { window: 3600, max: 20 },
   post: { window: 3600, max: 20 },
   comment: { window: 300, max: 30 },
   supportTicket: { window: 3600, max: 6 },

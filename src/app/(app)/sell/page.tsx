@@ -277,22 +277,30 @@ export default async function SellerConsolePage() {
             />
             <div className="p-5">
               {shops.length === 0 ? (
-                <p className="text-sm leading-relaxed text-fg-muted">
-                  You do not have a shop. A shop is for products — food, medication, beds — and is
-                  separate from listing an animal.
-                </p>
+                <>
+                  <p className="text-sm leading-relaxed text-fg-muted">
+                    You do not have a shop. A shop is for products — food, medication, beds — and is
+                    separate from listing an animal.
+                  </p>
+                  <div className="mt-4">
+                    <ButtonLink href="/sell/shops/new" variant="outline" size="sm" fullWidth>
+                      <Plus className="size-4" aria-hidden />
+                      Open a shop
+                    </ButtonLink>
+                  </div>
+                </>
               ) : (
                 <ul className="space-y-2">
                   {shops.map((shop) => (
                     <li key={shop.id} className="flex items-center justify-between gap-3">
                       <Link
-                        href={`/store?shopId=${shop.id}`}
+                        href={`/sell/shops/${shop.id}`}
                         className="min-w-0 truncate text-sm font-medium text-fg hover:underline"
                       >
                         {shop.name}
                       </Link>
                       <span className="shrink-0 text-xs text-fg-subtle tabular">
-                        {shop._count.products} products
+                        {shop.status === "ACTIVE" ? `${shop._count.products} products` : "In review"}
                       </span>
                     </li>
                   ))}

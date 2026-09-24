@@ -53,6 +53,8 @@ export type AuditAction =
   | "appointment.booked"
   | "appointment.cancelled"
   | "appointment.completed"
+  | "product.archived"
+  | "product.imported"
   | "order.placed"
   | "order.cancelled"
   | "order.fulfilled"
