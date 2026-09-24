@@ -70,6 +70,33 @@ escrowed:
 money.** The two cannot come apart: there is no state where the seller has been
 paid but still owns the record, or the reverse.
 
+## Stud fees
+
+A paid breeding arrangement (`feeType = FEE`, `feeCents > 0`) settles through
+PetMate. The fee sits on the breeding request as `feeStatus`:
+
+```
+NONE ─ both agree paid terms ─▶ DUE ─ payer pays ─▶ HELD ─┬─ released ─▶ RELEASED
+                                                          ├─ cancelled ─▶ REFUNDED
+                                                          └─ reported ──▶ FROZEN ─ staff ─▶ RELEASED | REFUNDED
+```
+
+- The owner of the male is paid; the other owner pays, whoever sent the request.
+- Paying posts `ESCROW_HOLD` (gateway → escrow). Commission is the
+  `commissionBreedingBps` setting less the **stud owner's** plan
+  `commissionDiscountBps`, fixed on the request when checkout starts.
+- The breeding cannot be recorded as done while the fee is `DUE`.
+- Recorded by the payer: released at once. Recorded by the stud's owner: the
+  payer has a review window (the escrow setting, capped at 72 hours) and the
+  `breeding.releaseFee` job pays out when it closes.
+- Release posts `ESCROW_RELEASE` (escrow → commission + the stud owner's
+  available balance). Cancelling by the stud's owner refunds in full; the payer
+  cannot cancel a held fee, only report a problem, which freezes it and opens a
+  high-priority payment ticket. Staff decide it from Admin → Finance.
+- A payment that arrives after the fee stopped being owed is booked and
+  refunded straight away. A refund the gateway refuses leaves the fee
+  `REFUND_PENDING`, which staff retry from the same queue.
+
 ## Exactly-once settlement
 
 Three mechanisms, each guarding a different failure:

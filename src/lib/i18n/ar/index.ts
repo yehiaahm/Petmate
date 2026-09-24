@@ -4,13 +4,14 @@ import { shell } from "./shell";
 import { sell } from "./sell";
 import { errors } from "./errors";
 import { commerce } from "./commerce";
+import { breeding } from "./breeding";
 
 /**
  * The Arabic dictionary, assembled from one module per product area so that
  * no single file becomes unreviewable. A sentence defined in two modules is a
  * mistake — the second would silently win — so assembly refuses it.
  */
-const modules: Record<string, Messages> = { common, shell, sell, errors, commerce };
+const modules: Record<string, Messages> = { common, shell, sell, errors, commerce, breeding };
 
 function assemble(parts: Record<string, Messages>): Messages {
   const out: Record<string, Messages[string]> = {};

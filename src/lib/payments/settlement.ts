@@ -61,6 +61,8 @@ export async function settlePayment(intentId: string): Promise<void> {
       return settleAdCampaign(intent);
     case "WALLET_TOPUP":
       return settleWalletTopUp(intent);
+    case "BREEDING_FEE":
+      return settleBreedingFee(intent);
     default:
       throw new AppError("INTERNAL", "That payment could not be completed.", {
         internal: `unknown purpose ${intent.purpose}`,
@@ -960,6 +962,237 @@ async function settleWalletTopUp(intent: SettlementIntent): Promise<void> {
     title: `${formatMoney(intent.amountCents, intent.currency)} added to your wallet`,
     url: "/dashboard/wallet",
   });
+}
+
+// ---------------------------------------------------------------------------
+// Breeding fees
+// ---------------------------------------------------------------------------
+
+/**
+ * A stud fee paid through PetMate goes into escrow, exactly like a pet sale:
+ * the stud's owner sees that the money is there, and the payer knows it only
+ * moves once the breeding has happened.
+ *
+ * The claim is conditional on the fee still being owed, by this payer, at this
+ * amount. A payment that lands after the breeding was cancelled or the terms
+ * changed is booked and refunded in full straight away, rather than left as
+ * money nobody is holding for anything.
+ */
+async function settleBreedingFee(intent: SettlementIntent): Promise<void> {
+  const result = await db.$transaction(async (tx) => {
+    const request = await tx.breedingRequest.findUnique({
+      where: { id: intent.referenceId! },
+      select: {
+        id: true,
+        feeCents: true,
+        currency: true,
+        feePayerUserId: true,
+        feePayeeUserId: true,
+        feePaymentIntentId: true,
+        conversationId: true,
+        initiatorPet: { select: { name: true } },
+        receiverPet: { select: { name: true } },
+      },
+    });
+    if (!request) throw notFound("That breeding request");
+
+    const claimed = await tx.breedingRequest.updateMany({
+      where: {
+        id: request.id,
+        status: { in: ["AGREED", "SCHEDULED"] },
+        feeStatus: "DUE",
+        feePayerUserId: intent.userId,
+        feeCents: intent.amountCents,
+        currency: intent.currency,
+      },
+      data: { feeStatus: "HELD", feePaymentIntentId: intent.id, feePaidAt: new Date() },
+    });
+
+    if (claimed.count === 0) {
+      if (request.feePaymentIntentId === intent.id) return { kind: "duplicate" as const };
+
+      // Nothing is owed any more, but the money is real. Book it so the
+      // refund below has a balance to come out of.
+      await postTransaction(
+        {
+          kind: "CHARGE",
+          description: "Breeding fee received after it was no longer due",
+          currency: intent.currency,
+          paymentIntentId: intent.id,
+          referenceType: "BREEDING_REQUEST",
+          referenceId: request.id,
+          entries: [
+            { account: accounts.external(intent.currency), amountCents: -intent.amountCents },
+            { account: accounts.platformRevenue(intent.currency), amountCents: intent.amountCents },
+          ],
+        },
+        tx,
+      );
+      return { kind: "orphan" as const };
+    }
+
+    const pairing = `${request.initiatorPet.name} × ${request.receiverPet.name}`;
+
+    await postTransaction(
+      {
+        kind: "ESCROW_HOLD",
+        description: `Breeding fee held for ${pairing}`,
+        currency: request.currency,
+        paymentIntentId: intent.id,
+        referenceType: "BREEDING_REQUEST",
+        referenceId: request.id,
+        entries: [
+          { account: accounts.external(request.currency), amountCents: -request.feeCents },
+          { account: accounts.escrow(request.currency), amountCents: request.feeCents },
+        ],
+      },
+      tx,
+    );
+
+    await createInvoice(
+      {
+        paymentIntentId: intent.id,
+        userId: intent.userId,
+        totalCents: request.feeCents,
+        currency: request.currency,
+        lines: [{ description: `Stud fee — ${pairing}`, amountCents: request.feeCents }],
+        billingName: intent.user?.name ?? "PetMate member",
+      },
+      tx,
+    );
+
+    return { kind: "held" as const, request, pairing };
+  });
+
+  if (result.kind === "duplicate") return;
+
+  if (result.kind === "orphan") {
+    const { refundPayment } = await import("./service");
+    try {
+      await refundPayment({
+        intentId: intent.id,
+        amountCents: intent.amountCents,
+        reason: "CANCELLED_ORDER",
+        approvedById: intent.userId,
+        note: "Breeding fee paid after it was no longer due",
+        idempotencyKey: `breeding_orphan_${intent.id}`,
+      });
+    } catch (e) {
+      // The charge is booked to platform revenue, so it shows up in the
+      // refund queue rather than disappearing.
+      logger.exception("orphaned breeding fee could not be refunded", e, { intentId: intent.id });
+    }
+    await notify({
+      userId: intent.userId,
+      category: "BREEDING",
+      type: "breeding.fee_refunded",
+      title: "Breeding fee refunded",
+      body: "This breeding was no longer waiting for a fee, so your payment is being returned in full.",
+      url: `/dashboard/breeding/requests/${intent.referenceId}`,
+      entityType: "BREEDING_REQUEST",
+      entityId: intent.referenceId ?? undefined,
+    });
+    return;
+  }
+
+  const { request } = result;
+  const amount = formatMoney(request.feeCents, request.currency);
+
+  if (request.feePayeeUserId) {
+    await notify({
+      userId: request.feePayeeUserId,
+      category: "BREEDING",
+      type: "breeding.fee_paid",
+      title: "Stud fee paid",
+      body: `${amount} is held by PetMate and is paid to you once the breeding is recorded.`,
+      url: `/dashboard/breeding/requests/${request.id}`,
+      entityType: "BREEDING_REQUEST",
+      entityId: request.id,
+    });
+  }
+  await notify({
+    userId: intent.userId,
+    category: "BREEDING",
+    type: "breeding.fee_held",
+    title: "Stud fee held securely",
+    body: "The other owner is paid only after the breeding is recorded. If it is cancelled, you get it back.",
+    url: `/dashboard/breeding/requests/${request.id}`,
+    entityType: "BREEDING_REQUEST",
+    entityId: request.id,
+  });
+}
+
+/**
+ * Pays a held stud fee to the stud's owner, less PetMate's commission (the
+ * amounts were fixed when the payment was started, so a plan change in between
+ * cannot move them).
+ *
+ * `FROZEN` is only released by staff resolving the payer's report; a plain
+ * release after the review window never touches a fee someone has disputed.
+ */
+export async function releaseBreedingFee(params: {
+  requestId: string;
+  reason: "PAYER_CONFIRMED" | "AUTO_RELEASE" | "STAFF_DECISION";
+  actorId?: string;
+}): Promise<{ released: boolean }> {
+  const fromStatuses = params.reason === "STAFF_DECISION" ? ["HELD", "FROZEN"] : ["HELD"];
+
+  const result = await db.$transaction(async (tx) => {
+    const request = await tx.breedingRequest.findUnique({
+      where: { id: params.requestId },
+      select: {
+        id: true,
+        feeCents: true,
+        currency: true,
+        feeCommissionCents: true,
+        feePayoutCents: true,
+        feePayeeUserId: true,
+        feePayerUserId: true,
+      },
+    });
+    if (!request) throw notFound("That breeding request");
+    if (!request.feePayeeUserId) return null;
+
+    const claimed = await tx.breedingRequest.updateMany({
+      where: { id: request.id, feeStatus: { in: fromStatuses } },
+      data: { feeStatus: "RELEASED", feeReleasedAt: new Date(), feeReleaseAt: null },
+    });
+    if (claimed.count === 0) return null;
+
+    await postTransaction(
+      {
+        kind: "ESCROW_RELEASE",
+        description: `Breeding fee release (${params.reason})`,
+        currency: request.currency,
+        referenceType: "BREEDING_REQUEST",
+        referenceId: request.id,
+        createdById: params.actorId,
+        entries: [
+          { account: accounts.escrow(request.currency), amountCents: -request.feeCents },
+          { account: accounts.platformRevenue(request.currency), amountCents: request.feeCommissionCents },
+          { account: accounts.userAvailable(request.feePayeeUserId, request.currency), amountCents: request.feePayoutCents },
+        ],
+      },
+      tx,
+    );
+
+    return request;
+  });
+
+  if (!result) return { released: false };
+
+  await notify({
+    userId: result.feePayeeUserId!,
+    category: "BREEDING",
+    type: "breeding.fee_released",
+    title: `${formatMoney(result.feePayoutCents, result.currency)} added to your wallet`,
+    body: "The stud fee for this breeding has been paid out, after PetMate's commission.",
+    url: "/dashboard/wallet",
+    entityType: "BREEDING_REQUEST",
+    entityId: result.id,
+  });
+
+  return { released: true };
 }
 
 // ---------------------------------------------------------------------------

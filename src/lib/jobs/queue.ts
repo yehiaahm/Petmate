@@ -21,6 +21,7 @@ export type JobType =
   | "appointment.remind"
   | "appointment.complete"
   | "escrow.autoRelease"
+  | "breeding.releaseFee"
   | "payouts.release"
   | "clinic.releaseHold"
   | "subscription.expire"

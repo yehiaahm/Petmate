@@ -355,6 +355,7 @@ export const PAYMENT_PURPOSE = [
   "FEATURED_LISTING",
   "AD_CAMPAIGN",
   "WALLET_TOPUP",
+  "BREEDING_FEE",
 ] as const;
 export type PaymentPurpose = (typeof PAYMENT_PURPOSE)[number];
 

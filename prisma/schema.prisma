@@ -767,6 +767,19 @@ model BreedingRequest {
   outcome        String? // SUCCESSFUL | UNSUCCESSFUL | CANCELLED
   conversationId String?
 
+  // A paid stud fee is collected by PetMate and held until the breeding is
+  // done, so neither owner has to trust the other with the money.
+  feeStatus          String    @default("NONE") // NONE | DUE | HELD | FROZEN | RELEASED | REFUNDED | REFUND_PENDING
+  feePayerUserId     String?
+  feePayeeUserId     String?
+  feePaymentIntentId String?
+  feeCommissionCents Int       @default(0)
+  feePayoutCents     Int       @default(0)
+  feePaidAt          DateTime?
+  feeReleaseAt       DateTime?
+  feeReleasedAt      DateTime?
+  feeRefundedAt      DateTime?
+
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   respondedAt DateTime?
@@ -780,6 +793,7 @@ model BreedingRequest {
   @@index([receiverUserId, status])
   @@index([initiatorUserId, status])
   @@index([status, createdAt])
+  @@index([feeStatus])
 }
 
 // ============================================================================

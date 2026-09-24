@@ -14,6 +14,7 @@ import {
   replyToSupportTicket,
 } from "@/lib/services/support.service";
 import { notify } from "@/lib/services/notification.service";
+import { resolveBreedingFee } from "@/lib/services/breeding-fee.service";
 import { cuidSchema, safeParagraph, safeText } from "@/lib/validation/common";
 import { ROLES } from "@/lib/constants";
 
@@ -210,6 +211,12 @@ export const POST = route({
       reason: safeText(300, 3),
     }),
     z.object({
+      action: z.literal("resolve-breeding-fee"),
+      requestId: cuidSchema,
+      decision: z.enum(["RELEASE", "REFUND"]),
+      note: safeText(300, 3),
+    }),
+    z.object({
       action: z.literal("support-status"),
       reference: z.string().trim().toUpperCase().regex(/^SUP-[A-Z0-9]{4,16}$/),
       status: z.enum(["OPEN", "AWAITING_USER", "RESOLVED", "CLOSED"]),
@@ -384,6 +391,10 @@ export const POST = route({
         await requirePermission("admin:finance");
         await rejectPayout(auth, body.payoutId, body.reason);
         return { ok: true };
+
+      case "resolve-breeding-fee":
+        await requirePermission("admin:finance");
+        return resolveBreedingFee(auth, body.requestId, body.decision, body.note);
 
       case "support-status":
         await requirePermission("admin:moderation");

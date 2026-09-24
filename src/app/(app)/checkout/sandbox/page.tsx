@@ -22,6 +22,7 @@ const PURPOSE_LABEL: Record<string, string> = {
   FEATURED_LISTING: "Featured listing",
   AD_CAMPAIGN: "Ad campaign",
   WALLET_TOPUP: "Wallet top-up",
+  BREEDING_FEE: "Stud fee (held in escrow)",
 };
 
 /**

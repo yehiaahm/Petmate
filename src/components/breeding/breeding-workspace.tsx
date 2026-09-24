@@ -780,7 +780,9 @@ function RequestList({ requests }: { requests: RequestSummary[] }) {
 
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold text-fg">
-                      {request.myPet.name} × {request.theirPet.name}
+                      <Link href={`/dashboard/breeding/requests/${request.id}`} className="hover:underline">
+                        {request.myPet.name} × {request.theirPet.name}
+                      </Link>
                     </p>
                     <p className="truncate text-xs text-fg-muted">
                       {request.isIncoming ? "From" : "To"} {request.counterparty.name} ·{" "}
@@ -858,6 +860,10 @@ function RequestList({ requests }: { requests: RequestSummary[] }) {
                     Agree to terms
                   </Button>
                 )}
+
+                <ButtonLink href={`/dashboard/breeding/requests/${request.id}`} size="sm" variant="outline">
+                  View details
+                </ButtonLink>
 
                 {request.conversationId && (
                   <ButtonLink

@@ -5,6 +5,8 @@ import { db } from "@/lib/db";
 import { listPendingPayouts } from "@/lib/payments/payout.service";
 import { assertLedgerBalanced, getBalance } from "@/lib/payments/ledger-core";
 import { PayoutQueue } from "@/components/admin/payout-queue";
+import { BreedingFeeQueue } from "@/components/admin/breeding-fee-queue";
+import { listBreedingFeesNeedingReview } from "@/lib/services/breeding-fee.service";
 import { PageHeader, Card, CardHeader, Stat, Badge, Alert } from "@/components/ui/primitives";
 import { formatMoney } from "@/lib/money";
 import { formatDate } from "@/lib/utils";
@@ -18,7 +20,7 @@ export const metadata: Metadata = {
 export default async function FinancePage() {
   await requirePermission("admin:finance");
 
-  const [payouts, ledger, escrowHeld, revenue, recentRefunds] = await Promise.all([
+  const [payouts, ledger, escrowHeld, revenue, recentRefunds, heldFees] = await Promise.all([
     listPendingPayouts(),
     assertLedgerBalanced(),
     getBalance({ ownerType: "ESCROW", ownerId: "escrow", kind: "ESCROW", currency: PLATFORM_CURRENCY }),
@@ -35,6 +37,7 @@ export default async function FinancePage() {
         createdAt: true,
       },
     }),
+    listBreedingFeesNeedingReview(),
   ]);
 
   // Resolve the owner of each pending payout so the queue shows a name rather
@@ -150,6 +153,32 @@ export default async function FinancePage() {
               destination: p.destination,
               requestedAt: p.requestedAt.toISOString(),
             }))}
+          />
+        </div>
+      </section>
+
+      <section className="mt-6">
+        <h2 className="font-display text-xl font-semibold text-fg">Stud fees on hold</h2>
+        <p className="mt-1 text-sm text-fg-muted">
+          The fee is in escrow. The payer&rsquo;s report is a payment support ticket carrying the
+          request id; read both sides there before deciding.
+        </p>
+        <div className="mt-4">
+          <BreedingFeeQueue
+            fees={heldFees.map((f) => {
+              const payerIsInitiator = f.feePayerUserId === f.initiatorUser.id;
+              return {
+                id: f.id,
+                feeStatus: f.feeStatus,
+                feeCents: f.feeCents,
+                payoutCents: f.feePayoutCents,
+                currency: f.currency,
+                pairing: `${f.initiatorPet.name} × ${f.receiverPet.name}`,
+                payer: payerIsInitiator ? f.initiatorUser.name : f.receiverUser.name,
+                payee: payerIsInitiator ? f.receiverUser.name : f.initiatorUser.name,
+                updatedAt: f.updatedAt.toISOString(),
+              };
+            })}
           />
         </div>
       </section>

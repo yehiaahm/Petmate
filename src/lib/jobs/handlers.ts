@@ -12,6 +12,7 @@ import { awardAccountAgeSignals } from "@/lib/services/trust.service";
 import { pruneAuthArtifacts } from "@/lib/services/auth.service";
 import { pruneAnalytics } from "@/lib/services/analytics.service";
 import { autoReleaseEscrow } from "@/lib/services/petorder.service";
+import { autoReleaseBreedingFee } from "@/lib/services/breeding-fee.service";
 import { cancelOrder } from "@/lib/services/commerce.service";
 import { expireSubscription } from "@/lib/services/subscription.service";
 import { releaseSellerHold, releaseClinicHold } from "@/lib/payments/settlement";
@@ -110,6 +111,12 @@ const handlers: Record<JobType, Handler> = {
     if (!petOrderId) return "missing petOrderId";
     await autoReleaseEscrow(petOrderId);
     return "checked";
+  },
+
+  async "breeding.releaseFee"(payload) {
+    const requestId = String(payload.requestId ?? "");
+    if (!requestId) return "missing requestId";
+    return autoReleaseBreedingFee(requestId);
   },
 
   async "payouts.release"(payload) {

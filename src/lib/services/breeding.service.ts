@@ -28,6 +28,8 @@ import {
 } from "@/lib/validation/common";
 import { BREEDING_FEE_TYPE, LIMITS } from "@/lib/constants";
 import { PLATFORM_CURRENCY } from "@/lib/currency";
+import { formatMoney } from "@/lib/money";
+import { applyOutcomeToFee, feeParties, isPaidArrangement, breedingCommission } from "./breeding-fee.service";
 
 /**
  * The breeding network.
@@ -681,6 +683,12 @@ export async function proposeTerms(
       // agreed to before the other side changed them.
       initiatorAgreedAt: null,
       receiverAgreedAt: null,
+      // Nothing can have been paid before agreement, so this never discards money.
+      feeStatus: "NONE",
+      feePayerUserId: null,
+      feePayeeUserId: null,
+      feeCommissionCents: 0,
+      feePayoutCents: 0,
     },
   });
 
@@ -722,12 +730,23 @@ export async function agreeToTerms(auth: AuthContext, requestId: string) {
   });
 
   const bothAgreed = Boolean(updated.initiatorAgreedAt && updated.receiverAgreedAt);
+  let parties: ReturnType<typeof feeParties> | null = null;
 
   if (bothAgreed) {
+    // A paid arrangement becomes a fee owed through PetMate the moment both
+    // owners are bound by it. Guarded on NONE so agreeing again never reopens
+    // a fee that has already been paid.
+    parties = isPaidArrangement(request) ? feeParties(request) : null;
     await db.breedingRequest.update({
       where: { id: requestId },
       data: { status: request.scheduledAt ? "SCHEDULED" : "AGREED" },
     });
+    if (parties) {
+      await db.breedingRequest.updateMany({
+        where: { id: requestId, feeStatus: "NONE" },
+        data: { feeStatus: "DUE", feePayerUserId: parties.payerUserId, feePayeeUserId: parties.payeeUserId },
+      });
+    }
 
     await audit({
       action: "breeding.agreed",
@@ -756,9 +775,22 @@ export async function agreeToTerms(auth: AuthContext, requestId: string) {
       entityType: "BREEDING_REQUEST",
       entityId: requestId,
     });
+
+    if (parties) {
+      await notify({
+        userId: parties.payerUserId,
+        category: "BREEDING",
+        type: "breeding.fee_due",
+        title: "Pay the stud fee to confirm",
+        body: `${formatMoney(request.feeCents, request.currency)} is held by PetMate until the breeding is recorded, and refunded if it is cancelled.`,
+        url: `/dashboard/breeding/requests/${requestId}`,
+        entityType: "BREEDING_REQUEST",
+        entityId: requestId,
+      });
+    }
   }
 
-  return { bothAgreed };
+  return { bothAgreed, feeDue: Boolean(parties && bothAgreed) };
 }
 
 export async function recordBreedingOutcome(
@@ -776,15 +808,32 @@ export async function recordBreedingOutcome(
     throw conflict("Only an agreed breeding can be completed.");
   }
 
+  // A paid arrangement settles through PetMate: the fee has to be in escrow
+  // before the breeding is recorded as done.
+  if (input.outcome !== "CANCELLED" && request.feeStatus === "DUE") {
+    throw conflict("The agreed stud fee has to be paid through PetMate before the breeding is recorded.");
+  }
+  // Once the fee is held, only the stud's owner can call the breeding off,
+  // which refunds it. Otherwise the payer could take the fee back afterwards.
+  if (input.outcome === "CANCELLED" && request.feeStatus === "HELD" && request.feePayerUserId === auth.user.id) {
+    throw conflict(
+      "The stud fee is held for this breeding. Ask the other owner to cancel, which refunds you in full, or report a problem.",
+    );
+  }
+  if (request.feeStatus === "FROZEN") {
+    throw conflict("This breeding is under review by our team.");
+  }
+
   await db.$transaction(async (tx) => {
-    await tx.breedingRequest.update({
-      where: { id: requestId },
+    const moved = await tx.breedingRequest.updateMany({
+      where: { id: requestId, status: { in: ["AGREED", "SCHEDULED"] } },
       data: {
         status: input.outcome === "CANCELLED" ? "CANCELLED" : "COMPLETED",
         outcome: input.outcome,
         completedAt: new Date(),
       },
     });
+    if (moved.count === 0) throw conflict("This breeding has already been recorded.");
 
     if (input.outcome === "SUCCESSFUL") {
       const dam =
@@ -808,7 +857,8 @@ export async function recordBreedingOutcome(
           data: { timesBred: { increment: 1 }, successfulBreedings: { increment: 1 } },
         });
       }
-    } else {
+    } else if (input.outcome === "UNSUCCESSFUL") {
+      // A cancelled breeding never happened, so it does not count as one.
       for (const petId of [request.initiatorPetId, request.receiverPetId]) {
         await tx.breedingProfile.updateMany({
           where: { petId },
@@ -829,6 +879,8 @@ export async function recordBreedingOutcome(
     );
   });
 
+  await applyOutcomeToFee(auth, requestId, input.outcome);
+
   const otherUserId =
     request.initiatorUserId === auth.user.id ? request.receiverUserId : request.initiatorUserId;
 
@@ -836,7 +888,12 @@ export async function recordBreedingOutcome(
     userId: otherUserId,
     category: "BREEDING",
     type: "breeding.completed",
-    title: `Breeding marked ${input.outcome.toLowerCase()}`,
+    title:
+      input.outcome === "SUCCESSFUL"
+        ? "Breeding recorded as successful"
+        : input.outcome === "UNSUCCESSFUL"
+          ? "Breeding recorded as unsuccessful"
+          : "Breeding cancelled",
     body: input.notes ?? "",
     url: `/dashboard/breeding/requests/${requestId}`,
     entityType: "BREEDING_REQUEST",
@@ -857,6 +914,11 @@ async function requireParty(auth: AuthContext, requestId: string) {
       conversationId: true,
       termsText: true,
       scheduledAt: true,
+      feeType: true,
+      feeCents: true,
+      currency: true,
+      feeStatus: true,
+      feePayerUserId: true,
       initiatorPet: { select: { sex: true } },
     },
   });
@@ -933,6 +995,92 @@ export async function listBreedingRequests(
     theyAgreed:
       r.initiatorUserId === auth.user.id ? Boolean(r.receiverAgreedAt) : Boolean(r.initiatorAgreedAt),
   }));
+}
+
+/** One request, as either owner sees it, with everything the request page acts on. */
+export async function getBreedingRequest(auth: AuthContext, requestId: string) {
+  const request = await db.breedingRequest.findUnique({
+    where: { id: requestId },
+    select: {
+      id: true,
+      status: true,
+      message: true,
+      compatibilityScore: true,
+      feeCents: true,
+      currency: true,
+      feeType: true,
+      termsText: true,
+      termsProposedById: true,
+      scheduledAt: true,
+      locationNote: true,
+      outcome: true,
+      completedAt: true,
+      createdAt: true,
+      initiatorUserId: true,
+      receiverUserId: true,
+      initiatorAgreedAt: true,
+      receiverAgreedAt: true,
+      conversationId: true,
+      feeStatus: true,
+      feePayerUserId: true,
+      feePayeeUserId: true,
+      feePaymentIntentId: true,
+      feeCommissionCents: true,
+      feePayoutCents: true,
+      feePaidAt: true,
+      feeReleaseAt: true,
+      feeReleasedAt: true,
+      feeRefundedAt: true,
+      initiatorPet: {
+        select: {
+          id: true,
+          name: true,
+          sex: true,
+          breed: { select: { name: true } },
+          photos: { where: { isPrimary: true }, take: 1, select: { url: true } },
+        },
+      },
+      receiverPet: {
+        select: {
+          id: true,
+          name: true,
+          sex: true,
+          breed: { select: { name: true } },
+          photos: { where: { isPrimary: true }, take: 1, select: { url: true } },
+        },
+      },
+      initiatorUser: { select: { id: true, name: true, handle: true, avatarUrl: true } },
+      receiverUser: { select: { id: true, name: true, handle: true, avatarUrl: true } },
+    },
+  });
+  if (!request) throw notFound("That request");
+  if (request.initiatorUserId !== auth.user.id && request.receiverUserId !== auth.user.id) {
+    throw notFound("That request");
+  }
+
+  const isInitiator = request.initiatorUserId === auth.user.id;
+
+  // Before payment the split is an estimate on the stud owner's current plan;
+  // from payment on it is the amount fixed on the request.
+  let commissionCents = request.feeCommissionCents;
+  let payoutCents = request.feePayoutCents;
+  if (request.feeStatus === "DUE" && request.feePayeeUserId) {
+    ({ commissionCents, payoutCents } = await breedingCommission(request.feePayeeUserId, request.feeCents));
+  }
+
+  return {
+    ...request,
+    isIncoming: !isInitiator,
+    myPet: isInitiator ? request.initiatorPet : request.receiverPet,
+    theirPet: isInitiator ? request.receiverPet : request.initiatorPet,
+    counterparty: isInitiator ? request.receiverUser : request.initiatorUser,
+    iAgreed: Boolean(isInitiator ? request.initiatorAgreedAt : request.receiverAgreedAt),
+    theyAgreed: Boolean(isInitiator ? request.receiverAgreedAt : request.initiatorAgreedAt),
+    iPayFee: request.feePayerUserId === auth.user.id,
+    iReceiveFee: request.feePayeeUserId === auth.user.id,
+    commissionCents,
+    payoutCents,
+  };
 }
 
 /** Refreshes cached match scores. Run by `breeding.refreshMatches`. */

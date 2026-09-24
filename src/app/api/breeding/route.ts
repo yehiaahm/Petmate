@@ -15,13 +15,20 @@ import {
   agreeToTerms,
   recordBreedingOutcome,
   listBreedingRequests,
+  getBreedingRequest,
 } from "@/lib/services/breeding.service";
+import {
+  startBreedingFeePayment,
+  confirmBreedingFeeRelease,
+  reportBreedingFeeProblem,
+} from "@/lib/services/breeding-fee.service";
 import { cuidSchema, optionalText, safeParagraph } from "@/lib/validation/common";
 
 export const GET = route({
   auth: true,
   query: z.object({
-    mode: z.enum(["requests", "matches", "explain"]).default("requests"),
+    mode: z.enum(["requests", "request", "matches", "explain"]).default("requests"),
+    requestId: cuidSchema.optional(),
     direction: z.enum(["incoming", "outgoing", "all"]).default("all"),
     petId: cuidSchema.optional(),
     otherPetId: cuidSchema.optional(),
@@ -44,6 +51,11 @@ export const GET = route({
       if (!query.petId || !query.otherPetId) return { compatibility: null };
       const compatibility = await explainMatch(auth, query.petId, query.otherPetId);
       return { compatibility };
+    }
+
+    if (query.mode === "request") {
+      if (!query.requestId) return { request: null };
+      return { request: await getBreedingRequest(auth, query.requestId) };
     }
 
     const requests = await listBreedingRequests(auth, query.direction);
@@ -76,6 +88,13 @@ export const POST = route({
       outcome: z.enum(["SUCCESSFUL", "UNSUCCESSFUL", "CANCELLED"]),
       expectedAt: z.string().datetime({ offset: true }).optional(),
       notes: safeParagraph(1000, 0).optional(),
+    }),
+    z.object({ action: z.literal("pay-fee"), requestId: cuidSchema }),
+    z.object({ action: z.literal("release-fee"), requestId: cuidSchema }),
+    z.object({
+      action: z.literal("report-fee"),
+      requestId: cuidSchema,
+      details: safeParagraph(2000, 20),
     }),
   ]),
   async handler({ body }) {
@@ -110,6 +129,12 @@ export const POST = route({
           notes: body.notes,
         });
         return { ok: true };
+      case "pay-fee":
+        return { payment: await startBreedingFeePayment(auth, body.requestId) };
+      case "release-fee":
+        return confirmBreedingFeeRelease(auth, body.requestId);
+      case "report-fee":
+        return reportBreedingFeeProblem(auth, body.requestId, body.details);
     }
   },
 });
