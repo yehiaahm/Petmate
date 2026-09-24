@@ -61,6 +61,12 @@ export const POST = route({
         // The request body carries an address and nothing else that costs money.
         const order = await createOrder(auth, body.shipping);
 
+        // Cash on delivery: the order is already with the shops and nothing is
+        // charged now, so there is no payment step to send the buyer to.
+        if (order.paymentMethod === "COD") {
+          return { order, payment: null, redirectUrl: `/dashboard/orders/${order.id}` };
+        }
+
         const payment = await createPayment({
           userId: auth.user.id,
           purpose: "PRODUCT_ORDER",

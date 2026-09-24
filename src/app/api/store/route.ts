@@ -4,6 +4,7 @@ import { requireActive } from "@/lib/auth/rbac";
 import {
   searchProducts,
   createShop,
+  updateShop,
   shopSchema,
   createProduct,
   productSchema,
@@ -65,6 +66,7 @@ export const POST = route({
   verifiedEmail: true,
   body: z.discriminatedUnion("action", [
     z.object({ action: z.literal("create-shop"), shop: shopSchema }),
+    z.object({ action: z.literal("update-shop"), shopId: cuidSchema, shop: shopSchema.partial() }),
     z.object({ action: z.literal("create-product"), shopId: cuidSchema, product: productSchema }),
     z.object({
       action: z.literal("update-product"),
@@ -90,6 +92,10 @@ export const POST = route({
     switch (body.action) {
       case "create-shop": {
         const shop = await createShop(auth, body.shop);
+        return { shop };
+      }
+      case "update-shop": {
+        const shop = await updateShop(auth, body.shopId, body.shop);
         return { shop };
       }
       case "create-product": {

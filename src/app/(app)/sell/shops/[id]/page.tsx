@@ -10,6 +10,8 @@ import { PageHeader, Breadcrumbs, Alert, Card, CardHeader, Badge, Stat } from "@
 import { ButtonLink } from "@/components/ui/button";
 import { ProductTable } from "@/components/sell/product-table";
 import { ProductImport } from "@/components/sell/product-import";
+import { ShopSettings } from "@/components/sell/shop-settings";
+import { getSettings } from "@/lib/settings";
 
 export async function generateMetadata(): Promise<Metadata> {
   const { t } = await getI18n();
@@ -24,7 +26,7 @@ export default async function ShopConsolePage({ params }: { params: Promise<{ id
     if (isAppError(error) && error.code === "NOT_FOUND") notFound();
     throw error;
   });
-  const entitlements = await getEntitlements(auth.user.id);
+  const [entitlements, settings] = await Promise.all([getEntitlements(auth.user.id), getSettings()]);
 
   const active = shop.status === "ACTIVE";
   const onSale = products.filter((p) => p.status === "ACTIVE").length;
@@ -99,6 +101,22 @@ export default async function ShopConsolePage({ params }: { params: Promise<{ id
               soldCount: p.soldCount,
               image: p.images[0] ?? null,
             }))}
+          />
+        </div>
+      </Card>
+
+      <Card className="mt-6">
+        <CardHeader title={t("Payment and shipping")} />
+        <div className="p-5">
+          <ShopSettings
+            shopId={shop.id}
+            initial={{
+              acceptsCod: shop.acceptsCod,
+              flatShippingCents: shop.flatShippingCents,
+              freeShippingThresholdCents: shop.freeShippingThresholdCents,
+            }}
+            codEnabled={settings.codEnabled}
+            codCap={fmt.money(settings.codMaxOrderCents)}
           />
         </div>
       </Card>

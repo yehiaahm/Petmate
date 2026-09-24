@@ -46,9 +46,29 @@ const serverSchema = z.object({
   // With no Stripe key the platform runs on the internal double-entry ledger
   // provider, which is a real implementation (see lib/payments/ledger.ts), not
   // a stub that pretends a charge happened.
-  PAYMENT_PROVIDER: z.enum(["ledger", "stripe"]).default("ledger"),
+  PAYMENT_PROVIDER: z.enum(["ledger", "stripe", "paymob"]).default("ledger"),
   STRIPE_SECRET_KEY: z.string().optional(),
   STRIPE_WEBHOOK_SECRET: z.string().optional(),
+
+  // Paymob (Egypt): cards, mobile wallets, kiosk and instalments through one
+  // hosted checkout. All four values come from the Paymob dashboard,
+  // Settings → API Keys and Settings → Payment Integrations.
+  PAYMOB_SECRET_KEY: z.string().optional(),
+  PAYMOB_PUBLIC_KEY: z.string().optional(),
+  PAYMOB_HMAC_SECRET: z.string().optional(),
+  /** Comma-separated integration IDs, one per payment method offered at checkout. */
+  PAYMOB_INTEGRATION_IDS: z
+    .string()
+    .optional()
+    .transform((v) =>
+      (v ?? "")
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .map(Number),
+    )
+    .refine((ids) => ids.every((n) => Number.isInteger(n) && n > 0), "PAYMOB_INTEGRATION_IDS must be comma-separated integers"),
+  PAYMOB_BASE_URL: z.string().url().default("https://accept.paymob.com"),
 
   // ---- Email --------------------------------------------------------------
   // "outbox" writes to the EmailMessage table and renders at /dev/mailbox.
@@ -152,6 +172,16 @@ export function env(): ServerEnv {
   return cachedServerEnv;
 }
 
+/**
+ * Tests only: forget the parsed environment so the next `env()` re-reads
+ * `process.env`. Lets a test switch the payment provider without a new
+ * process. Refuses to run anywhere else.
+ */
+export function resetEnvForTests(): void {
+  if (process.env.NODE_ENV !== "test") throw new Error("resetEnvForTests is only for tests");
+  cachedServerEnv = null;
+}
+
 export const isProduction = () => process.env.NODE_ENV === "production";
 export const isTest = () => process.env.NODE_ENV === "test";
 export const isDevelopment = () => process.env.NODE_ENV === "development";
@@ -183,6 +213,18 @@ export function productionReadiness(): string[] {
   }
   if (e.PAYMENT_PROVIDER === "stripe" && !e.STRIPE_WEBHOOK_SECRET) {
     problems.push("PAYMENT_PROVIDER=stripe requires STRIPE_WEBHOOK_SECRET");
+  }
+  if (e.PAYMENT_PROVIDER === "ledger") {
+    problems.push("PAYMENT_PROVIDER=ledger is the sandbox and takes no real money; configure paymob or stripe");
+  }
+  if (e.PAYMENT_PROVIDER === "paymob") {
+    if (!e.PAYMOB_SECRET_KEY) problems.push("PAYMENT_PROVIDER=paymob requires PAYMOB_SECRET_KEY");
+    if (!e.PAYMOB_PUBLIC_KEY) problems.push("PAYMENT_PROVIDER=paymob requires PAYMOB_PUBLIC_KEY");
+    // Without it no callback can be verified, and an unverified callback is
+    // anyone on the internet announcing that an order was paid.
+    if (!e.PAYMOB_HMAC_SECRET) problems.push("PAYMENT_PROVIDER=paymob requires PAYMOB_HMAC_SECRET");
+    if (!e.PAYMOB_INTEGRATION_IDS.length) problems.push("PAYMENT_PROVIDER=paymob requires PAYMOB_INTEGRATION_IDS");
+    if (e.PAYMOB_SECRET_KEY?.includes("_test_")) problems.push("PAYMOB_SECRET_KEY is a test key");
   }
   if (e.EMAIL_PROVIDER === "outbox") {
     problems.push("EMAIL_PROVIDER=outbox does not deliver mail; configure resend or smtp");

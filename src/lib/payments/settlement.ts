@@ -1,5 +1,5 @@
 import "server-only";
-import { db } from "@/lib/db";
+import { db, type Tx } from "@/lib/db";
 import { AppError, notFound } from "@/lib/errors";
 import { logger } from "@/lib/logger";
 import { formatMoney, distributeCents } from "@/lib/money";
@@ -81,44 +81,168 @@ type SettlementIntent = {
 // Product orders
 // ---------------------------------------------------------------------------
 
+const ORDER_FOR_FULFILMENT = {
+  id: true,
+  orderNumber: true,
+  buyerId: true,
+  status: true,
+  paymentMethod: true,
+  totalCents: true,
+  shippingCents: true,
+  subtotalCents: true,
+  currency: true,
+  shippingName: true,
+  shippingLine1: true,
+  shippingCity: true,
+  shippingCountry: true,
+  shippingPhone: true,
+  items: {
+    select: {
+      id: true,
+      shopId: true,
+      titleSnapshot: true,
+      quantity: true,
+      totalCents: true,
+      commissionCents: true,
+      sellerEarningsCents: true,
+      fulfillmentStatus: true,
+    },
+  },
+} as const;
+
+type FulfilmentOrder = {
+  id: string;
+  orderNumber: string;
+  buyerId: string;
+  shippingCents: number;
+  totalCents: number;
+  currency: string;
+  shippingName: string;
+  shippingLine1: string;
+  shippingCity: string;
+  shippingCountry: string;
+  items: { id: string; shopId: string; totalCents: number; sellerEarningsCents: number; commissionCents: number }[];
+};
+
+type OrderNotification =
+  | { kind: "buyer"; userId: string; orderNumber: string; total: string; itemCount: number; orderId: string; cod: boolean }
+  | { kind: "seller"; userId: string; shopName: string; orderNumber: string; orderId: string; cod: boolean };
+
+/** Each shop's share of the shipping charge, split in proportion to its part of the basket. */
+function shippingByShop(order: { shippingCents: number; items: { shopId: string; totalCents: number }[] }): Map<string, number> {
+  const shopIds = [...new Set(order.items.map((i) => i.shopId))];
+  const totals = shopIds.map((id) => order.items.filter((i) => i.shopId === id).reduce((a, i) => a + i.totalCents, 0));
+  const split = distributeCents(order.shippingCents, totals);
+  return new Map(shopIds.map((id, i) => [id, split[i] ?? 0]));
+}
+
+/**
+ * Hands a confirmed order to its shops: one delivery per shop (a basket from
+ * three sellers is three parcels), the shops' order counts, the items opened
+ * for fulfilment, and who to tell. Shared by a paid order and a cash-on-
+ * delivery one, which differ only in where the money is.
+ */
+async function openFulfilment(tx: Tx, order: FulfilmentOrder, cod: boolean): Promise<OrderNotification[]> {
+  const shopIds = [...new Set(order.items.map((i) => i.shopId))];
+
+  for (const shopId of shopIds) {
+    await tx.delivery.create({
+      data: {
+        orderId: order.id,
+        shopId,
+        trackingNumber: `PMD-${readableCode(10)}`,
+        status: "PENDING",
+        recipientName: order.shippingName,
+        addressLine: order.shippingLine1,
+        city: order.shippingCity,
+        country: order.shippingCountry,
+        // A placeholder until dispatch issues the real code to the buyer; only
+        // hashes are ever stored.
+        otpHash: createHash("sha256").update(readableCode(6)).digest("hex"),
+        events: { create: { status: "PENDING", note: "Awaiting seller dispatch" } },
+      },
+    });
+    await tx.shop.update({ where: { id: shopId }, data: { orderCount: { increment: 1 } } });
+  }
+
+  await tx.orderItem.updateMany({ where: { orderId: order.id }, data: { fulfillmentStatus: "PENDING" } });
+
+  const sellerOwners = await tx.shop.findMany({
+    where: { id: { in: shopIds } },
+    select: { id: true, ownerUserId: true, name: true },
+  });
+
+  return [
+    {
+      kind: "buyer",
+      userId: order.buyerId,
+      orderNumber: order.orderNumber,
+      total: formatMoney(order.totalCents, order.currency),
+      itemCount: order.items.length,
+      orderId: order.id,
+      cod,
+    },
+    ...sellerOwners.map((s) => ({
+      kind: "seller" as const,
+      userId: s.ownerUserId,
+      shopName: s.name,
+      orderNumber: order.orderNumber,
+      orderId: order.id,
+      cod,
+    })),
+  ];
+}
+
+async function sendOrderNotifications(notifications: OrderNotification[]): Promise<void> {
+  for (const n of notifications) {
+    if (n.kind === "buyer") {
+      await notify({
+        userId: n.userId,
+        category: "ORDER",
+        type: "order.confirmed",
+        title: `Order ${n.orderNumber} confirmed`,
+        body: n.cod
+          ? `${n.itemCount} item${n.itemCount === 1 ? "" : "s"} · pay ${n.total} in cash on delivery`
+          : `${n.itemCount} item${n.itemCount === 1 ? "" : "s"} · ${n.total}`,
+        url: `/dashboard/orders/${n.orderId}`,
+        entityType: "ORDER",
+        entityId: n.orderId,
+        email: () =>
+          emailTemplates.orderConfirmation({
+            name: "",
+            orderNumber: n.orderNumber,
+            total: n.total,
+            itemCount: n.itemCount,
+            url: url(`/dashboard/orders/${n.orderId}`),
+          }),
+      });
+    } else {
+      await notify({
+        userId: n.userId,
+        category: "ORDER",
+        type: "order.received",
+        title: "You have a new order",
+        body: n.cod
+          ? `Order ${n.orderNumber} is ready to pack. The buyer pays cash on delivery.`
+          : `Order ${n.orderNumber} is ready to pack.`,
+        url: `/sell/orders`,
+        entityType: "ORDER",
+        entityId: n.orderId,
+      });
+    }
+  }
+}
+
 async function settleProductOrder(intent: SettlementIntent): Promise<void> {
   const settings = await getSettings();
 
   const notifications = await db.$transaction(async (tx) => {
-    const order = await tx.order.findUnique({
-      where: { id: intent.referenceId! },
-      select: {
-        id: true,
-        orderNumber: true,
-        buyerId: true,
-        status: true,
-        totalCents: true,
-        shippingCents: true,
-        subtotalCents: true,
-        currency: true,
-        shippingName: true,
-        shippingLine1: true,
-        shippingCity: true,
-        shippingCountry: true,
-        shippingPhone: true,
-        items: {
-          select: {
-            id: true,
-            shopId: true,
-            titleSnapshot: true,
-            quantity: true,
-            totalCents: true,
-            commissionCents: true,
-            sellerEarningsCents: true,
-          },
-        },
-      },
-    });
+    const order = await tx.order.findUnique({ where: { id: intent.referenceId! }, select: ORDER_FOR_FULFILMENT });
     if (!order) throw notFound("That order");
 
     // Conditional transition: a replayed settlement finds nothing to update.
     const claimed = await tx.order.updateMany({
-      where: { id: order.id, status: "PENDING_PAYMENT" },
+      where: { id: order.id, status: "PENDING_PAYMENT", paymentMethod: "ONLINE" },
       data: { status: "PAID", placedAt: new Date(), paymentIntentId: intent.id },
     });
     if (claimed.count === 0) {
@@ -128,26 +252,18 @@ async function settleProductOrder(intent: SettlementIntent): Promise<void> {
 
     // Shipping is revenue for whoever ships the parcel, split across shops in
     // proportion to their share of the basket so the cents always add up.
-    const shopIds = [...new Set(order.items.map((i) => i.shopId))];
-    const shopTotals = shopIds.map((id) =>
-      order.items.filter((i) => i.shopId === id).reduce((a, i) => a + i.totalCents, 0),
-    );
-    const shippingSplit = distributeCents(order.shippingCents, shopTotals);
-
+    const shipping = shippingByShop(order);
     const platformFee = order.items.reduce((a, i) => a + i.commissionCents, 0);
 
     const entries = [
       { account: accounts.external(order.currency), amountCents: -order.totalCents },
       { account: accounts.platformRevenue(order.currency), amountCents: platformFee },
     ];
-
-    shopIds.forEach((shopId, i) => {
+    for (const [shopId, shippingShare] of shipping) {
       const earnings =
-        order.items
-          .filter((it) => it.shopId === shopId)
-          .reduce((a, it) => a + it.sellerEarningsCents, 0) + (shippingSplit[i] ?? 0);
+        order.items.filter((it) => it.shopId === shopId).reduce((a, it) => a + it.sellerEarningsCents, 0) + shippingShare;
       entries.push({ account: accounts.sellerPending(shopId, order.currency), amountCents: earnings });
-    });
+    }
 
     await postTransaction(
       {
@@ -162,34 +278,7 @@ async function settleProductOrder(intent: SettlementIntent): Promise<void> {
       tx,
     );
 
-    // One delivery per shop: a basket from three sellers is three parcels.
-    for (const shopId of shopIds) {
-      await tx.delivery.create({
-        data: {
-          orderId: order.id,
-          shopId,
-          trackingNumber: `PMD-${readableCode(10)}`,
-          status: "PENDING",
-          recipientName: order.shippingName,
-          addressLine: order.shippingLine1,
-          city: order.shippingCity,
-          country: order.shippingCountry,
-          // Hashed: the courier app verifies it, the buyer is the only one who
-          // ever sees the code itself.
-          otpHash: createHash("sha256").update(readableCode(6)).digest("hex"),
-          events: { create: { status: "PENDING", note: "Awaiting seller dispatch" } },
-        },
-      });
-
-      await tx.shop.update({ where: { id: shopId }, data: { orderCount: { increment: 1 } } });
-    }
-
-    for (const item of order.items) {
-      await tx.orderItem.update({
-        where: { id: item.id },
-        data: { fulfillmentStatus: "PENDING" },
-      });
-    }
+    const toSend = await openFulfilment(tx, order, false);
 
     const lines: InvoiceLine[] = order.items.map((i) => ({
       description: `${i.titleSnapshot} x${i.quantity}`,
@@ -222,62 +311,188 @@ async function settleProductOrder(intent: SettlementIntent): Promise<void> {
       tx,
     );
 
-    const sellerOwners = await tx.shop.findMany({
-      where: { id: { in: shopIds } },
-      select: { id: true, ownerUserId: true, name: true },
-    });
-
-    return [
-      {
-        kind: "buyer" as const,
-        userId: order.buyerId,
-        orderNumber: order.orderNumber,
-        total: formatMoney(order.totalCents, order.currency),
-        itemCount: order.items.length,
-        orderId: order.id,
-      },
-      ...sellerOwners.map((s) => ({
-        kind: "seller" as const,
-        userId: s.ownerUserId,
-        shopName: s.name,
-        orderNumber: order.orderNumber,
-        orderId: order.id,
-      })),
-    ];
+    return toSend;
   });
 
-  for (const n of notifications) {
-    if (n.kind === "buyer") {
-      await notify({
-        userId: n.userId,
-        category: "ORDER",
-        type: "order.confirmed",
-        title: `Order ${n.orderNumber} confirmed`,
-        body: `${n.itemCount} item${n.itemCount === 1 ? "" : "s"} · ${n.total}`,
-        url: `/dashboard/orders/${n.orderId}`,
-        entityType: "ORDER",
-        entityId: n.orderId,
-        email: () =>
-          emailTemplates.orderConfirmation({
-            name: "",
-            orderNumber: n.orderNumber,
-            total: n.total,
-            itemCount: n.itemCount,
-            url: url(`/dashboard/orders/${n.orderId}`),
-          }),
-      });
-    } else {
-      await notify({
-        userId: n.userId,
-        category: "ORDER",
-        type: "order.received",
-        title: "You have a new order",
-        body: `Order ${n.orderNumber} is ready to pack.`,
-        url: `/sell/orders`,
-        entityType: "ORDER",
-        entityId: n.orderId,
+  await sendOrderNotifications(notifications);
+}
+
+/**
+ * Takes a refund's worth of a paid product order back from the shops that
+ * were credited for it, before the gateway refund is issued.
+ *
+ * At settlement the buyer's money was split: commission to the platform, the
+ * rest (goods plus shipping) to each shop's pending balance. A refund paid
+ * straight out of platform revenue would leave the shops keeping earnings on
+ * a sale that was undone. So the shops' share of the refund — the refund
+ * times their share of the order — is moved back to the platform, spread
+ * across shops by their earnings; the platform's own share is its commission
+ * being reversed. Earnings still in the hold window come back from pending,
+ * cleared earnings from available (which may go into debit, netted against
+ * the shop's next sales).
+ *
+ * Item `refundedCents` records the clawed-back earnings so that a hold
+ * release that has not run yet releases only what is left.
+ */
+export async function clawBackOrderEarnings(
+  tx: Tx,
+  params: { orderId: string; refundCents: number; actorId: string; reason: string },
+): Promise<void> {
+  const order = await tx.order.findUnique({
+    where: { id: params.orderId },
+    select: {
+      id: true,
+      orderNumber: true,
+      totalCents: true,
+      shippingCents: true,
+      currency: true,
+      paymentMethod: true,
+      items: { select: { id: true, shopId: true, totalCents: true, sellerEarningsCents: true, commissionCents: true, refundedCents: true } },
+    },
+  });
+  if (!order || order.paymentMethod !== "ONLINE" || order.totalCents <= 0 || params.refundCents <= 0) return;
+
+  const shipping = shippingByShop(order);
+  const shopIds = [...shipping.keys()];
+  const shopEarnings = shopIds.map(
+    (id) =>
+      order.items.filter((i) => i.shopId === id).reduce((a, i) => a + i.sellerEarningsCents, 0) + (shipping.get(id) ?? 0),
+  );
+  const totalEarnings = shopEarnings.reduce((a, b) => a + b, 0);
+  const refund = Math.min(params.refundCents, order.totalCents);
+  const clawback = Math.round((refund * totalEarnings) / order.totalCents);
+  if (clawback <= 0) return;
+
+  const perShop = distributeCents(clawback, shopEarnings);
+  const released = await tx.ledgerTransaction.findFirst({
+    where: { referenceType: "ORDER", referenceId: order.id, kind: "ADJUSTMENT" },
+    select: { id: true },
+  });
+
+  const entries: { account: ReturnType<typeof accounts.sellerPending>; amountCents: number }[] = [];
+  for (const [i, shopId] of shopIds.entries()) {
+    const amount = perShop[i] ?? 0;
+    if (amount <= 0) continue;
+    entries.push({
+      account: released ? accounts.sellerAvailable(shopId, order.currency) : accounts.sellerPending(shopId, order.currency),
+      amountCents: -amount,
+    });
+
+    // Recorded against the shop's items in proportion to their earnings, so
+    // a later hold release subtracts it.
+    const items = order.items.filter((it) => it.shopId === shopId);
+    const split = distributeCents(amount, items.map((it) => Math.max(1, it.sellerEarningsCents)));
+    for (const [j, item] of items.entries()) {
+      await tx.orderItem.update({
+        where: { id: item.id },
+        data: { refundedCents: { increment: split[j] ?? 0 } },
       });
     }
+  }
+  entries.push({ account: accounts.platformRevenue(order.currency), amountCents: clawback });
+
+  await postTransaction(
+    {
+      kind: "ADJUSTMENT",
+      description: `Earnings reversed for ${order.orderNumber} (${params.reason})`,
+      currency: order.currency,
+      referenceType: "ORDER_REFUND",
+      referenceId: order.id,
+      createdById: params.actorId,
+      entries,
+    },
+    tx,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Cash on delivery
+// ---------------------------------------------------------------------------
+
+/**
+ * Places a cash-on-delivery order: it goes to the shops straight away, as
+ * CONFIRMED rather than PAID, because nobody has paid yet. No ledger entry is
+ * written — no money has moved — until a parcel is delivered.
+ */
+export async function placeCashOnDeliveryOrder(orderId: string): Promise<void> {
+  const notifications = await db.$transaction(async (tx) => {
+    const order = await tx.order.findUnique({ where: { id: orderId }, select: ORDER_FOR_FULFILMENT });
+    if (!order) throw notFound("That order");
+
+    const claimed = await tx.order.updateMany({
+      where: { id: order.id, status: "PENDING_PAYMENT", paymentMethod: "COD" },
+      data: { status: "CONFIRMED", placedAt: new Date() },
+    });
+    if (claimed.count === 0) return [];
+
+    return openFulfilment(tx, order, true);
+  });
+
+  await sendOrderNotifications(notifications);
+}
+
+/**
+ * One shop's part of a COD order has been delivered, so the shop (or its
+ * courier) holds the buyer's cash — goods, plus that shop's share of the
+ * shipping. The platform's commission on it is charged against the shop's
+ * balance: it nets against the shop's next online sales, and a shop in debit
+ * cannot request a payout until it is cleared.
+ *
+ * Runs inside the caller's transaction, which is the one that marked the
+ * parcel delivered. `CodCollection`'s unique (orderId, shopId) index makes a
+ * second call for the same parcel fail rather than charge twice, whichever
+ * delivery path reports it first.
+ */
+export async function settleCashOnDelivery(tx: Tx, orderId: string, shopId: string): Promise<void> {
+  const order = await tx.order.findUnique({ where: { id: orderId }, select: ORDER_FOR_FULFILMENT });
+  if (!order || order.paymentMethod !== "COD") return;
+
+  // Already collected: re-marking a delivered parcel is a no-op. The unique
+  // index below still decides a genuine race between two delivery paths.
+  const existing = await tx.codCollection.findUnique({
+    where: { orderId_shopId: { orderId, shopId } },
+    select: { id: true },
+  });
+  if (existing) return;
+
+  const items = order.items.filter((i) => i.shopId === shopId && i.fulfillmentStatus !== "CANCELLED");
+  if (!items.length) return;
+
+  const shippingShare = shippingByShop(order).get(shopId) ?? 0;
+  const collected = items.reduce((a, i) => a + i.totalCents, 0) + shippingShare;
+  const commission = items.reduce((a, i) => a + i.commissionCents, 0);
+
+  await tx.codCollection.create({
+    data: { orderId, shopId, amountCents: collected, commissionCents: commission, currency: order.currency },
+  });
+
+  if (commission > 0) {
+    await postTransaction(
+      {
+        kind: "COMMISSION",
+        description: `Commission on cash collected for ${order.orderNumber}`,
+        currency: order.currency,
+        referenceType: "ORDER",
+        referenceId: order.id,
+        entries: [
+          { account: accounts.sellerAvailable(shopId, order.currency), amountCents: -commission },
+          { account: accounts.platformRevenue(order.currency), amountCents: commission },
+        ],
+      },
+      tx,
+    );
+  }
+
+  // The order counts as paid once every live parcel in it has been delivered
+  // and paid for at the door.
+  const remaining = await tx.orderItem.count({
+    where: { orderId, fulfillmentStatus: { notIn: ["DELIVERED", "CANCELLED"] } },
+  });
+  if (remaining === 0) {
+    await tx.order.updateMany({
+      where: { id: orderId, status: { notIn: ["CANCELLED", "REFUNDED"] } },
+      data: { status: "DELIVERED" },
+    });
   }
 }
 

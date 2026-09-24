@@ -107,7 +107,53 @@ that price ignored.
 - Post to the ledger like everything else, so the books still balance
   afterwards.
 
+## Refunds of store orders
+
+A store order's money was split at settlement: commission to the platform,
+goods and shipping to each shop's pending balance. A refund therefore first
+takes the shops' share back (`clawBackOrderEarnings`) — from pending if the
+hold window has not passed, otherwise from available, which may go into debit —
+and only then returns the money through the gateway. The platform's own share
+of the refund is its commission being reversed. Cancelling a paid order that
+has not shipped does all of this automatically; so does a dispute refund.
+
+## Cash on delivery
+
+Most Egyptian e-commerce is paid at the door, so a shop can opt in
+(`Shop.acceptsCod`) and buyers can choose it when every shop in the basket
+takes cash and the total is under `codMaxOrderCents`.
+
+1. The order is `CONFIRMED`, not `PAID`: it goes to the shops straight away and
+   nothing is written to the ledger, because no money has moved.
+2. When a shop's parcel is delivered — confirmed with the buyer's code by the
+   courier, or marked delivered by a shop that delivers itself — that shop
+   holds the cash. Its commission is charged against its balance:
+
+```
+COMMISSION — Commission on cash collected for PM-XXXX
+    SHOP/AVAILABLE            -30.00
+    PLATFORM/REVENUE          +30.00
+```
+
+   `CodCollection` records the cash collected, and its unique
+   `(orderId, shopId)` index makes the charge happen once whichever path
+   reports the delivery first.
+3. A refused or returned parcel puts the stock back; there is nothing to refund.
+
+A shop in debit cannot request a payout until its online sales cover it.
+
 ## Providers
+
+`PAYMENT_PROVIDER=paymob` is the gateway for Egypt. The server creates an
+Intention (`POST /v1/intention/`, `Authorization: Token <secret key>`) and the
+buyer pays on Paymob's hosted Unified Checkout, so card and wallet details
+never reach PetMate. The payment is confirmed only by the Transaction
+Processed callback at `/api/webhooks/paymob`, whose `hmac` query parameter is
+an HMAC-SHA512 over twenty of the transaction's fields in Paymob's documented
+order; the redirect back to the site is only UX. A callback whose amount or
+currency differs from the intent is flagged, never settled. Refunds go through
+`/api/acceptance/void_refund/refund` with the transaction id kept from the
+callback.
 
 `PAYMENT_PROVIDER=ledger` is the default. It settles through the internal
 ledger and shows a clearly labelled sandbox confirmation screen that says no

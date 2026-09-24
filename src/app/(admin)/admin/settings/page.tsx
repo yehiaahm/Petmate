@@ -36,6 +36,12 @@ const GROUPS: { title: string; blurb: string; keys: (keyof typeof DEFAULT_SETTIN
     keys: ["escrowAutoReleaseHours", "disputeWindowDays", "payoutHoldDays", "minPayoutCents"],
   },
   {
+    title: "Cash on delivery",
+    blurb:
+      "Buyers pay the courier in cash. The shop's commission is charged against its balance when the parcel is delivered, so a cap keeps the amount a shop can owe in check.",
+    keys: ["codEnabled", "codMaxOrderCents"],
+  },
+  {
     title: "Marketplace",
     blurb: "Listing lifetime and what goes to a human before it goes live.",
     keys: ["listingDurationDays", "manualReviewPriceCents", "reviewAllListings"],

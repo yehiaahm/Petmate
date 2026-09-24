@@ -10,6 +10,7 @@ import { Field, Textarea } from "@/components/ui/field";
 import { Modal } from "@/components/ui/modal";
 import { FavoriteButton } from "./favorite-button";
 import { AdoptionApplicationForm } from "./adoption-application-form";
+import { goToPayment } from "@/lib/payment-redirect";
 import { api, ApiError } from "@/lib/api-client";
 import { uuid } from "@/lib/api-idempotency";
 
@@ -97,7 +98,7 @@ export function ContactSellerCard({
       });
 
       if (result.payment.redirectUrl) {
-        router.push(result.payment.redirectUrl);
+        goToPayment(result.payment.redirectUrl, router.push);
       } else {
         router.push(`/checkout/${result.payment.id}`);
       }

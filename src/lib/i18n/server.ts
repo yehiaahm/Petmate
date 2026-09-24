@@ -45,6 +45,8 @@ export interface I18n {
   locale: Locale;
   dir: "rtl" | "ltr";
   t: Translator;
+  /** Translates a sentence composed elsewhere, with its values already in. */
+  tm: (message: string) => string;
   fmt: Formatter;
 }
 
@@ -61,6 +63,7 @@ export function i18nFor(locale: Locale): I18n {
     locale,
     dir: localeDirection(locale),
     t: createTranslator(locale, messages),
+    tm: (message: string) => translateMessage(locale, messages, message),
     fmt: createFormatter(locale, messages),
   };
 }

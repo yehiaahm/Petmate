@@ -1019,7 +1019,11 @@ model Shop {
   orderCount   Int @default(0)
 
   freeShippingThresholdCents Int?
-  flatShippingCents          Int  @default(599)
+  flatShippingCents          Int  @default(6000)
+
+  /// The shop takes cash on delivery. Its commission on a COD order is charged
+  /// against its balance when the parcel is delivered (see CodCollection).
+  acceptsCod Boolean @default(false)
 
   searchText String @default("")
 
@@ -1027,10 +1031,11 @@ model Shop {
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
-  owner      User        @relation("ShopOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
-  products   Product[]
-  orderItems OrderItem[]
-  deliveries Delivery[]
+  owner          User            @relation("ShopOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
+  products       Product[]
+  orderItems     OrderItem[]
+  deliveries     Delivery[]
+  codCollections CodCollection[]
 
   @@index([status])
   @@index([ownerUserId])
@@ -1151,7 +1156,11 @@ model Order {
   orderNumber String @unique
   buyerId     String
 
-  status String @default("PENDING_PAYMENT") // PENDING_PAYMENT | PAID | PROCESSING | SHIPPED | DELIVERED | CANCELLED | REFUNDED | PARTIALLY_REFUNDED
+  status String @default("PENDING_PAYMENT") // PENDING_PAYMENT | CONFIRMED | PAID | PROCESSING | SHIPPED | DELIVERED | CANCELLED | REFUNDED | PARTIALLY_REFUNDED
+
+  /// ONLINE is paid before dispatch; COD is paid in cash to whoever delivers
+  /// it, and a CONFIRMED order is a COD order placed and not yet paid.
+  paymentMethod String @default("ONLINE") // ONLINE | COD
 
   subtotalCents    Int
   shippingCents    Int    @default(0)
@@ -1184,9 +1193,29 @@ model Order {
   deliveries    Delivery[]
   paymentIntent PaymentIntent? @relation(fields: [paymentIntentId], references: [id], onDelete: SetNull)
   disputes      Dispute[]
+  codCollections CodCollection[]
 
   @@index([buyerId, createdAt])
   @@index([status, createdAt])
+}
+
+/// Cash collected on delivery for one shop's part of a COD order. The unique
+/// index is what makes the commission charge for it happen exactly once,
+/// whichever of the delivery paths reports the parcel delivered first.
+model CodCollection {
+  id              String   @id @default(cuid())
+  orderId         String
+  shopId          String
+  amountCents     Int
+  commissionCents Int
+  currency        String   @default("EGP")
+  collectedAt     DateTime @default(now())
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  shop  Shop  @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@unique([orderId, shopId])
+  @@index([shopId, collectedAt])
 }
 
 model OrderItem {
@@ -1332,8 +1361,10 @@ model DeliveryEvent {
 model PaymentIntent {
   id          String  @id @default(cuid())
   userId      String
-  provider    String // stripe | ledger
+  provider    String // stripe | paymob | ledger
   providerRef String? @unique
+  /// The captured charge, where the provider refunds by it (Paymob's transaction id).
+  providerChargeRef String?
 
   purpose     String // PET_PURCHASE | PRODUCT_ORDER | APPOINTMENT | SUBSCRIPTION | FEATURED_LISTING | AD_CAMPAIGN | WALLET_TOPUP
   amountCents Int

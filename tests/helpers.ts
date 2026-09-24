@@ -294,7 +294,7 @@ export async function subscribeUser(
 export async function resetDatabase() {
   const tables = [
     "LedgerEntry", "LedgerTransaction", "LedgerAccount", "Refund", "Invoice",
-    "DeliveryEvent", "Delivery", "OrderItem", "Order", "PetOrder", "CartItem",
+    "DeliveryEvent", "Delivery", "CodCollection", "OrderItem", "Order", "PetOrder", "CartItem",
     "ProductVariant", "ProductImage", "Product", "Shop",
     "Appointment", "Service", "ClinicHours", "AvailabilityException", "Vet", "ClinicMember", "Clinic",
     "SupportMessage", "SupportTicket", "DisputeMessage", "Dispute", "Report", "Verification", "TrustSignal", "RiskEvent", "Block",

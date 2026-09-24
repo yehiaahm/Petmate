@@ -124,7 +124,7 @@ export default async function SandboxCheckoutPage({
       </Card>
 
       <p className="mt-4 text-center text-xs text-fg-subtle">
-        To take real payments, set PAYMENT_PROVIDER=stripe with your keys. See docs/PAYMENTS.md.
+        To take real payments, set PAYMENT_PROVIDER=paymob with your Paymob keys. See docs/PAYMENTS.md.
       </p>
     </div>
   );

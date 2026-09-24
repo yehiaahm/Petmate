@@ -1,11 +1,12 @@
 import "server-only";
 import { z } from "zod";
-import { db } from "@/lib/db";
+import { db, type Tx } from "@/lib/db";
 import { audit } from "@/lib/audit";
 import { badRequest, conflict, notFound, unprocessable, upgradeRequired } from "@/lib/errors";
 import { assertOwnsShop, isStaff } from "@/lib/auth/rbac";
 import type { AuthContext } from "@/lib/auth/session";
-import { applyBps, parseMoneyToCents } from "@/lib/money";
+import { applyBps, formatMoney, parseMoneyToCents } from "@/lib/money";
+import { getSettings } from "@/lib/settings";
 import { csvRecords } from "@/lib/csv";
 import { PRODUCT_IMPORT_COLUMNS, MAX_IMPORT_ROWS } from "@/lib/product-import";
 import { resolveCommissionBps } from "@/lib/settings";
@@ -23,7 +24,7 @@ import {
   phoneSchema,
   priceCurrencySchema,
 } from "@/lib/validation/common";
-import { LIMITS } from "@/lib/constants";
+import { LIMITS, PAYMENT_METHOD } from "@/lib/constants";
 import { PLATFORM_CURRENCY } from "@/lib/currency";
 
 /**
@@ -53,10 +54,15 @@ export const shopSchema = z.object({
   region: optionalText(80),
   city: optionalText(80),
   flatShippingCents: centsSchema.default(6_000), // EGP 60
-  freeShippingThresholdCents: centsSchema.optional(),
+  /** Null removes free shipping. */
+  freeShippingThresholdCents: centsSchema.nullable().optional(),
+  /** Take cash on delivery, subject to the platform's COD setting and cap. */
+  acceptsCod: z.boolean().default(false),
 });
 
-export async function createShop(auth: AuthContext, input: z.infer<typeof shopSchema>) {
+export async function createShop(auth: AuthContext, raw: z.input<typeof shopSchema>) {
+  // Parsed here too, so a caller that skipped the route still gets defaults.
+  const input = shopSchema.parse(raw);
   const existing = await db.shop.count({ where: { ownerUserId: auth.user.id, deletedAt: null } });
   if (existing >= 3) throw conflict("You have reached the limit of shops per account.");
 
@@ -74,6 +80,7 @@ export async function createShop(auth: AuthContext, input: z.infer<typeof shopSc
         city: input.city ?? null,
         flatShippingCents: input.flatShippingCents,
         freeShippingThresholdCents: input.freeShippingThresholdCents ?? null,
+        acceptsCod: input.acceptsCod,
         status: "PENDING",
         searchText: buildSearchText(input.name, input.description, input.city, input.country),
       },
@@ -108,6 +115,37 @@ export async function createShop(auth: AuthContext, input: z.infer<typeof shopSc
   });
 }
 
+/**
+ * The details a shop owner can change themselves. Name changes re-derive the
+ * search text; status and commission are staff decisions and are not here.
+ */
+export async function updateShop(auth: AuthContext, shopId: string, input: Partial<z.infer<typeof shopSchema>>) {
+  await assertOwnsShop(shopId, auth);
+  const saved = await db.shop.update({
+    where: { id: shopId },
+    data: {
+      ...(input.name !== undefined ? { name: input.name } : {}),
+      ...(input.description !== undefined ? { description: input.description ?? null } : {}),
+      ...(input.email !== undefined ? { email: input.email } : {}),
+      ...(input.phone !== undefined ? { phone: input.phone ?? null } : {}),
+      ...(input.city !== undefined ? { city: input.city ?? null } : {}),
+      ...(input.region !== undefined ? { region: input.region ?? null } : {}),
+      ...(input.country !== undefined ? { country: input.country } : {}),
+      ...(input.flatShippingCents !== undefined ? { flatShippingCents: input.flatShippingCents } : {}),
+      ...(input.freeShippingThresholdCents !== undefined
+        ? { freeShippingThresholdCents: input.freeShippingThresholdCents ?? null }
+        : {}),
+      ...(input.acceptsCod !== undefined ? { acceptsCod: input.acceptsCod } : {}),
+    },
+    select: { id: true, name: true, description: true, city: true, country: true },
+  });
+  await db.shop.update({
+    where: { id: shopId },
+    data: { searchText: buildSearchText(saved.name, saved.description, saved.city, saved.country) },
+  });
+  return saved;
+}
+
 /** A shop and its whole catalogue, for its owner's console. */
 export async function getShopConsole(auth: AuthContext, shopId: string) {
   await assertOwnsShop(shopId, auth);
@@ -127,6 +165,7 @@ export async function getShopConsole(auth: AuthContext, shopId: string) {
         country: true,
         flatShippingCents: true,
         freeShippingThresholdCents: true,
+        acceptsCod: true,
         verifiedAt: true,
         orderCount: true,
       },
@@ -788,6 +827,8 @@ export interface CartSummary {
   totalCents: number;
   currency: string;
   hasUnavailable: boolean;
+  /** Whether this basket can be paid on delivery, and if not, why. */
+  cashOnDelivery: { available: boolean; reason: string | null };
 }
 
 /** Builds the cart, pricing every line from the database. */
@@ -823,6 +864,7 @@ export async function getCart(userId: string): Promise<CartSummary> {
                   status: true,
                   flatShippingCents: true,
                   freeShippingThresholdCents: true,
+                  acceptsCod: true,
                 },
               },
             },
@@ -889,16 +931,42 @@ export async function getCart(userId: string): Promise<CartSummary> {
 
   const subtotalCents = shops.reduce((a, s) => a + s.subtotalCents, 0);
   const shippingCents = shops.reduce((a, s) => a + s.shippingCents, 0);
+  const totalCents = subtotalCents + shippingCents;
 
   return {
     items: lines.map(({ _shop, _currency, ...rest }) => rest),
     shops,
     subtotalCents,
     shippingCents,
-    totalCents: subtotalCents + shippingCents,
+    totalCents,
     currency: lines[0]?._currency ?? PLATFORM_CURRENCY,
     hasUnavailable: lines.some((l) => !l.available),
+    cashOnDelivery: await cashOnDeliveryFor(available.map((l) => l._shop), totalCents),
   };
+}
+
+/**
+ * Whether a basket may be paid on delivery. Every shop in it has to take cash,
+ * because one courier collects for the whole parcel from each shop, and a
+ * basket that is half card and half cash is two checkouts. The cap limits how
+ * much commission a shop can owe the platform on cash it has collected.
+ */
+async function cashOnDeliveryFor(
+  shops: { acceptsCod: boolean; name: string }[],
+  totalCents: number,
+): Promise<CartSummary["cashOnDelivery"]> {
+  const settings = await getSettings();
+  if (!settings.codEnabled) return { available: false, reason: "Cash on delivery is not available right now." };
+  if (!shops.length) return { available: false, reason: null };
+  const refusing = shops.find((s) => !s.acceptsCod);
+  if (refusing) return { available: false, reason: `${refusing.name} does not take cash on delivery.` };
+  if (totalCents > settings.codMaxOrderCents) {
+    return {
+      available: false,
+      reason: `Cash on delivery is available for baskets up to ${formatMoney(settings.codMaxOrderCents)}.`,
+    };
+  }
+  return { available: true, reason: null };
 }
 
 export async function cartCount(userId: string): Promise<number> {
@@ -923,13 +991,15 @@ export const checkoutSchema = z.object({
   shippingCountry: safeText(60, 2),
   shippingPostal: optionalText(20),
   shippingNote: optionalText(300),
+  paymentMethod: z.enum(PAYMENT_METHOD).default("ONLINE"),
 });
 
 /**
  * Creates the order and reserves stock. Returns the amount to charge, which the
  * payment layer then uses — the client never supplies a total.
  */
-export async function createOrder(auth: AuthContext, input: z.infer<typeof checkoutSchema>) {
+export async function createOrder(auth: AuthContext, raw: z.input<typeof checkoutSchema>) {
+  const input = { ...raw, paymentMethod: raw.paymentMethod ?? "ONLINE" };
   await enforceRateLimit("checkout", auth.user.id);
 
   const cart = await getCart(auth.user.id);
@@ -941,7 +1011,29 @@ export async function createOrder(auth: AuthContext, input: z.infer<typeof check
     );
   }
 
-  const entitlements = await getEntitlements(auth.user.id);
+  const cod = input.paymentMethod === "COD";
+  if (cod) {
+    if (!cart.cashOnDelivery.available) {
+      throw conflict(cart.cashOnDelivery.reason ?? "Cash on delivery is not available right now.");
+    }
+    // The courier has to be able to call before turning up with a parcel that
+    // is only paid for at the door.
+    if (!input.shippingPhone) {
+      throw unprocessable("Add a phone number so the courier can reach you.", [
+        { field: "shippingPhone", message: "Needed for cash on delivery." },
+      ]);
+    }
+  }
+
+  // A plan's commission discount belongs to the shop's owner — Seller Pro
+  // sells a lower rate on the shop's own sales. It is looked up once per owner.
+  const ownerDiscounts = new Map<string, number>();
+  const discountFor = async (ownerUserId: string) => {
+    if (!ownerDiscounts.has(ownerUserId)) {
+      ownerDiscounts.set(ownerUserId, (await getEntitlements(ownerUserId)).commissionDiscountBps);
+    }
+    return ownerDiscounts.get(ownerUserId)!;
+  };
 
   const order = await db.$transaction(async (tx) => {
     const created = await tx.order.create({
@@ -949,6 +1041,7 @@ export async function createOrder(auth: AuthContext, input: z.infer<typeof check
         orderNumber: generateOrderNumber("PM"),
         buyerId: auth.user.id,
         status: "PENDING_PAYMENT",
+        paymentMethod: input.paymentMethod,
         subtotalCents: cart.subtotalCents,
         shippingCents: cart.shippingCents,
         totalCents: cart.totalCents,
@@ -982,7 +1075,7 @@ export async function createOrder(auth: AuthContext, input: z.infer<typeof check
               title: true,
               trackInventory: true,
               shopId: true,
-              shop: { select: { commissionBps: true } },
+              shop: { select: { commissionBps: true, ownerUserId: true } },
               images: { orderBy: { position: "asc" }, take: 1, select: { url: true } },
             },
           },
@@ -1007,7 +1100,7 @@ export async function createOrder(auth: AuthContext, input: z.infer<typeof check
       }
 
       const baseBps = await resolveCommissionBps("PRODUCT", variant.product.shop.commissionBps);
-      const commissionBps = Math.max(0, baseBps - entitlements.commissionDiscountBps);
+      const commissionBps = Math.max(0, baseBps - (await discountFor(variant.product.shop.ownerUserId)));
 
       const lineTotal = variant.priceCents * line.quantity;
       const commissionCents = applyBps(lineTotal, commissionBps);
@@ -1054,6 +1147,14 @@ export async function createOrder(auth: AuthContext, input: z.infer<typeof check
     return created;
   });
 
+  if (cod) {
+    // Nothing to wait for: the order goes straight to the shops, and money
+    // changes hands at the door.
+    const { placeCashOnDeliveryOrder } = await import("@/lib/payments/settlement");
+    await placeCashOnDeliveryOrder(order.id);
+    return { ...order, paymentMethod: "COD" as const };
+  }
+
   // Unpaid orders return their stock after 30 minutes.
   const { enqueueJob } = await import("@/lib/jobs/queue");
   await enqueueJob({
@@ -1063,7 +1164,7 @@ export async function createOrder(auth: AuthContext, input: z.infer<typeof check
     uniqueKey: `order.expire:${order.id}`,
   });
 
-  return order;
+  return { ...order, paymentMethod: "ONLINE" as const };
 }
 
 /** Restores reserved stock. Used on cancellation and on payment timeout. */
@@ -1076,44 +1177,78 @@ export async function createOrder(auth: AuthContext, input: z.infer<typeof check
  * be enough to cancel someone else's order. Not being the buyer returns false,
  * exactly like a nonexistent order, so this is not an enumeration oracle.
  */
+/** Puts ordered quantities back on the shelf, variant and product both. */
+export async function restockItems(tx: Tx, items: { variantId: string; quantity: number }[]): Promise<void> {
+  for (const item of items) {
+    await tx.productVariant.update({
+      where: { id: item.variantId },
+      data: { stock: { increment: item.quantity } },
+    });
+    const variant = await tx.productVariant.findUnique({
+      where: { id: item.variantId },
+      select: { productId: true },
+    });
+    if (variant) {
+      const product = await tx.product.findUnique({
+        where: { id: variant.productId },
+        select: { status: true, deletedAt: true },
+      });
+      await tx.product.update({
+        where: { id: variant.productId },
+        data: {
+          stock: { increment: item.quantity },
+          // Back on sale only if it was merely sold out; a draft or an
+          // archived product stays exactly as its seller left it.
+          ...(product?.status === "OUT_OF_STOCK" && !product.deletedAt ? { status: "ACTIVE" } : {}),
+        },
+      });
+    }
+  }
+}
+
+/**
+ * Cancels an order that has not shipped. An unpaid or cash-on-delivery order
+ * only needs its stock back. A paid one must also give the buyer their money
+ * back: the shops' earnings are reversed in the same transaction as the
+ * cancellation, and the gateway refund follows once it has committed.
+ */
 export async function cancelOrder(
   params: { orderId: string; reason: string; actorId: string; requireBuyerId?: string },
 ): Promise<boolean> {
-  return db.$transaction(async (tx) => {
+  const outcome = await db.$transaction(async (tx) => {
     const order = await tx.order.findUnique({
       where: { id: params.orderId },
       select: {
         id: true,
         status: true,
         buyerId: true,
+        paymentMethod: true,
+        paymentIntentId: true,
+        totalCents: true,
         items: { select: { variantId: true, quantity: true } },
       },
     });
-    if (!order) return false;
-    if (params.requireBuyerId && order.buyerId !== params.requireBuyerId) return false;
+    if (!order) return null;
+    if (params.requireBuyerId && order.buyerId !== params.requireBuyerId) return null;
 
     const claimed = await tx.order.updateMany({
-      where: { id: order.id, status: { in: ["PENDING_PAYMENT", "PAID", "PROCESSING"] } },
+      where: { id: order.id, status: { in: ["PENDING_PAYMENT", "CONFIRMED", "PAID", "PROCESSING"] } },
       data: { status: "CANCELLED", cancelledAt: new Date(), cancelReason: params.reason },
     });
-    if (claimed.count === 0) return false;
+    if (claimed.count === 0) return null;
 
-    for (const item of order.items) {
-      await tx.productVariant.update({
-        where: { id: item.variantId },
-        data: { stock: { increment: item.quantity } },
+    const paid = order.paymentMethod === "ONLINE" && (order.status === "PAID" || order.status === "PROCESSING");
+    if (paid) {
+      const { clawBackOrderEarnings } = await import("@/lib/payments/settlement");
+      await clawBackOrderEarnings(tx, {
+        orderId: order.id,
+        refundCents: order.totalCents,
+        actorId: params.actorId,
+        reason: "cancelled",
       });
-      const variant = await tx.productVariant.findUnique({
-        where: { id: item.variantId },
-        select: { productId: true },
-      });
-      if (variant) {
-        await tx.product.update({
-          where: { id: variant.productId },
-          data: { stock: { increment: item.quantity }, status: "ACTIVE" },
-        });
-      }
     }
+
+    await restockItems(tx, order.items);
 
     await tx.orderItem.updateMany({
       where: { orderId: order.id },
@@ -1131,8 +1266,107 @@ export async function cancelOrder(
       tx,
     );
 
-    return true;
+    return { refundIntentId: paid ? order.paymentIntentId : null };
   });
+
+  if (!outcome) return false;
+
+  if (outcome.refundIntentId) {
+    const { refundPayment } = await import("@/lib/payments/service");
+    const intent = await db.paymentIntent.findUnique({
+      where: { id: outcome.refundIntentId },
+      select: { amountCents: true, refundedCents: true },
+    });
+    const remaining = intent ? intent.amountCents - intent.refundedCents : 0;
+    if (remaining > 0) {
+      try {
+        await refundPayment({
+          intentId: outcome.refundIntentId,
+          amountCents: remaining,
+          reason: "CANCELLED_ORDER",
+          approvedById: params.actorId,
+          note: params.reason,
+          idempotencyKey: `cancel_${params.orderId}`,
+        });
+      } catch (e) {
+        // The order is cancelled and the money is back with the platform; the
+        // gateway refund needs a person. Flagged, never silently dropped.
+        const { logger } = await import("@/lib/logger");
+        logger.exception("REFUND FAILED after order cancellation", e, { orderId: params.orderId });
+        await db.paymentIntent.update({
+          where: { id: outcome.refundIntentId },
+          data: { failureCode: "REFUND_PENDING", failureMessage: "Order cancelled; gateway refund failed" },
+        });
+      }
+    }
+  }
+
+  return true;
+}
+
+/**
+ * A store order as its buyer sees it. Someone else's order and a missing one
+ * are the same 404.
+ */
+export async function getOrderForBuyer(auth: AuthContext, orderId: string) {
+  const order = await db.order.findFirst({
+    where: { id: orderId, buyerId: auth.user.id },
+    select: {
+      id: true,
+      orderNumber: true,
+      status: true,
+      paymentMethod: true,
+      paymentIntentId: true,
+      subtotalCents: true,
+      shippingCents: true,
+      discountCents: true,
+      totalCents: true,
+      currency: true,
+      shippingName: true,
+      shippingPhone: true,
+      shippingLine1: true,
+      shippingLine2: true,
+      shippingCity: true,
+      shippingCountry: true,
+      createdAt: true,
+      placedAt: true,
+      cancelledAt: true,
+      cancelReason: true,
+      items: {
+        select: {
+          id: true,
+          shopId: true,
+          titleSnapshot: true,
+          variantSnapshot: true,
+          imageSnapshot: true,
+          quantity: true,
+          totalCents: true,
+          fulfillmentStatus: true,
+          shop: { select: { name: true, slug: true } },
+        },
+      },
+      deliveries: {
+        select: { id: true, shopId: true, trackingNumber: true, status: true, provider: true, deliveredAt: true },
+      },
+    },
+  });
+  if (!order) throw notFound("That order");
+
+  // The latest payment attempt for an online order that has not been paid,
+  // so the page can send the buyer back to finish it.
+  const pendingPayment =
+    order.paymentMethod === "ONLINE" && order.status === "PENDING_PAYMENT"
+      ? await db.paymentIntent.findFirst({
+          where: { userId: auth.user.id, referenceType: "ORDER", referenceId: order.id },
+          orderBy: { createdAt: "desc" },
+          select: { id: true, status: true },
+        })
+      : null;
+
+  const shipped = order.items.some((i) => ["SHIPPED", "DELIVERED"].includes(i.fulfillmentStatus));
+  const cancellable = ["PENDING_PAYMENT", "CONFIRMED", "PAID", "PROCESSING"].includes(order.status) && !shipped;
+
+  return { ...order, pendingPayment, cancellable };
 }
 
 // ---------------------------------------------------------------------------
@@ -1358,6 +1592,7 @@ export async function listShopOrders(auth: AuthContext, shopId: string, status?:
           id: true,
           orderNumber: true,
           status: true,
+          paymentMethod: true,
           placedAt: true,
           currency: true,
           shippingName: true,
@@ -1377,12 +1612,33 @@ export async function updateFulfillment(
 ) {
   const item = await db.orderItem.findUnique({
     where: { id: orderItemId },
-    select: { id: true, shopId: true, orderId: true, fulfillmentStatus: true },
+    select: {
+      id: true,
+      shopId: true,
+      orderId: true,
+      fulfillmentStatus: true,
+      order: { select: { paymentMethod: true, status: true } },
+    },
   });
   if (!item) throw notFound("That order item");
   await assertOwnsShop(item.shopId, auth);
 
-  await db.orderItem.update({ where: { id: orderItemId }, data: { fulfillmentStatus: status } });
+  // A shop that delivers its own parcels marks them delivered here. For a
+  // cash-on-delivery order that is the moment the shop has the cash, so the
+  // commission on it is charged in the same transaction.
+  await db.$transaction(async (tx) => {
+    await tx.orderItem.update({ where: { id: orderItemId }, data: { fulfillmentStatus: status } });
+    if (status === "DELIVERED" && item.order.paymentMethod === "COD") {
+      const shopItems = await tx.orderItem.findMany({
+        where: { orderId: item.orderId, shopId: item.shopId },
+        select: { fulfillmentStatus: true },
+      });
+      if (shopItems.every((i) => i.fulfillmentStatus === "DELIVERED" || i.fulfillmentStatus === "CANCELLED")) {
+        const { settleCashOnDelivery } = await import("@/lib/payments/settlement");
+        await settleCashOnDelivery(tx, item.orderId, item.shopId);
+      }
+    }
+  });
 
   // The order status reflects the least-advanced item, so an order is only
   // "shipped" once every seller has actually shipped.
@@ -1400,7 +1656,7 @@ export async function updateFulfillment(
     await db.order.update({ where: { id: item.orderId }, data: { status: "SHIPPED" } });
   } else {
     await db.order.updateMany({
-      where: { id: item.orderId, status: "PAID" },
+      where: { id: item.orderId, status: { in: ["PAID", "CONFIRMED"] } },
       data: { status: "PROCESSING" },
     });
   }

@@ -25,6 +25,8 @@ export interface FulfilmentItem {
   fulfillmentStatus: string;
   orderNumber: string;
   orderStatus: string;
+  /** COD: the courier collects the order total in cash at the door. */
+  paymentMethod: string;
   currency: string;
   placedAt: string | null;
   buyerName: string;
@@ -173,6 +175,11 @@ export function FulfilmentQueue({
                           <Badge tone={TONE[item.fulfillmentStatus] ?? "neutral"} size="sm">
                             {item.fulfillmentStatus.toLowerCase()}
                           </Badge>
+                          {item.paymentMethod === "COD" && (
+                            <Badge tone="accent" size="sm">
+                              Cash on delivery
+                            </Badge>
+                          )}
                         </div>
 
                         <p className="mt-0.5 text-xs text-fg-subtle">

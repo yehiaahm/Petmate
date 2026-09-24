@@ -724,6 +724,20 @@ export async function resolveDispute(
         });
       }
 
+      // A store order's refund comes back from the shops that were paid for
+      // it, not out of the platform's commission.
+      if (dispute.orderId) {
+        const { clawBackOrderEarnings } = await import("@/lib/payments/settlement");
+        await db.$transaction((tx) =>
+          clawBackOrderEarnings(tx, {
+            orderId: dispute.orderId!,
+            refundCents: input.refundCents,
+            actorId: auth.user.id,
+            reason: `dispute ${dispute.reference}`,
+          }),
+        );
+      }
+
       const { refundPayment } = await import("@/lib/payments/service");
       await refundPayment({
         intentId,

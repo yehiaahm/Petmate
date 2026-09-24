@@ -4,15 +4,19 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { Trash2, Minus, Plus, Lock, AlertTriangle } from "lucide-react";
+import { Trash2, Minus, Plus, Lock, AlertTriangle, CreditCard, Banknote } from "lucide-react";
 import { Card, Alert } from "@/components/ui/primitives";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Textarea } from "@/components/ui/field";
 import { useToast } from "@/components/ui/toast";
+import { useI18n } from "@/components/i18n/i18n-provider";
+import { goToPayment } from "@/lib/payment-redirect";
 import { api, ApiError } from "@/lib/api-client";
 import { stableKey, clearStableKey } from "@/lib/api-idempotency";
-import { formatMoney } from "@/lib/money";
+import { cn } from "@/lib/utils";
 import type { CartSummary } from "@/lib/services/commerce.service";
+
+type PaymentMethod = "ONLINE" | "COD";
 
 /**
  * Basket and checkout.
@@ -36,6 +40,7 @@ export function CartView({
   defaultCity: string | null;
   defaultCountry: string | null;
 }) {
+  const { t, tm, fmt } = useI18n();
   const router = useRouter();
   const toast = useToast();
 
@@ -44,6 +49,7 @@ export function CartView({
   const [checkingOut, setCheckingOut] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [method, setMethod] = useState<PaymentMethod>("ONLINE");
 
   const [shipping, setShipping] = useState({
     shippingName: defaultName,
@@ -61,6 +67,10 @@ export function CartView({
     setShipping((s) => ({ ...s, [key]: value }));
   }
 
+  // A basket that stops qualifying (an item removed, the total over the cap)
+  // falls back to paying online rather than submitting a choice that fails.
+  const cod = method === "COD" && cart.cashOnDelivery.available;
+
   async function changeQuantity(itemId: string, quantity: number) {
     setUpdating(itemId);
     try {
@@ -72,10 +82,7 @@ export function CartView({
       setCart(next);
       router.refresh();
     } catch (err) {
-      toast.error(
-        "Could not update the basket",
-        err instanceof ApiError ? err.message : "Please try again.",
-      );
+      toast.error(t("Could not update the basket"), err instanceof ApiError ? err.message : t("Please try again."));
     } finally {
       setUpdating(null);
     }
@@ -89,7 +96,8 @@ export function CartView({
     try {
       const result = await api.post<{
         order: { id: string; orderNumber: string };
-        payment: { id: string; redirectUrl: string | null };
+        payment: { id: string; redirectUrl: string | null } | null;
+        redirectUrl?: string;
       }>("/api/cart", {
         action: "checkout",
         shipping: {
@@ -102,6 +110,7 @@ export function CartView({
           shippingCountry: shipping.shippingCountry,
           shippingPostal: shipping.shippingPostal || undefined,
           shippingNote: shipping.shippingNote || undefined,
+          paymentMethod: cod ? "COD" : "ONLINE",
         },
         idempotencyKey: stableKey("checkout"),
       });
@@ -109,8 +118,11 @@ export function CartView({
       // The attempt is now a real order; a later checkout needs a new key.
       clearStableKey("checkout");
 
-      if (result.payment.redirectUrl) {
-        router.push(result.payment.redirectUrl);
+      if (!result.payment) {
+        router.push(result.redirectUrl ?? `/dashboard/orders/${result.order.id}`);
+        router.refresh();
+      } else if (result.payment.redirectUrl) {
+        goToPayment(result.payment.redirectUrl, router.push);
       } else {
         router.push(`/checkout/${result.payment.id}`);
       }
@@ -123,13 +135,12 @@ export function CartView({
         }
         setFieldErrors(map);
 
-        // Stock changed underneath us: reload the basket so the user sees why.
-        if (/sold out|stock|no longer/i.test(err.message)) {
-          const fresh = await api.get<CartSummary>("/api/cart").catch(() => null);
-          if (fresh) setCart(fresh);
-        }
+        // Stock or eligibility changed underneath us: reload the basket so the
+        // buyer sees why.
+        const fresh = await api.get<CartSummary>("/api/cart").catch(() => null);
+        if (fresh) setCart(fresh);
       } else {
-        setError("Something went wrong. Please try again.");
+        setError(t("Something went wrong. Please try again."));
       }
       setCheckingOut(false);
     }
@@ -140,14 +151,15 @@ export function CartView({
     shipping.shippingName.trim().length >= 2 &&
     shipping.shippingLine1.trim().length >= 3 &&
     shipping.shippingCity.trim().length >= 1 &&
-    shipping.shippingCountry.trim().length >= 2;
+    shipping.shippingCountry.trim().length >= 2 &&
+    (!cod || shipping.shippingPhone.trim().length >= 7);
 
   return (
     <div className="grid gap-8 lg:grid-cols-[1fr_20rem]">
       <div className="min-w-0 space-y-6">
         {cart.hasUnavailable && (
-          <Alert tone="warning" title="Some items are unavailable">
-            They are excluded from the total and will not be ordered.
+          <Alert tone="warning" title={t("Some items are unavailable")}>
+            {t("They are excluded from the total and will not be ordered.")}
           </Alert>
         )}
 
@@ -160,28 +172,20 @@ export function CartView({
                   className="relative size-20 shrink-0 overflow-hidden rounded-[var(--radius-field)] bg-bg-sunken"
                 >
                   {item.product.image && (
-                    <Image
-                      src={item.product.image}
-                      alt=""
-                      fill
-                      sizes="80px"
-                      className="object-cover"
-                    />
+                    <Image src={item.product.image} alt="" fill sizes="80px" className="object-cover" />
                   )}
                 </Link>
 
                 <div className="min-w-0 flex-1">
                   <Link href={`/store/${item.product.slug}`}>
-                    <h2 className="line-clamp-2 text-sm font-semibold text-fg hover:underline">
-                      {item.product.title}
-                    </h2>
+                    <h2 className="line-clamp-2 text-sm font-semibold text-fg hover:underline">{item.product.title}</h2>
                   </Link>
                   <p className="mt-0.5 text-xs text-fg-muted">{item.product.shopName}</p>
 
                   {!item.available && item.availabilityNote && (
                     <p className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-[var(--danger)]">
                       <AlertTriangle className="size-3" aria-hidden />
-                      {item.availabilityNote}
+                      {tm(item.availabilityNote)}
                     </p>
                   )}
 
@@ -192,19 +196,17 @@ export function CartView({
                         onClick={() => void changeQuantity(item.id, item.quantity - 1)}
                         disabled={updating === item.id}
                         className="inline-flex size-8 items-center justify-center rounded-[var(--radius-field)] border border-[var(--border-strong)] text-fg-muted transition-colors hover:text-fg disabled:opacity-50"
-                        aria-label="Decrease quantity"
+                        aria-label={t("Decrease quantity")}
                       >
                         <Minus className="size-3.5" aria-hidden />
                       </button>
-                      <span className="w-9 text-center text-sm font-medium tabular text-fg">
-                        {item.quantity}
-                      </span>
+                      <span className="w-9 text-center text-sm font-medium tabular text-fg">{fmt.number(item.quantity)}</span>
                       <button
                         type="button"
                         onClick={() => void changeQuantity(item.id, item.quantity + 1)}
                         disabled={updating === item.id}
                         className="inline-flex size-8 items-center justify-center rounded-[var(--radius-field)] border border-[var(--border-strong)] text-fg-muted transition-colors hover:text-fg disabled:opacity-50"
-                        aria-label="Increase quantity"
+                        aria-label={t("Increase quantity")}
                       >
                         <Plus className="size-3.5" aria-hidden />
                       </button>
@@ -214,15 +216,13 @@ export function CartView({
                         onClick={() => void changeQuantity(item.id, 0)}
                         disabled={updating === item.id}
                         className="ms-1 inline-flex size-8 items-center justify-center rounded-[var(--radius-field)] text-fg-subtle transition-colors hover:bg-[var(--danger-soft)] hover:text-[var(--danger)] disabled:opacity-50"
-                        aria-label={`Remove ${item.product.title}`}
+                        aria-label={t("Remove {title}", { title: item.product.title })}
                       >
                         <Trash2 className="size-3.5" aria-hidden />
                       </button>
                     </div>
 
-                    <p className="font-semibold tabular text-fg">
-                      {formatMoney(item.totalCents, cart.currency)}
-                    </p>
+                    <p className="font-semibold tabular text-fg">{fmt.money(item.totalCents, cart.currency)}</p>
                   </div>
                 </div>
               </Card>
@@ -231,7 +231,7 @@ export function CartView({
         </ul>
 
         <Card className="p-5">
-          <h2 className="font-display text-lg font-semibold text-fg">Delivery address</h2>
+          <h2 className="font-display text-lg font-semibold text-fg">{t("Delivery address")}</h2>
 
           {error && (
             <div className="mt-3">
@@ -241,23 +241,24 @@ export function CartView({
 
           <div className="mt-4 space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Full name" required error={fieldErrors.shippingName}>
+              <Field label={t("Full name")} required error={fieldErrors.shippingName}>
                 {({ id, invalid }) => (
-                  <Input
-                    id={id}
-                    invalid={invalid}
-                    autoComplete="name"
-                    value={shipping.shippingName}
-                    onChange={(e) => set("shippingName", e.target.value)}
-                  />
+                  <Input id={id} invalid={invalid} autoComplete="name" value={shipping.shippingName} onChange={(e) => set("shippingName", e.target.value)} />
                 )}
               </Field>
-              <Field label="Phone" hint="For the courier." error={fieldErrors.shippingPhone}>
+              <Field
+                label={t("Phone")}
+                required={cod}
+                hint={cod ? t("The courier calls before arriving with a cash-on-delivery parcel.") : t("For the courier.")}
+                error={fieldErrors.shippingPhone}
+              >
                 {({ id, invalid }) => (
                   <Input
                     id={id}
                     invalid={invalid}
                     type="tel"
+                    dir="ltr"
+                    className="rtl:text-end"
                     autoComplete="tel"
                     value={shipping.shippingPhone}
                     onChange={(e) => set("shippingPhone", e.target.value)}
@@ -266,7 +267,7 @@ export function CartView({
               </Field>
             </div>
 
-            <Field label="Address" required error={fieldErrors.shippingLine1}>
+            <Field label={t("Address")} required error={fieldErrors.shippingLine1}>
               {({ id, invalid }) => (
                 <Input
                   id={id}
@@ -274,69 +275,42 @@ export function CartView({
                   autoComplete="address-line1"
                   value={shipping.shippingLine1}
                   onChange={(e) => set("shippingLine1", e.target.value)}
-                  placeholder="14 Brazil Street"
+                  placeholder={t("14 Brazil Street")}
                 />
               )}
             </Field>
 
-            <Field label="Apartment, floor (optional)">
+            <Field label={t("Apartment, floor (optional)")}>
               {({ id }) => (
-                <Input
-                  id={id}
-                  autoComplete="address-line2"
-                  value={shipping.shippingLine2}
-                  onChange={(e) => set("shippingLine2", e.target.value)}
-                />
+                <Input id={id} autoComplete="address-line2" value={shipping.shippingLine2} onChange={(e) => set("shippingLine2", e.target.value)} />
               )}
             </Field>
 
             <div className="grid gap-4 sm:grid-cols-3">
-              <Field label="City" required error={fieldErrors.shippingCity}>
+              <Field label={t("City")} required error={fieldErrors.shippingCity}>
                 {({ id, invalid }) => (
-                  <Input
-                    id={id}
-                    invalid={invalid}
-                    autoComplete="address-level2"
-                    value={shipping.shippingCity}
-                    onChange={(e) => set("shippingCity", e.target.value)}
-                  />
+                  <Input id={id} invalid={invalid} autoComplete="address-level2" value={shipping.shippingCity} onChange={(e) => set("shippingCity", e.target.value)} />
                 )}
               </Field>
-              <Field label="Region">
+              <Field label={t("Region")}>
                 {({ id }) => (
-                  <Input
-                    id={id}
-                    autoComplete="address-level1"
-                    value={shipping.shippingRegion}
-                    onChange={(e) => set("shippingRegion", e.target.value)}
-                  />
+                  <Input id={id} autoComplete="address-level1" value={shipping.shippingRegion} onChange={(e) => set("shippingRegion", e.target.value)} />
                 )}
               </Field>
-              <Field label="Postcode">
+              <Field label={t("Postcode")}>
                 {({ id }) => (
-                  <Input
-                    id={id}
-                    autoComplete="postal-code"
-                    value={shipping.shippingPostal}
-                    onChange={(e) => set("shippingPostal", e.target.value)}
-                  />
+                  <Input id={id} autoComplete="postal-code" value={shipping.shippingPostal} onChange={(e) => set("shippingPostal", e.target.value)} />
                 )}
               </Field>
             </div>
 
-            <Field label="Country" required error={fieldErrors.shippingCountry}>
+            <Field label={t("Country")} required error={fieldErrors.shippingCountry}>
               {({ id, invalid }) => (
-                <Input
-                  id={id}
-                  invalid={invalid}
-                  autoComplete="country-name"
-                  value={shipping.shippingCountry}
-                  onChange={(e) => set("shippingCountry", e.target.value)}
-                />
+                <Input id={id} invalid={invalid} autoComplete="country-name" value={shipping.shippingCountry} onChange={(e) => set("shippingCountry", e.target.value)} />
               )}
             </Field>
 
-            <Field label="Delivery notes (optional)">
+            <Field label={t("Delivery notes (optional)")}>
               {({ id }) => (
                 <Textarea
                   id={id}
@@ -344,42 +318,66 @@ export function CartView({
                   maxLength={300}
                   value={shipping.shippingNote}
                   onChange={(e) => set("shippingNote", e.target.value)}
-                  placeholder="Gate code, safe place, best time to deliver."
+                  placeholder={t("Gate code, safe place, best time to deliver.")}
                 />
               )}
             </Field>
+          </div>
+        </Card>
+
+        <Card className="p-5">
+          <h2 className="font-display text-lg font-semibold text-fg">{t("Payment")}</h2>
+          <div role="radiogroup" aria-label={t("Payment method")} className="mt-4 grid gap-3 sm:grid-cols-2">
+            <PaymentOption
+              selected={!cod}
+              onSelect={() => setMethod("ONLINE")}
+              icon={<CreditCard className="size-5" aria-hidden />}
+              title={t("Pay online")}
+              body={t("Card, mobile wallet or kiosk, on the payment provider's secure page.")}
+            />
+            <PaymentOption
+              selected={cod}
+              disabled={!cart.cashOnDelivery.available}
+              onSelect={() => setMethod("COD")}
+              icon={<Banknote className="size-5" aria-hidden />}
+              title={t("Cash on delivery")}
+              body={
+                cart.cashOnDelivery.available
+                  ? t("Pay the courier in cash when your order arrives.")
+                  : cart.cashOnDelivery.reason
+                    ? tm(cart.cashOnDelivery.reason)
+                    : t("Not available for this basket.")
+              }
+            />
           </div>
         </Card>
       </div>
 
       <aside className="lg:sticky lg:top-24 lg:h-fit">
         <Card className="p-5">
-          <h2 className="font-display text-lg font-semibold text-fg">Summary</h2>
+          <h2 className="font-display text-lg font-semibold text-fg">{t("Summary")}</h2>
 
           {cart.shops.length > 1 && (
             <p className="mt-1 text-xs text-fg-muted">
-              {cart.shops.length} shops — each ships separately.
+              {t.plural(cart.shops.length, {
+                one: "{count} shop — each ships separately.",
+                other: "{count} shops — each ships separately.",
+              })}
             </p>
           )}
 
           <dl className="mt-4 space-y-2 text-sm">
             <div className="flex justify-between">
-              <dt className="text-fg-muted">Subtotal</dt>
-              <dd className="font-medium tabular text-fg">
-                {formatMoney(cart.subtotalCents, cart.currency)}
-              </dd>
+              <dt className="text-fg-muted">{t("Subtotal")}</dt>
+              <dd className="font-medium tabular text-fg">{fmt.money(cart.subtotalCents, cart.currency)}</dd>
             </div>
             <div className="flex justify-between">
-              <dt className="text-fg-muted">Shipping</dt>
-              <dd className="font-medium tabular text-fg">
-                {cart.shippingCents === 0 ? "Free" : formatMoney(cart.shippingCents, cart.currency)}
-              </dd>
+              <dt className="text-fg-muted">{t("Shipping")}</dt>
+              <dd className="font-medium tabular text-fg">{fmt.money(cart.shippingCents, cart.currency, { showFree: true })}</dd>
             </div>
             <div className="flex justify-between border-t border-[var(--border)] pt-2.5">
-              <dt className="font-semibold text-fg">Total</dt>
-              <dd className="font-display text-xl font-semibold tabular text-fg">
-                {formatMoney(cart.totalCents, cart.currency)}
-              </dd>
+              <dt className="font-semibold text-fg">{cod ? t("To pay on delivery") : t("Total")}</dt>
+              <dd className="font-display text-xl font-semibold tabular text-fg">{fmt.money(cart.totalCents, cart.currency)}</dd>
             </div>
           </dl>
 
@@ -389,18 +387,56 @@ export function CartView({
             className="mt-5"
             onClick={() => void checkout()}
             loading={checkingOut}
-            loadingText="Creating your order…"
+            loadingText={t("Creating your order…")}
             disabled={!canCheckout}
           >
-            <Lock className="size-4" aria-hidden />
-            Checkout
+            {cod ? <Banknote className="size-4" aria-hidden /> : <Lock className="size-4" aria-hidden />}
+            {cod ? t("Place order") : t("Checkout")}
           </Button>
 
           <p className="mt-3 text-xs leading-relaxed text-fg-muted">
-            Stock is reserved when you place the order and released if payment is not completed.
+            {cod
+              ? t("Your order goes to the shop straight away. Have the exact amount ready if you can.")
+              : t("Stock is reserved when you place the order and released if payment is not completed.")}
           </p>
         </Card>
       </aside>
     </div>
+  );
+}
+
+function PaymentOption({
+  selected,
+  disabled,
+  onSelect,
+  icon,
+  title,
+  body,
+}: {
+  selected: boolean;
+  disabled?: boolean;
+  onSelect: () => void;
+  icon: React.ReactNode;
+  title: string;
+  body: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={selected}
+      disabled={disabled}
+      onClick={onSelect}
+      className={cn(
+        "flex items-start gap-3 rounded-[var(--radius-field)] border p-4 text-start transition-colors disabled:cursor-not-allowed disabled:opacity-60",
+        selected ? "border-brand bg-brand-soft/40 ring-1 ring-brand" : "border-[var(--border-strong)] hover:bg-bg-sunken",
+      )}
+    >
+      <span className={cn("mt-0.5 shrink-0", selected ? "text-brand" : "text-fg-muted")}>{icon}</span>
+      <span className="min-w-0">
+        <span className="block text-sm font-semibold text-fg">{title}</span>
+        <span className="mt-0.5 block text-xs leading-relaxed text-fg-muted">{body}</span>
+      </span>
+    </button>
   );
 }

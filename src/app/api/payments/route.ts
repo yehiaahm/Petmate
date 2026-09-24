@@ -8,7 +8,9 @@ import {
   getPaymentForUser,
   listPaymentsForUser,
   refundPayment,
+  retryPayment,
 } from "@/lib/payments/service";
+import { clientEnv } from "@/lib/env";
 import { isSandboxPayments } from "@/lib/payments/provider";
 import { getEarnings, listLedgerEntries } from "@/lib/payments/ledger-core";
 import {
@@ -120,8 +122,20 @@ export const POST = route({
       note: optionalText(500),
     }),
     z.object({ action: z.literal("request-payout"), payout: payoutRequestSchema }),
+    // A new attempt after a declined card or an expired checkout.
+    z.object({ action: z.literal("retry"), paymentIntentId: cuidSchema }),
   ]),
   async handler({ body }) {
+    if (body.action === "retry") {
+      const auth = await requireActive();
+      const payment = await retryPayment(
+        body.paymentIntentId,
+        auth.user.id,
+        `${clientEnv.NEXT_PUBLIC_APP_URL}/checkout/${body.paymentIntentId}`,
+      );
+      return { payment };
+    }
+
     if (body.action === "request-payout") {
       const auth = await requireActive();
       const payout = await requestPayout(auth, body.payout);

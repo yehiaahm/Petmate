@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Field, Input, Textarea } from "@/components/ui/field";
+import { Field, Input, Textarea, Switch } from "@/components/ui/field";
 import { Alert, Card, CardHeader } from "@/components/ui/primitives";
 import { useI18n } from "@/components/i18n/i18n-provider";
 import { api, ApiError } from "@/lib/api-client";
@@ -35,6 +35,7 @@ export function ShopForm({
     country: defaultCountry ?? "Egypt",
     shipping: "60",
     freeOver: "",
+    acceptsCod: true,
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<ApiError | Error | null>(null);
@@ -67,6 +68,7 @@ export function ShopForm({
           country: values.country,
           flatShippingCents,
           freeShippingThresholdCents,
+          acceptsCod: values.acceptsCod,
         },
       });
       router.push(`/sell/shops/${shop.id}`);
@@ -140,6 +142,14 @@ export function ShopForm({
               <Input id={id} invalid={invalid} inputMode="decimal" dir="ltr" className="rtl:text-end" value={values.freeOver} onChange={(e) => set("freeOver", e.target.value)} />
             )}
           </Field>
+          <div className="sm:col-span-2">
+            <Switch
+              checked={values.acceptsCod}
+              onChange={(v) => set("acceptsCod", v)}
+              label={t("Accept cash on delivery")}
+              description={t("Most buyers in Egypt prefer to pay at the door. Our commission on those orders is taken from your PetMate balance when the parcel is delivered.")}
+            />
+          </div>
         </div>
       </Card>
 

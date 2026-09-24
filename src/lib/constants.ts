@@ -295,6 +295,8 @@ export type AppointmentStatus = (typeof APPOINTMENT_STATUS)[number];
 
 export const ORDER_STATUS = [
   "PENDING_PAYMENT",
+  /** A cash-on-delivery order: placed, being fulfilled, paid at the door. */
+  "CONFIRMED",
   "PAID",
   "PROCESSING",
   "SHIPPED",
@@ -304,6 +306,9 @@ export const ORDER_STATUS = [
   "PARTIALLY_REFUNDED",
 ] as const;
 export type OrderStatus = (typeof ORDER_STATUS)[number];
+
+export const PAYMENT_METHOD = ["ONLINE", "COD"] as const;
+export type PaymentMethod = (typeof PAYMENT_METHOD)[number];
 
 export const FULFILLMENT_STATUS = [
   "PENDING",

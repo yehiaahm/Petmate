@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useMemo } from "react";
 import { localeDirection, type Locale } from "@/lib/i18n/config";
-import { createTranslator, type Messages, type Translator } from "@/lib/i18n/translate";
+import { createTranslator, translateMessage, type Messages, type Translator } from "@/lib/i18n/translate";
 import { createFormatter, type Formatter } from "@/lib/i18n/format";
 
 /**
@@ -16,6 +16,8 @@ interface I18nValue {
   locale: Locale;
   dir: "rtl" | "ltr";
   t: Translator;
+  /** Translates a sentence the server composed, with its values already in. */
+  tm: (message: string) => string;
   fmt: Formatter;
 }
 
@@ -35,6 +37,7 @@ export function I18nProvider({
       locale,
       dir: localeDirection(locale),
       t: createTranslator(locale, messages),
+      tm: (message: string) => translateMessage(locale, messages, message),
       fmt: createFormatter(locale, messages),
     }),
     [locale, messages],
@@ -46,6 +49,7 @@ const ENGLISH: I18nValue = {
   locale: "en",
   dir: "ltr",
   t: createTranslator("en", {}),
+  tm: (message: string) => message,
   fmt: createFormatter("en", {}),
 };
 

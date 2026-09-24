@@ -57,6 +57,11 @@ export interface SettingsShape {
   /** Smallest payout a seller may request, minor units. */
   minPayoutCents: number;
 
+  /** Buyers may pay cash on delivery at shops that accept it. */
+  codEnabled: boolean;
+  /** Largest basket that may be paid on delivery, minor units. */
+  codMaxOrderCents: number;
+
   /** Platform-wide switch for accepting new registrations. */
   registrationOpen: boolean;
   /** Read-only mode for maintenance windows. */
@@ -90,6 +95,9 @@ export const DEFAULT_SETTINGS: SettingsShape = {
   payoutHoldDays: 7,
   minPayoutCents: 20_000, // EGP 200
 
+  codEnabled: true,
+  codMaxOrderCents: 500_000, // EGP 5,000
+
   registrationOpen: true,
   maintenanceMode: false,
 
@@ -114,6 +122,8 @@ export const SETTING_DESCRIPTIONS: Record<keyof SettingsShape, string> = {
   reviewAllListings: "Send every new listing to manual review before publishing.",
   payoutHoldDays: "Days seller earnings are held before becoming available.",
   minPayoutCents: "Minimum payout a seller can request, in the currency's minor unit.",
+  codEnabled: "Allow cash on delivery at shops that accept it.",
+  codMaxOrderCents: "Largest basket that can be paid on delivery, in the currency's minor unit.",
   registrationOpen: "Allow new account registrations.",
   maintenanceMode: "Put the platform in read-only maintenance mode.",
   supportEmail: "Address shown to users for support enquiries.",
@@ -185,7 +195,13 @@ export function settingCategory(key: keyof SettingsShape): string {
   if (key.startsWith("commission") || key === "transactionFeeCents") return "COMMISSION";
   if (key.startsWith("featured")) return "MONETISATION";
   if (key.startsWith("free")) return "LIMITS";
-  if (key.startsWith("escrow") || key.startsWith("dispute") || key.startsWith("payout") || key === "minPayoutCents")
+  if (
+    key.startsWith("escrow") ||
+    key.startsWith("dispute") ||
+    key.startsWith("payout") ||
+    key.startsWith("cod") ||
+    key === "minPayoutCents"
+  )
     return "PAYMENTS";
   if (key.startsWith("listing") || key === "reviewAllListings" || key === "manualReviewPriceCents")
     return "MARKETPLACE";

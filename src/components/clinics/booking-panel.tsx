@@ -8,6 +8,7 @@ import { Card, Alert } from "@/components/ui/primitives";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Field, Select, Textarea } from "@/components/ui/field";
 import { useToast } from "@/components/ui/toast";
+import { goToPayment } from "@/lib/payment-redirect";
 import { api, ApiError } from "@/lib/api-client";
 import { uuid } from "@/lib/api-idempotency";
 import { formatMoney } from "@/lib/money";
@@ -144,7 +145,7 @@ export function BookingPanel({
       toast.success("Slot held", "Complete payment to confirm the appointment.");
 
       if (result.payment.redirectUrl) {
-        router.push(result.payment.redirectUrl);
+        goToPayment(result.payment.redirectUrl, router.push);
       } else {
         router.push(`/checkout/${result.payment.id}`);
       }

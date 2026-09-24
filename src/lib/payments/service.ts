@@ -7,6 +7,7 @@ import { AppError, conflict, notFound, paymentFailed, badRequest } from "@/lib/e
 import { stringifyJson } from "@/lib/json";
 import { formatMoney } from "@/lib/money";
 import { generateToken } from "@/lib/utils";
+import { createHash } from "node:crypto";
 import type { PaymentPurpose } from "@/lib/constants";
 import { paymentProvider, isSandboxPayments } from "./provider";
 import { accounts, postTransaction } from "./ledger-core";
@@ -93,7 +94,7 @@ export async function createPayment(input: CreatePaymentInput): Promise<PaymentH
       amountCents: existing.amountCents,
       currency: existing.currency,
       clientSecret: existing.clientSecret,
-      redirectUrl: sandboxRedirect(existing.providerRef, input.returnUrl),
+      redirectUrl: resumeRedirect(existing, input.returnUrl),
       provider: existing.provider,
       sandbox: isSandboxPayments(),
     };
@@ -101,10 +102,24 @@ export async function createPayment(input: CreatePaymentInput): Promise<PaymentH
 
   const provider = paymentProvider();
 
+  // Hosted checkouts (Paymob) need the payer's name, email and phone; the
+  // account is the source of them, not anything in the request.
+  const payer = await db.user.findUnique({
+    where: { id: input.userId },
+    select: { name: true, email: true, phone: true },
+  });
+  const [firstName = "", ...rest] = (payer?.name ?? "").trim().split(/\s+/);
+
   const providerIntent = await provider.createIntent({
     amountCents: input.amountCents,
     currency: input.currency,
     idempotencyKey: input.idempotencyKey,
+    // Stable for the key and opaque: the provider echoes it back, and it must
+    // not reveal the order number or user id it was derived from.
+    reference: `pm_${createHash("sha256").update(input.idempotencyKey).digest("hex").slice(0, 32)}`,
+    customer: payer
+      ? { firstName, lastName: rest.join(" "), email: payer.email, phone: payer.phone }
+      : undefined,
     description: input.description,
     metadata: {
       ...input.metadata,
@@ -156,9 +171,61 @@ export async function createPayment(input: CreatePaymentInput): Promise<PaymentH
   };
 }
 
-function sandboxRedirect(providerRef: string | null, returnUrl: string): string | null {
-  if (!isSandboxPayments() || !providerRef) return null;
-  return `/checkout/sandbox?ref=${encodeURIComponent(providerRef)}&return=${encodeURIComponent(returnUrl)}`;
+/**
+ * Where to send the payer back to for an intent that already exists — a
+ * double-clicked button or a refreshed page. Only the provider that created
+ * the intent can resume it.
+ */
+function resumeRedirect(
+  intent: { provider: string; providerRef: string | null; clientSecret: string | null; status: string },
+  returnUrl: string,
+): string | null {
+  if (intent.status !== "REQUIRES_PAYMENT" && intent.status !== "PROCESSING") return null;
+  const provider = paymentProvider();
+  if (provider.name !== intent.provider) return null;
+  return provider.resumeUrl(intent, returnUrl);
+}
+
+/**
+ * A fresh attempt after a failed one. Hosted checkouts issue single-use
+ * secrets, so a declined card needs a new intent rather than the old link.
+ * The amount is the one the server computed for the original attempt; the
+ * reference entity's own conditional settlement still allows only one of the
+ * attempts to take effect.
+ */
+export async function retryPayment(intentId: string, userId: string, returnUrl: string): Promise<PaymentHandle> {
+  const failed = await db.paymentIntent.findFirst({
+    where: { id: intentId, userId },
+    select: {
+      id: true,
+      status: true,
+      purpose: true,
+      referenceType: true,
+      referenceId: true,
+      amountCents: true,
+      currency: true,
+      idempotencyKey: true,
+      metadata: true,
+    },
+  });
+  if (!failed) throw notFound("That payment");
+  if (failed.status !== "FAILED") throw conflict("That payment is no longer active.");
+
+  const attempts = await db.paymentIntent.count({
+    where: { userId, referenceType: failed.referenceType, referenceId: failed.referenceId },
+  });
+
+  return createPayment({
+    userId,
+    purpose: failed.purpose as PaymentPurpose,
+    referenceType: failed.referenceType ?? "",
+    referenceId: failed.referenceId ?? "",
+    amountCents: failed.amountCents,
+    currency: failed.currency,
+    description: `Payment retry for ${failed.purpose}`,
+    idempotencyKey: `${failed.idempotencyKey.slice(0, 40)}:retry:${attempts}`,
+    returnUrl,
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -175,6 +242,8 @@ function sandboxRedirect(providerRef: string | null, returnUrl: string): string 
 export async function confirmPayment(params: {
   intentId?: string;
   providerRef?: string;
+  /** The provider's id for the captured charge, kept for refunds. */
+  chargeRef?: string;
   actorId?: string;
   /** Sandbox only: the signed-in user confirming their own payment. */
   viaSandbox?: boolean;
@@ -213,7 +282,11 @@ export async function confirmPayment(params: {
   // Conditional transition. Concurrent webhook + sandbox confirm: one wins.
   const claimed = await db.paymentIntent.updateMany({
     where: { id: intent.id, status: { in: ["REQUIRES_PAYMENT", "PROCESSING"] } },
-    data: { status: "SUCCEEDED", capturedAt: new Date() },
+    data: {
+      status: "SUCCEEDED",
+      capturedAt: new Date(),
+      ...(params.chargeRef ? { providerChargeRef: params.chargeRef } : {}),
+    },
   });
 
   if (claimed.count === 0) {
@@ -301,7 +374,9 @@ export async function refundPayment(params: {
       amountCents: true,
       refundedCents: true,
       currency: true,
+      provider: true,
       providerRef: true,
+      providerChargeRef: true,
       purpose: true,
       referenceType: true,
       referenceId: true,
@@ -332,9 +407,19 @@ export async function refundPayment(params: {
   const provider = paymentProvider();
   let providerRef: string | null = null;
 
-  if (provider.name === "stripe" && intent.providerRef) {
+  // The money goes back through the gateway that took it. A sandbox payment
+  // has no gateway to return it through, and an intent taken by a provider
+  // that is no longer configured cannot be refunded by the current one.
+  if (intent.provider !== "ledger") {
+    if (provider.name !== intent.provider || !intent.providerRef) {
+      throw paymentFailed(
+        "We could not process that refund. Please try again.",
+        `intent ${intent.id} was taken by ${intent.provider}, current provider is ${provider.name}`,
+      );
+    }
     const result = await provider.refund({
       intentRef: intent.providerRef,
+      chargeRef: intent.providerChargeRef,
       amountCents: params.amountCents,
       idempotencyKey,
       reason: params.reason,

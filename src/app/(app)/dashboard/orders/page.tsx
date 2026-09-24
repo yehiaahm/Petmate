@@ -27,6 +27,8 @@ const PET_ORDER_TONE: Record<string, "info" | "warning" | "success" | "danger" |
 
 const ORDER_TONE: Record<string, "info" | "warning" | "success" | "danger" | "neutral"> = {
   PENDING: "warning",
+  PENDING_PAYMENT: "warning",
+  CONFIRMED: "info",
   PAID: "info",
   PROCESSING: "info",
   SHIPPED: "info",
@@ -189,7 +191,8 @@ export default async function OrdersPage() {
             <ul className="mt-4 space-y-2">
               {productOrders.map((order) => (
                 <li key={order.id}>
-                  <Card className="flex items-center gap-4 p-4">
+                  <Link href={`/dashboard/orders/${order.id}`} className="block">
+                  <Card interactive className="flex items-center gap-4 p-4">
                     <span className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-bg-sunken text-fg-subtle">
                       <Package className="size-5" aria-hidden />
                     </span>
@@ -205,10 +208,11 @@ export default async function OrdersPage() {
                         {formatMoney(order.totalCents, order.currency)}
                       </p>
                       <StatusPill tone={ORDER_TONE[order.status] ?? "neutral"}>
-                        {order.status.toLowerCase()}
+                        {order.status.toLowerCase().replaceAll("_", " ")}
                       </StatusPill>
                     </div>
                   </Card>
+                  </Link>
                 </li>
               ))}
             </ul>

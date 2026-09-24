@@ -87,6 +87,7 @@ export default async function ShopOrdersPage({
             fulfillmentStatus: item.fulfillmentStatus,
             orderNumber: item.order.orderNumber,
             orderStatus: item.order.status,
+            paymentMethod: item.order.paymentMethod,
             currency: item.order.currency,
             placedAt: item.order.placedAt?.toISOString() ?? null,
             buyerName: item.order.buyer.name,

@@ -1,4 +1,6 @@
 import "server-only";
+import { settleCashOnDelivery } from "@/lib/payments/settlement";
+import { restockItems } from "./commerce.service";
 import { createHash, timingSafeEqual } from "node:crypto";
 import { db } from "@/lib/db";
 import { audit } from "@/lib/audit";
@@ -86,7 +88,7 @@ async function assertDeliveryAccess(auth: AuthContext, deliveryId: string) {
       otpAttempts: true,
       attemptCount: true,
       shop: { select: { ownerUserId: true, name: true } },
-      order: { select: { id: true, buyerId: true, orderNumber: true } },
+      order: { select: { id: true, buyerId: true, orderNumber: true, paymentMethod: true } },
     },
   });
   if (!delivery) throw notFound("That delivery");
@@ -151,6 +153,29 @@ export async function updateDeliveryStatus(
         where: { orderId: delivery.orderId, shopId: delivery.shopId },
         data: { fulfillmentStatus: "SHIPPED" },
       });
+    }
+
+    // A cash-on-delivery parcel that comes back was never paid for: the
+    // shop's items go back on the shelf and there is nothing to refund.
+    if (delivery.order.paymentMethod === "COD" && (next === "RETURNED" || next === "CANCELLED")) {
+      const items = await tx.orderItem.findMany({
+        where: { orderId: delivery.orderId, shopId: delivery.shopId, fulfillmentStatus: { not: "CANCELLED" } },
+        select: { variantId: true, quantity: true },
+      });
+      await restockItems(tx, items);
+      await tx.orderItem.updateMany({
+        where: { orderId: delivery.orderId, shopId: delivery.shopId },
+        data: { fulfillmentStatus: "CANCELLED" },
+      });
+      const live = await tx.orderItem.count({
+        where: { orderId: delivery.orderId, fulfillmentStatus: { not: "CANCELLED" } },
+      });
+      if (live === 0) {
+        await tx.order.update({
+          where: { id: delivery.orderId },
+          data: { status: "CANCELLED", cancelledAt: new Date(), cancelReason: `Delivery ${next.toLowerCase()}` },
+        });
+      }
     }
   });
 
@@ -286,13 +311,18 @@ export async function confirmDeliveryWithCode(
       data: { fulfillmentStatus: "DELIVERED" },
     });
 
-    // The order is delivered only when every parcel in it is.
-    const siblings = await tx.orderItem.findMany({
-      where: { orderId: delivery.orderId },
-      select: { fulfillmentStatus: true },
-    });
-    if (siblings.every((s) => s.fulfillmentStatus === "DELIVERED")) {
-      await tx.order.update({ where: { id: delivery.orderId }, data: { status: "DELIVERED" } });
+    if (delivery.order.paymentMethod === "COD") {
+      // The courier has the cash; the shop's commission on it is due now.
+      await settleCashOnDelivery(tx, delivery.orderId, delivery.shopId);
+    } else {
+      // The order is delivered only when every parcel in it is.
+      const siblings = await tx.orderItem.findMany({
+        where: { orderId: delivery.orderId },
+        select: { fulfillmentStatus: true },
+      });
+      if (siblings.every((s) => s.fulfillmentStatus === "DELIVERED")) {
+        await tx.order.update({ where: { id: delivery.orderId }, data: { status: "DELIVERED" } });
+      }
     }
   });
 
