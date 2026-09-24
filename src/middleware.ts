@@ -40,10 +40,26 @@ const isProduction = process.env.NODE_ENV === "production";
  * because the dev overlay and fast refresh need both, and a policy nobody can
  * develop under is a policy that gets turned off.
  */
+/**
+ * Analytics hosts, allowed only when an ID is configured. In production the
+ * nonce plus 'strict-dynamic' already lets our own scripts load them; the
+ * host list is what development (no nonce) and connect-src need.
+ */
+const ANALYTICS_SCRIPT_HOSTS = [
+  ...(process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID ? ["https://www.googletagmanager.com"] : []),
+  ...(process.env.NEXT_PUBLIC_META_PIXEL_ID ? ["https://connect.facebook.net"] : []),
+];
+const ANALYTICS_CONNECT_HOSTS = [
+  ...(process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID
+    ? ["https://*.google-analytics.com", "https://*.analytics.google.com", "https://www.googletagmanager.com"]
+    : []),
+  ...(process.env.NEXT_PUBLIC_META_PIXEL_ID ? ["https://www.facebook.com", "https://connect.facebook.net"] : []),
+];
+
 function contentSecurityPolicy(nonce: string): string {
   const scriptSrc = isProduction
     ? `'self' 'nonce-${nonce}' 'strict-dynamic'`
-    : `'self' 'unsafe-inline' 'unsafe-eval'`;
+    : ["'self'", "'unsafe-inline'", "'unsafe-eval'", ...ANALYTICS_SCRIPT_HOSTS].join(" ");
 
   return [
     "default-src 'self'",
@@ -54,7 +70,7 @@ function contentSecurityPolicy(nonce: string): string {
     "img-src 'self' data: blob: https:",
     "font-src 'self' data:",
     // The app talks to itself. `blob:` covers the assistant's streamed reply.
-    "connect-src 'self' blob:",
+    ["connect-src 'self' blob:", ...ANALYTICS_CONNECT_HOSTS].join(" "),
     "media-src 'self'",
     "object-src 'none'",
     "base-uri 'self'",

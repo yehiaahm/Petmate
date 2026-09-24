@@ -8,6 +8,8 @@ import { I18nProvider } from "@/components/i18n/i18n-provider";
 import { clientEnv } from "@/lib/env";
 import { getI18n } from "@/lib/i18n/server";
 import { messagesFor } from "@/lib/i18n/messages";
+import { ErrorReporter } from "@/components/monitoring/error-reporter";
+import { Analytics } from "@/components/analytics/analytics";
 
 /**
  * Fraunces carries the headlines: a soft serif with real character, which reads
@@ -124,6 +126,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         </a>
         <I18nProvider locale={locale} messages={messagesFor(locale)}>
           <ToastProvider>{children}</ToastProvider>
+          <ErrorReporter />
+          <Analytics />
         </I18nProvider>
       </body>
     </html>

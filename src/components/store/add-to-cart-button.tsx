@@ -6,6 +6,7 @@ import { ShoppingCart, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import { api, ApiError } from "@/lib/api-client";
+import { track } from "@/lib/analytics";
 
 /**
  * Add to basket.
@@ -41,7 +42,13 @@ export function AddToCartButton({
     setAdding(true);
 
     try {
-      await api.post("/api/cart", { action: "add", variantId, quantity });
+      const cart = await api.post<{ currency: string; items: { variantId: string; unitPriceCents: number }[] }>("/api/cart", {
+        action: "add",
+        variantId,
+        quantity,
+      });
+      const line = cart.items.find((i) => i.variantId === variantId);
+      if (line) track({ name: "add_to_cart", value: line.unitPriceCents * quantity, currency: cart.currency });
 
       setAdded(true);
       setTimeout(() => setAdded(false), 2200);

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { RotateCw, Home, LifeBuoy } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
 import { Button, ButtonLink } from "@/components/ui/button";
+import { reportClientError } from "@/components/monitoring/error-reporter";
 
 /**
  * Application error boundary.
@@ -23,6 +24,7 @@ export default function GlobalError({
   useEffect(() => {
     // The server already logged it; this records that a user actually saw it.
     console.error("Client error boundary:", error.digest ?? error.message);
+    reportClientError(error, "boundary", error.digest);
   }, [error]);
 
   return (

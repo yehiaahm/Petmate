@@ -42,6 +42,13 @@ const serverSchema = z.object({
    */
   PETMATE_DIRECT_URL: z.string().optional(),
 
+  // ---- Monitoring ---------------------------------------------------------
+  // Errors logged with logger.exception, and errors in visitors' browsers,
+  // are sent to Sentry when a DSN is set.
+  SENTRY_DSN: z.string().url().optional(),
+  SENTRY_ENVIRONMENT: z.string().optional(),
+  SENTRY_RELEASE: z.string().optional(),
+
   // ---- Courier ------------------------------------------------------------
   // Each shop connects its own Bosta account; only the API endpoint is global.
   // Staging: https://stg-app.bosta.co/api/v2
@@ -157,6 +164,20 @@ const clientSchema = z.object({
    * it on a live platform would strand every existing balance in the old one.
    */
   NEXT_PUBLIC_CURRENCY: z.enum(CURRENCIES).default("EGP"),
+  /**
+   * Marketing measurement, loaded only after a visitor accepts analytics
+   * cookies. Leave empty to run with no third-party scripts at all.
+   */
+  NEXT_PUBLIC_GA_MEASUREMENT_ID: z
+    .string()
+    .regex(/^G-[A-Z0-9]{4,}$/, "NEXT_PUBLIC_GA_MEASUREMENT_ID looks like G-XXXXXXX")
+    .optional()
+    .or(z.literal("").transform(() => undefined)),
+  NEXT_PUBLIC_META_PIXEL_ID: z
+    .string()
+    .regex(/^\d{6,20}$/, "NEXT_PUBLIC_META_PIXEL_ID is a number")
+    .optional()
+    .or(z.literal("").transform(() => undefined)),
 });
 
 type ServerEnv = z.infer<typeof serverSchema>;
@@ -178,6 +199,8 @@ const parsedClient = clientSchema.safeParse({
   NEXT_PUBLIC_APP_NAME: process.env.NEXT_PUBLIC_APP_NAME,
   NEXT_PUBLIC_APP_TIMEZONE: process.env.NEXT_PUBLIC_APP_TIMEZONE,
   NEXT_PUBLIC_CURRENCY: process.env.NEXT_PUBLIC_CURRENCY,
+  NEXT_PUBLIC_GA_MEASUREMENT_ID: process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID,
+  NEXT_PUBLIC_META_PIXEL_ID: process.env.NEXT_PUBLIC_META_PIXEL_ID,
 });
 
 export const clientEnv: ClientEnv = parsedClient.success
@@ -268,6 +291,9 @@ export function productionReadiness(): string[] {
   }
   if (e.WHATSAPP_PROVIDER === "log" && e.SMS_PROVIDER === "log") {
     problems.push("WHATSAPP_PROVIDER and SMS_PROVIDER are both log: phone verification codes would never arrive");
+  }
+  if (!e.SENTRY_DSN) {
+    problems.push("SENTRY_DSN is not set: errors in production would go unnoticed");
   }
   if (e.SEED_DEMO_DATA) {
     problems.push("SEED_DEMO_DATA must be false in production");

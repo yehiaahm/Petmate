@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { Logo } from "@/components/brand/logo";
 import { SPECIES_PLURAL, SPECIES } from "@/lib/constants";
+import { getI18n } from "@/lib/i18n/server";
+import { CookieSettingsLink } from "@/components/analytics/cookie-settings-link";
 
 const COLUMNS: { title: string; links: { href: string; label: string }[] }[] = [
   {
@@ -41,7 +43,8 @@ const COLUMNS: { title: string; links: { href: string; label: string }[] }[] = [
   },
 ];
 
-export function Footer() {
+export async function Footer() {
+  const { t } = await getI18n();
   const year = new Date().getFullYear();
 
   return (
@@ -51,16 +54,14 @@ export function Footer() {
           <div>
             <Logo size="md" />
             <p className="mt-4 max-w-sm text-sm leading-relaxed text-fg-muted">
-              PetMate gives every pet a verified identity and a health record that follows them for
-              life — so buying, adopting, breeding and caring for an animal is something you can
-              actually check.
+              {t("PetMate gives every pet a verified identity and a health record that follows them for life — so buying, adopting, breeding and caring for an animal is something you can actually check.")}
             </p>
           </div>
 
           <div className="grid grid-cols-2 gap-8 sm:grid-cols-4">
             {COLUMNS.map((column) => (
               <div key={column.title}>
-                <h2 className="font-display text-sm font-semibold text-fg">{column.title}</h2>
+                <h2 className="font-display text-sm font-semibold text-fg">{t(column.title)}</h2>
                 <ul className="mt-3 space-y-2.5">
                   {column.links.map((link) => (
                     <li key={link.href}>
@@ -68,7 +69,7 @@ export function Footer() {
                         href={link.href}
                         className="text-sm text-fg-muted transition-colors hover:text-fg hover:underline"
                       >
-                        {link.label}
+                        {t(link.label)}
                       </Link>
                     </li>
                   ))}
@@ -80,9 +81,9 @@ export function Footer() {
 
         {/* Species links: real internal linking for search engines, and a
             genuinely useful shortcut for people. */}
-        <nav aria-label="Browse by species" className="mt-10 border-t border-[var(--border)] pt-6">
+        <nav aria-label={t("Browse by species")} className="mt-10 border-t border-[var(--border)] pt-6">
           <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-fg-subtle">
-            Browse by species
+            {t("Browse by species")}
           </p>
           <ul className="flex flex-wrap gap-x-4 gap-y-2">
             {SPECIES.map((species) => (
@@ -91,7 +92,7 @@ export function Footer() {
                   href={`/pets?species=${species}`}
                   className="text-sm text-fg-muted transition-colors hover:text-fg hover:underline"
                 >
-                  {SPECIES_PLURAL[species]}
+                  {t(SPECIES_PLURAL[species])}
                 </Link>
               </li>
             ))}
@@ -99,13 +100,15 @@ export function Footer() {
         </nav>
 
         <div className="mt-8 flex flex-col gap-3 border-t border-[var(--border)] pt-6 text-xs text-fg-subtle sm:flex-row sm:items-center sm:justify-between">
-          <p>© {year} PetMate. Built for people who take animals seriously.</p>
-          <p>
-            Never send money off PetMate.{" "}
-            <Link href="/trust" className="underline underline-offset-2 hover:text-fg-muted">
-              Here is why
-            </Link>
-            .
+          <p>{t("© {year} PetMate. Built for people who take animals seriously.", { year })}</p>
+          <p className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <span>
+              {t("Never send money off PetMate.")}{" "}
+              <Link href="/trust" className="underline underline-offset-2 hover:text-fg-muted">
+                {t("Here is why")}
+              </Link>
+            </span>
+            <CookieSettingsLink label={t("Cookie settings")} />
           </p>
         </div>
       </div>

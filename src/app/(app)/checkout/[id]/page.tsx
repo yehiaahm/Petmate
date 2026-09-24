@@ -8,6 +8,7 @@ import { getI18n } from "@/lib/i18n/server";
 import { Card, Alert, DataRow } from "@/components/ui/primitives";
 import { ButtonLink } from "@/components/ui/button";
 import { PaymentActions } from "@/components/checkout/payment-actions";
+import { PurchaseTracker } from "@/components/analytics/purchase-tracker";
 
 export async function generateMetadata(): Promise<Metadata> {
   const { t } = await getI18n();
@@ -109,6 +110,9 @@ export default async function CheckoutPage({ params }: { params: Promise<{ id: s
 
         <div className="mt-5 space-y-3">
           <PaymentActions intentId={intent.id} resumeUrl={resumeUrl} canRetry={intent.status === "FAILED"} />
+          {intent.status === "SUCCEEDED" && (
+            <PurchaseTracker paymentId={intent.id} valueCents={intent.amountCents} currency={intent.currency} />
+          )}
           <ButtonLink href="/dashboard" variant="outline" fullWidth>
             {t("Back to dashboard")}
           </ButtonLink>

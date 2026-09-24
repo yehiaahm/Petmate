@@ -15,6 +15,7 @@ import { api, ApiError } from "@/lib/api-client";
 import { stableKey, clearStableKey } from "@/lib/api-idempotency";
 import { cn } from "@/lib/utils";
 import type { CartSummary } from "@/lib/services/commerce.service";
+import { track } from "@/lib/analytics";
 
 type PaymentMethod = "ONLINE" | "COD";
 
@@ -116,13 +117,14 @@ export function CartView({
   }
 
   async function checkout() {
+    track({ name: "begin_checkout", value: cart.totalCents - (coupon?.discountCents ?? 0), currency: cart.currency });
     setCheckingOut(true);
     setError(null);
     setFieldErrors({});
 
     try {
       const result = await api.post<{
-        order: { id: string; orderNumber: string };
+        order: { id: string; orderNumber: string; totalCents: number; currency: string };
         payment: { id: string; redirectUrl: string | null } | null;
         redirectUrl?: string;
       }>("/api/cart", {
@@ -147,6 +149,8 @@ export function CartView({
       clearStableKey("checkout");
 
       if (!result.payment) {
+        // Cash on delivery: the order is placed now, so this is the conversion.
+        track({ name: "purchase", transactionId: result.order.orderNumber, value: result.order.totalCents, currency: result.order.currency });
         router.push(result.redirectUrl ?? `/dashboard/orders/${result.order.id}`);
         router.refresh();
       } else if (result.payment.redirectUrl) {

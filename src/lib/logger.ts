@@ -1,4 +1,5 @@
 import { redact } from "./json";
+import { captureException } from "./monitoring/sentry";
 
 /**
  * Structured logging.
@@ -66,6 +67,8 @@ export const logger = {
         ? { name: error.name, message: error.message, stack: error.stack }
         : { value: String(error) };
     emit("error", m, { ...c, error: detail });
+    // Fire and forget: the caller is already handling the failure.
+    void captureException({ error, message: m, context: c });
   },
 };
 

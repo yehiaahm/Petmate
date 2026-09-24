@@ -11,6 +11,7 @@ import { api, ApiError } from "@/lib/api-client";
 import { useI18n } from "@/components/i18n/i18n-provider";
 import { PasswordStrength, assessPasswordClient } from "@/components/auth/password-strength";
 import { cn } from "@/lib/utils";
+import { track } from "@/lib/analytics";
 
 type Role = "USER" | "BREEDER" | "SELLER" | "CLINIC_ADMIN";
 
@@ -62,6 +63,7 @@ export function RegisterForm({ next }: { next: string }) {
         role: role === "USER" ? undefined : role,
         acceptedTerms,
       });
+      track({ name: "sign_up", method: "email" });
 
       router.push(`/login?registered=1${next !== "/dashboard" ? `&next=${encodeURIComponent(next)}` : ""}`);
     } catch (err) {

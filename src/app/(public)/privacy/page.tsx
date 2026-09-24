@@ -100,9 +100,10 @@ const sections: LegalSection[] = [
   {
     heading: "Cookies",
     paragraphs: [
-      "We use three: a session cookie that keeps you signed in, a CSRF token that stops another site submitting forms as you, and a cookie that remembers the language you chose. All three are needed for the service to work as you set it up.",
+      "Without asking, we use only these: a session cookie that keeps you signed in, a CSRF token that stops another site submitting forms as you, a cookie that remembers the language you chose, and one that remembers your cookie choice. The service needs them to work as you set it up.",
       "Sponsored placements on PetMate are chosen by the page they appear on, never by who is looking. To count an ad once per visitor we use a one-way hash of the CSRF token, kept for at most 30 minutes and never linked to your account.",
-      "We do not use advertising or cross-site tracking cookies, which is why you are not being asked to dismiss a consent banner.",
+      "Analytics cookies from Google Analytics and the Meta Pixel are used only if you allow them in the cookie choice, to measure which of our adverts bring people to PetMate. They receive the pages you visit and, for purchases, the amount and an order reference; never your name, email, phone number or address. You can change your choice at any time from \"Cookie settings\" at the bottom of every page.",
+      "Errors that happen on our servers or in your browser are reported to our error-monitoring service (Sentry) with the technical details needed to fix them. Passwords, tokens, cookies and contact details are removed before anything is sent.",
     ],
   },
   {
