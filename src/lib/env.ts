@@ -42,6 +42,11 @@ const serverSchema = z.object({
    */
   PETMATE_DIRECT_URL: z.string().optional(),
 
+  // ---- Courier ------------------------------------------------------------
+  // Each shop connects its own Bosta account; only the API endpoint is global.
+  // Staging: https://stg-app.bosta.co/api/v2
+  BOSTA_BASE_URL: z.string().url().default("https://app.bosta.co/api/v2"),
+
   // ---- Social sign-in ------------------------------------------------------
   // Each provider appears on the sign-in page only when both of its values are
   // set. Redirect URI to register with the provider:

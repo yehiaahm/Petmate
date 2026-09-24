@@ -135,6 +135,23 @@ credited full price.
   for 14 days and their phone is verified, up to `referralMonthlyCap` rewards
   per 30 days.
 
+## Courier (Bosta)
+
+A shop can connect its own Bosta account (shop console → Courier). From then:
+
+- every new order's parcel for that shop is booked with Bosta by the
+  `delivery.book` job (not inside checkout), with `cod` set to exactly what the
+  shop's COD settlement expects: its goods + shipping share − its coupon share;
+- Bosta's webhooks (`/api/webhooks/bosta/{shopId}`, authenticated by the
+  per-shop secret sent as the Authorization header) move the parcel through
+  the same status logic as manual updates; "delivered" runs
+  `settleCashOnDelivery`, "returned" restocks and cancels an unpaid COD parcel;
+- repeated, late or unknown states are recorded without moving anything, and
+  `delivery.sync` asks Bosta about parcels that have gone quiet;
+- the shop cannot move a Bosta parcel by hand, and Bosta pays the COD cash to
+  the shop's Bosta account; PetMate's commission is charged against the shop
+  balance as for any COD order.
+
 ## Exactly-once settlement
 
 Three mechanisms, each guarding a different failure:

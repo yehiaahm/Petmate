@@ -2,7 +2,7 @@ import "server-only";
 import { settleCashOnDelivery } from "@/lib/payments/settlement";
 import { restockItems } from "./commerce.service";
 import { createHash, timingSafeEqual } from "node:crypto";
-import { db } from "@/lib/db";
+import { db, type Tx } from "@/lib/db";
 import { audit } from "@/lib/audit";
 import { badRequest, conflict, forbidden, notFound } from "@/lib/errors";
 import { isStaff } from "@/lib/auth/rbac";
@@ -87,6 +87,8 @@ async function assertDeliveryAccess(auth: AuthContext, deliveryId: string) {
       otpHash: true,
       otpAttempts: true,
       attemptCount: true,
+      provider: true,
+      carrierTracking: true,
       shop: { select: { ownerUserId: true, name: true } },
       order: { select: { id: true, buyerId: true, orderNumber: true, paymentMethod: true } },
     },
@@ -100,6 +102,13 @@ async function assertDeliveryAccess(auth: AuthContext, deliveryId: string) {
   return { delivery, isSeller, isCourier };
 }
 
+/** A parcel booked with a courier company moves only on the courier's word. */
+function assertNotCarrierManaged(delivery: { provider: string; carrierTracking: string | null }) {
+  if (delivery.provider !== "INTERNAL" && delivery.carrierTracking) {
+    throw conflict("Bosta updates this parcel. To change or cancel it, use your Bosta dashboard.");
+  }
+}
+
 export async function updateDeliveryStatus(
   auth: AuthContext,
   deliveryId: string,
@@ -107,6 +116,7 @@ export async function updateDeliveryStatus(
   extra: { note?: string; lat?: number; lng?: number; failureReason?: string } = {},
 ) {
   const { delivery } = await assertDeliveryAccess(auth, deliveryId);
+  assertNotCarrierManaged(delivery);
 
   const current = delivery.status as DeliveryStatus;
   if (!ALLOWED_TRANSITIONS[current]?.includes(next)) {
@@ -119,65 +129,7 @@ export async function updateDeliveryStatus(
     throw badRequest("Confirm delivery with the recipient's code.");
   }
 
-  await db.$transaction(async (tx) => {
-    await tx.delivery.update({
-      where: { id: deliveryId },
-      data: {
-        status: next,
-        ...(next === "PICKED_UP" ? { pickedUpAt: new Date() } : {}),
-        ...(next === "FAILED"
-          ? {
-              failedAt: new Date(),
-              failureReason: extra.failureReason?.slice(0, 300) ?? null,
-              attemptCount: { increment: 1 },
-            }
-          : {}),
-        ...(extra.lat != null ? { lat: extra.lat } : {}),
-        ...(extra.lng != null ? { lng: extra.lng } : {}),
-      },
-    });
-
-    await tx.deliveryEvent.create({
-      data: {
-        deliveryId,
-        status: next,
-        note: extra.note?.slice(0, 300) ?? extra.failureReason?.slice(0, 300) ?? null,
-        lat: extra.lat ?? null,
-        lng: extra.lng ?? null,
-        actorId: auth.user.id,
-      },
-    });
-
-    if (next === "PICKED_UP" || next === "IN_TRANSIT") {
-      await tx.orderItem.updateMany({
-        where: { orderId: delivery.orderId, shopId: delivery.shopId },
-        data: { fulfillmentStatus: "SHIPPED" },
-      });
-    }
-
-    // A cash-on-delivery parcel that comes back was never paid for: the
-    // shop's items go back on the shelf and there is nothing to refund.
-    if (delivery.order.paymentMethod === "COD" && (next === "RETURNED" || next === "CANCELLED")) {
-      const items = await tx.orderItem.findMany({
-        where: { orderId: delivery.orderId, shopId: delivery.shopId, fulfillmentStatus: { not: "CANCELLED" } },
-        select: { variantId: true, quantity: true },
-      });
-      await restockItems(tx, items);
-      await tx.orderItem.updateMany({
-        where: { orderId: delivery.orderId, shopId: delivery.shopId },
-        data: { fulfillmentStatus: "CANCELLED" },
-      });
-      const live = await tx.orderItem.count({
-        where: { orderId: delivery.orderId, fulfillmentStatus: { not: "CANCELLED" } },
-      });
-      if (live === 0) {
-        await tx.order.update({
-          where: { id: delivery.orderId },
-          data: { status: "CANCELLED", cancelledAt: new Date(), cancelReason: `Delivery ${next.toLowerCase()}` },
-        });
-      }
-    }
-  });
+  await db.$transaction((tx) => applyStatusChange(tx, delivery, next, { ...extra, actorId: auth.user.id }));
 
   await notify({
     userId: delivery.order.buyerId,
@@ -193,7 +145,120 @@ export async function updateDeliveryStatus(
   return { status: next };
 }
 
-function deliveryStatusTitle(status: DeliveryStatus): string {
+export type DeliveryForUpdate = { id: string; orderId: string; shopId: string; order: { paymentMethod: string } };
+
+/**
+ * One status change and everything that follows from it, inside the caller's
+ * transaction. Shared by a person moving the parcel by hand and by a
+ * carrier's status update, so both have exactly the same effects.
+ */
+export async function applyStatusChange(
+  tx: Tx,
+  delivery: DeliveryForUpdate,
+  next: DeliveryStatus,
+  extra: { note?: string; lat?: number; lng?: number; failureReason?: string; actorId?: string | null },
+) {
+  await tx.delivery.update({
+    where: { id: delivery.id },
+    data: {
+      status: next,
+      ...(next === "PICKED_UP" ? { pickedUpAt: new Date() } : {}),
+      ...(next === "FAILED"
+        ? {
+            failedAt: new Date(),
+            failureReason: extra.failureReason?.slice(0, 300) ?? null,
+            attemptCount: { increment: 1 },
+          }
+        : {}),
+      ...(extra.lat != null ? { lat: extra.lat } : {}),
+      ...(extra.lng != null ? { lng: extra.lng } : {}),
+    },
+  });
+
+  await tx.deliveryEvent.create({
+    data: {
+      deliveryId: delivery.id,
+      status: next,
+      note: extra.note?.slice(0, 300) ?? extra.failureReason?.slice(0, 300) ?? null,
+      lat: extra.lat ?? null,
+      lng: extra.lng ?? null,
+      actorId: extra.actorId ?? null,
+    },
+  });
+
+  if (next === "PICKED_UP" || next === "IN_TRANSIT") {
+    await tx.orderItem.updateMany({
+      where: { orderId: delivery.orderId, shopId: delivery.shopId },
+      data: { fulfillmentStatus: "SHIPPED" },
+    });
+  }
+
+  // A cash-on-delivery parcel that comes back was never paid for: the
+  // shop's items go back on the shelf and there is nothing to refund.
+  if (delivery.order.paymentMethod === "COD" && (next === "RETURNED" || next === "CANCELLED")) {
+    const items = await tx.orderItem.findMany({
+      where: { orderId: delivery.orderId, shopId: delivery.shopId, fulfillmentStatus: { not: "CANCELLED" } },
+      select: { variantId: true, quantity: true },
+    });
+    await restockItems(tx, items);
+    await tx.orderItem.updateMany({
+      where: { orderId: delivery.orderId, shopId: delivery.shopId },
+      data: { fulfillmentStatus: "CANCELLED" },
+    });
+    const live = await tx.orderItem.count({
+      where: { orderId: delivery.orderId, fulfillmentStatus: { not: "CANCELLED" } },
+    });
+    if (live === 0) {
+      await tx.order.update({
+        where: { id: delivery.orderId },
+        data: { status: "CANCELLED", cancelledAt: new Date(), cancelReason: `Delivery ${next.toLowerCase()}` },
+      });
+    }
+  }
+}
+
+/**
+ * A parcel has reached the buyer: its items are delivered, and the money side
+ * follows — a cash-on-delivery shop is charged its commission, an online
+ * order is marked delivered once all of its parcels are.
+ */
+export async function completeDelivery(
+  tx: Tx,
+  delivery: DeliveryForUpdate,
+  extra: { note: string; lat?: number; lng?: number; actorId?: string | null },
+) {
+  await tx.deliveryEvent.create({
+    data: {
+      deliveryId: delivery.id,
+      status: "DELIVERED",
+      note: extra.note,
+      lat: extra.lat ?? null,
+      lng: extra.lng ?? null,
+      actorId: extra.actorId ?? null,
+    },
+  });
+
+  await tx.orderItem.updateMany({
+    where: { orderId: delivery.orderId, shopId: delivery.shopId },
+    data: { fulfillmentStatus: "DELIVERED" },
+  });
+
+  if (delivery.order.paymentMethod === "COD") {
+    // The courier has the cash; the shop's commission on it is due now.
+    await settleCashOnDelivery(tx, delivery.orderId, delivery.shopId);
+  } else {
+    // The order is delivered only when every parcel in it is.
+    const siblings = await tx.orderItem.findMany({
+      where: { orderId: delivery.orderId },
+      select: { fulfillmentStatus: true },
+    });
+    if (siblings.every((s) => s.fulfillmentStatus === "DELIVERED")) {
+      await tx.order.update({ where: { id: delivery.orderId }, data: { status: "DELIVERED" } });
+    }
+  }
+}
+
+export function deliveryStatusTitle(status: DeliveryStatus): string {
   const titles: Record<DeliveryStatus, string> = {
     PENDING: "Your order is being prepared",
     ASSIGNED: "A courier has been assigned",
@@ -214,6 +279,7 @@ function deliveryStatusTitle(status: DeliveryStatus): string {
  */
 export async function dispatchForDelivery(auth: AuthContext, deliveryId: string) {
   const { delivery } = await assertDeliveryAccess(auth, deliveryId);
+  assertNotCarrierManaged(delivery);
 
   if (!["PICKED_UP", "IN_TRANSIT", "FAILED"].includes(delivery.status)) {
     throw conflict("This parcel is not ready to go out for delivery.");
@@ -295,35 +361,12 @@ export async function confirmDeliveryWithCode(
     });
     if (claimed.count === 0) throw conflict("This delivery has already been completed.");
 
-    await tx.deliveryEvent.create({
-      data: {
-        deliveryId,
-        status: "DELIVERED",
-        note: extra.signedBy ? `Signed by ${extra.signedBy}` : "Confirmed with recipient code",
-        lat: extra.lat ?? null,
-        lng: extra.lng ?? null,
-        actorId: auth.user.id,
-      },
+    await completeDelivery(tx, delivery, {
+      note: extra.signedBy ? `Signed by ${extra.signedBy}` : "Confirmed with recipient code",
+      lat: extra.lat,
+      lng: extra.lng,
+      actorId: auth.user.id,
     });
-
-    await tx.orderItem.updateMany({
-      where: { orderId: delivery.orderId, shopId: delivery.shopId },
-      data: { fulfillmentStatus: "DELIVERED" },
-    });
-
-    if (delivery.order.paymentMethod === "COD") {
-      // The courier has the cash; the shop's commission on it is due now.
-      await settleCashOnDelivery(tx, delivery.orderId, delivery.shopId);
-    } else {
-      // The order is delivered only when every parcel in it is.
-      const siblings = await tx.orderItem.findMany({
-        where: { orderId: delivery.orderId },
-        select: { fulfillmentStatus: true },
-      });
-      if (siblings.every((s) => s.fulfillmentStatus === "DELIVERED")) {
-        await tx.order.update({ where: { id: delivery.orderId }, data: { status: "DELIVERED" } });
-      }
-    }
   });
 
   await audit({

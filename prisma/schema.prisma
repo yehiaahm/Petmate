@@ -1081,6 +1081,13 @@ model Shop {
   /// against its balance when the parcel is delivered (see CodCollection).
   acceptsCod Boolean @default(false)
 
+  // Courier. BOSTA books every parcel with the shop's own Bosta account, so
+  // Bosta pays cash-on-delivery money to the shop directly. The key is
+  // encrypted; the webhook secret authenticates Bosta's status updates.
+  shippingProvider   String  @default("INTERNAL") // INTERNAL | BOSTA
+  bostaApiKey        String?
+  bostaWebhookSecret String?
+
   searchText String @default("")
 
   createdAt DateTime  @default(now())
@@ -1358,9 +1365,15 @@ model Delivery {
   shopId    String
   courierId String?
 
-  provider       String  @default("INTERNAL") // INTERNAL | DHL | ARAMEX | LOCAL_COURIER
-  trackingNumber String  @unique
-  carrierRef     String?
+  provider        String  @default("INTERNAL") // INTERNAL | BOSTA
+  trackingNumber  String  @unique
+  carrierRef      String?
+  /// The carrier's own tracking number, when a carrier is booked.
+  carrierTracking String?
+  /// The carrier's last raw state, kept for support.
+  carrierState    String?
+  /// Why booking with the carrier failed, until it succeeds.
+  bookingError    String?
 
   status String @default("PENDING") // PENDING | ASSIGNED | PICKED_UP | IN_TRANSIT | OUT_FOR_DELIVERY | DELIVERED | FAILED | RETURNED | CANCELLED
 
@@ -1397,6 +1410,7 @@ model Delivery {
   @@index([orderId])
   @@index([courierId, status])
   @@index([status])
+  @@index([carrierTracking])
 }
 
 model DeliveryEvent {

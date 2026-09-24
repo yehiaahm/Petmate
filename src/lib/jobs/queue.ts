@@ -25,6 +25,8 @@ export type JobType =
   | "ads.settle"
   | "messages.process"
   | "referrals.qualify"
+  | "delivery.book"
+  | "delivery.sync"
   | "payouts.release"
   | "clinic.releaseHold"
   | "subscription.expire"
@@ -168,6 +170,7 @@ export const RECURRING_JOBS: { type: JobType; intervalSeconds: number }[] = [
   { type: "email.process", intervalSeconds: 30 },
   { type: "messages.process", intervalSeconds: 30 },
   { type: "referrals.qualify", intervalSeconds: 3600 },
+  { type: "delivery.sync", intervalSeconds: 3600 },
   { type: "health.reminders", intervalSeconds: 3600 },
   { type: "listing.expire", intervalSeconds: 3600 },
   { type: "savedSearch.run", intervalSeconds: 21600 },

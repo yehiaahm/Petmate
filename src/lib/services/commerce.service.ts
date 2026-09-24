@@ -1375,7 +1375,7 @@ export async function getOrderForBuyer(auth: AuthContext, orderId: string) {
         },
       },
       deliveries: {
-        select: { id: true, shopId: true, trackingNumber: true, status: true, provider: true, deliveredAt: true },
+        select: { id: true, shopId: true, trackingNumber: true, carrierTracking: true, status: true, provider: true, deliveredAt: true },
       },
     },
   });
@@ -1652,6 +1652,16 @@ export async function updateFulfillment(
   });
   if (!item) throw notFound("That order item");
   await assertOwnsShop(item.shopId, auth);
+
+  // Packing is the shop's; shipping and delivery of a Bosta parcel are
+  // Bosta's to report.
+  if (status === "SHIPPED" || status === "DELIVERED") {
+    const booked = await db.delivery.findFirst({
+      where: { orderId: item.orderId, shopId: item.shopId, carrierTracking: { not: null } },
+      select: { id: true },
+    });
+    if (booked) throw conflict("Bosta updates this parcel. To change or cancel it, use your Bosta dashboard.");
+  }
 
   // A shop that delivers its own parcels marks them delivered here. For a
   // cash-on-delivery order that is the moment the shop has the cash, so the

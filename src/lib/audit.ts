@@ -33,6 +33,8 @@ export type AuditAction =
   | "coupon.created"
   | "coupon.updated"
   | "referral.rewarded"
+  | "shop.courier_connected"
+  | "shop.courier_disconnected"
   | "user.updated"
   | "user.role_granted"
   | "user.role_revoked"

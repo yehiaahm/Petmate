@@ -11,6 +11,8 @@ import { ButtonLink } from "@/components/ui/button";
 import { ProductTable } from "@/components/sell/product-table";
 import { ProductImport } from "@/components/sell/product-import";
 import { ShopSettings } from "@/components/sell/shop-settings";
+import { CourierSettings } from "@/components/sell/courier-settings";
+import { getCourierSettings } from "@/lib/services/carrier.service";
 import { getSettings } from "@/lib/settings";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -26,7 +28,11 @@ export default async function ShopConsolePage({ params }: { params: Promise<{ id
     if (isAppError(error) && error.code === "NOT_FOUND") notFound();
     throw error;
   });
-  const [entitlements, settings] = await Promise.all([getEntitlements(auth.user.id), getSettings()]);
+  const [entitlements, settings, courier] = await Promise.all([
+    getEntitlements(auth.user.id),
+    getSettings(),
+    getCourierSettings(auth, id),
+  ]);
 
   const active = shop.status === "ACTIVE";
   const onSale = products.filter((p) => p.status === "ACTIVE").length;
@@ -117,6 +123,18 @@ export default async function ShopConsolePage({ params }: { params: Promise<{ id
             }}
             codEnabled={settings.codEnabled}
             codCap={fmt.money(settings.codMaxOrderCents)}
+          />
+        </div>
+      </Card>
+
+      <Card className="mt-6">
+        <CardHeader title={t("Courier")} />
+        <div className="p-5">
+          <CourierSettings
+            shopId={shop.id}
+            provider={courier.provider}
+            webhookUrl={courier.webhookUrl}
+            webhookSecret={courier.webhookSecret}
           />
         </div>
       </Card>

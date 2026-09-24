@@ -150,8 +150,15 @@ function shippingByShop(order: { shippingCents: number; items: { shopId: string;
 async function openFulfilment(tx: Tx, order: FulfilmentOrder, cod: boolean): Promise<OrderNotification[]> {
   const shopIds = [...new Set(order.items.map((i) => i.shopId))];
 
+  const couriers = new Map(
+    (await tx.shop.findMany({ where: { id: { in: shopIds } }, select: { id: true, shippingProvider: true } })).map((s) => [
+      s.id,
+      s.shippingProvider,
+    ]),
+  );
+
   for (const shopId of shopIds) {
-    await tx.delivery.create({
+    const delivery = await tx.delivery.create({
       data: {
         orderId: order.id,
         shopId,
@@ -166,7 +173,16 @@ async function openFulfilment(tx: Tx, order: FulfilmentOrder, cod: boolean): Pro
         otpHash: createHash("sha256").update(readableCode(6)).digest("hex"),
         events: { create: { status: "PENDING", note: "Awaiting seller dispatch" } },
       },
+      select: { id: true },
     });
+    // Shops that ship with Bosta get the parcel booked in the background, so
+    // a slow courier API never holds up the order itself.
+    if (couriers.get(shopId) === "BOSTA") {
+      await enqueueJob(
+        { type: "delivery.book", payload: { deliveryId: delivery.id }, uniqueKey: `delivery.book:${delivery.id}`, maxAttempts: 6 },
+        tx,
+      );
+    }
     await tx.shop.update({ where: { id: shopId }, data: { orderCount: { increment: 1 } } });
   }
 

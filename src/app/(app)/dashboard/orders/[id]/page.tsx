@@ -10,6 +10,7 @@ import { getI18n } from "@/lib/i18n/server";
 import { PageHeader, Breadcrumbs, Card, CardHeader, Alert, StatusPill } from "@/components/ui/primitives";
 import { ButtonLink } from "@/components/ui/button";
 import { CancelOrder } from "@/components/orders/cancel-order";
+import { bostaTrackingUrl } from "@/lib/delivery/bosta";
 
 export async function generateMetadata(): Promise<Metadata> {
   const { t } = await getI18n();
@@ -128,9 +129,21 @@ export default async function OrderPage({ params }: { params: Promise<{ id: stri
                   <span className="inline-flex flex-wrap items-center gap-2">
                     <Truck className="size-4" aria-hidden />
                     {deliveryStatus[group.delivery.status] ?? group.delivery.status}
-                    <span className="font-mono text-xs" dir="ltr">
-                      {group.delivery.trackingNumber}
-                    </span>
+                    {group.delivery.provider === "BOSTA" && group.delivery.carrierTracking ? (
+                      <a
+                        href={bostaTrackingUrl(group.delivery.carrierTracking)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-mono text-xs text-brand hover:underline"
+                        dir="ltr"
+                      >
+                        {t("Bosta {tracking}", { tracking: group.delivery.carrierTracking })}
+                      </a>
+                    ) : (
+                      <span className="font-mono text-xs" dir="ltr">
+                        {group.delivery.trackingNumber}
+                      </span>
+                    )}
                   </span>
                 ) : undefined
               }

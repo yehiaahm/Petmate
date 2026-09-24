@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { connectBosta, disconnectBosta, retryBooking } from "@/lib/services/carrier.service";
 import { route } from "@/lib/api";
 import { requireActive } from "@/lib/auth/rbac";
 import {
@@ -80,6 +81,9 @@ export const POST = route({
       // 500 rows of a generous width, comfortably inside the 1 MB body limit.
       csv: z.string().min(1).max(900_000),
     }),
+    z.object({ action: z.literal("connect-bosta"), shopId: cuidSchema, apiKey: z.string().trim().min(10).max(300) }),
+    z.object({ action: z.literal("disconnect-bosta"), shopId: cuidSchema }),
+    z.object({ action: z.literal("retry-booking"), deliveryId: cuidSchema }),
     z.object({
       action: z.literal("fulfil"),
       orderItemId: cuidSchema,
@@ -122,6 +126,12 @@ export const POST = route({
       case "fulfil":
         await updateFulfillment(auth, body.orderItemId, body.status);
         return { ok: true };
+      case "connect-bosta":
+        return connectBosta(auth, body.shopId, body.apiKey);
+      case "disconnect-bosta":
+        return disconnectBosta(auth, body.shopId);
+      case "retry-booking":
+        return retryBooking(auth, body.deliveryId);
     }
   },
 });
