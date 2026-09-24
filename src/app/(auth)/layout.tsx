@@ -2,6 +2,8 @@ import Link from "next/link";
 import { BadgeCheck, Lock, Stethoscope } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
 import { ThemeToggle } from "@/components/shell/theme-toggle";
+import { LocaleSwitcher } from "@/components/i18n/locale-switcher";
+import { getI18n } from "@/lib/i18n/server";
 
 /**
  * Auth layout.
@@ -10,15 +12,19 @@ import { ThemeToggle } from "@/components/shell/theme-toggle";
  * panel is hidden below `lg` rather than stacked, because on a phone the only
  * thing that matters is getting to the first field.
  */
-export default function AuthLayout({ children }: { children: React.ReactNode }) {
+export default async function AuthLayout({ children }: { children: React.ReactNode }) {
+  const { t } = await getI18n();
   return (
     <div className="grid min-h-dvh lg:grid-cols-2">
       <div className="flex flex-col">
         <header className="flex items-center justify-between p-6">
-          <Link href="/" aria-label="PetMate home">
+          <Link href="/" aria-label={t("PetMate home")}>
             <Logo size="sm" />
           </Link>
-          <ThemeToggle />
+          <div className="flex items-center gap-2">
+            <LocaleSwitcher />
+            <ThemeToggle />
+          </div>
         </header>
 
         <main id="main" className="flex flex-1 items-center justify-center px-6 pb-16">
@@ -38,29 +44,28 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
 
         <div className="relative mx-auto max-w-md px-12 py-16">
           <h2 className="font-display text-3xl font-semibold leading-tight text-white">
-            The pet record that outlives the transaction
+            {t("The pet record that outlives the transaction")}
           </h2>
           <p className="mt-4 text-[15px] leading-relaxed text-[color-mix(in_srgb,#ffffff_78%,transparent)]">
-            Most pets change hands with a photo, a phone number and a promise. PetMate replaces
-            that with a record anyone can check — and keeps working long after the sale.
+            {t("Most pets change hands with a photo, a phone number and a promise. PetMate replaces that with a record anyone can check — and keeps working long after the sale.")}
           </p>
 
           <ul className="mt-10 space-y-6">
             {[
               {
                 icon: BadgeCheck,
-                title: "Verification that means something",
-                body: "A vaccination entered by a clinic is marked differently from one typed in by a seller.",
+                title: t("Verification that means something"),
+                body: t("A vaccination entered by a clinic is marked differently from one typed in by a seller."),
               },
               {
                 icon: Lock,
-                title: "Escrow on every purchase",
-                body: "Money is held until you have met the animal and you both confirm the handover.",
+                title: t("Escrow on every purchase"),
+                body: t("Money is held until you have met the animal and you both confirm the handover."),
               },
               {
                 icon: Stethoscope,
-                title: "Your vet, in the same place",
-                body: "Book a real appointment and the results land in your pet's timeline automatically.",
+                title: t("Your vet, in the same place"),
+                body: t("Book a real appointment and the results land in your pet's timeline automatically."),
               },
             ].map((item) => (
               <li key={item.title} className="flex gap-4">

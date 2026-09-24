@@ -28,6 +28,7 @@ export type AuditAction =
   | "auth.two_factor_enabled"
   | "auth.two_factor_disabled"
   | "auth.backup_codes_regenerated"
+  | "auth.oauth_linked"
   | "user.updated"
   | "user.role_granted"
   | "user.role_revoked"

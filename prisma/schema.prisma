@@ -85,6 +85,7 @@ model User {
   roles               UserRole[]
   sessions            Session[]
   backupCodes         TwoFactorBackupCode[]
+  oauthAccounts       OAuthAccount[]
   tokens              VerificationToken[]
   pets                Pet[]                     @relation("PetOwner")
   listings            Listing[]                 @relation("ListingSeller")
@@ -164,6 +165,22 @@ model Session {
 
   @@index([userId])
   @@index([expiresAt])
+}
+
+/// A Google or Facebook identity that signs in to this account.
+model OAuthAccount {
+  id                String   @id @default(cuid())
+  userId            String
+  provider          String // GOOGLE | FACEBOOK
+  providerAccountId String
+  email             String?
+  createdAt         DateTime @default(now())
+  lastUsedAt        DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
 }
 
 /// Single-use recovery codes for when the authenticator is lost. Hashed.

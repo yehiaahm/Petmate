@@ -48,7 +48,7 @@ const DUMMY_HASH =
   "scrypt$131072$8$1$AAAAAAAAAAAAAAAAAAAAAA$" +
   "d2hlbi10aGUtYWNjb3VudC1kb2VzLW5vdC1leGlzdC13ZS1zdGlsbC1kby10aGUtd29yaw";
 
-function normalizeEmail(email: string): string {
+export function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
@@ -164,7 +164,7 @@ export async function register(input: RegisterInput): Promise<{ userId: string }
   return { userId: user.id };
 }
 
-async function generateUniqueHandle(name: string): Promise<string> {
+export async function generateUniqueHandle(name: string): Promise<string> {
   const base = slugify(name, 24) || "member";
 
   for (let attempt = 0; attempt < 5; attempt++) {

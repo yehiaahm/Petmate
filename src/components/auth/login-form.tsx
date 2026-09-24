@@ -13,9 +13,12 @@ import { api, ApiError } from "@/lib/api-client";
 export function LoginForm({
   next,
   notice,
+  initialChallenge = null,
 }: {
   next: string;
   notice: { tone: "success" | "info"; text: string } | null;
+  /** Set when a social sign-in stopped for the second factor. */
+  initialChallenge?: string | null;
 }) {
   const { t } = useI18n();
   const router = useRouter();
@@ -23,7 +26,7 @@ export function LoginForm({
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [challenge, setChallenge] = useState<string | null>(null);
+  const [challenge, setChallenge] = useState<string | null>(initialChallenge);
   const [code, setCode] = useState("");
   const [useBackup, setUseBackup] = useState(false);
   const [submitting, setSubmitting] = useState(false);

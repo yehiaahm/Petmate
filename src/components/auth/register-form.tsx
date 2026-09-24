@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Field, Input, Checkbox } from "@/components/ui/field";
 import { Alert } from "@/components/ui/primitives";
 import { api, ApiError } from "@/lib/api-client";
+import { useI18n } from "@/components/i18n/i18n-provider";
 import { PasswordStrength, assessPasswordClient } from "@/components/auth/password-strength";
 import { cn } from "@/lib/utils";
 
@@ -27,6 +28,7 @@ const ROLE_OPTIONS: { value: Role; label: string; description: string }[] = [
  * own, so the bar shown while typing is the bar that is actually enforced.
  */
 export function RegisterForm({ next }: { next: string }) {
+  const { t } = useI18n();
   const router = useRouter();
 
   const [name, setName] = useState("");
@@ -69,7 +71,7 @@ export function RegisterForm({ next }: { next: string }) {
         for (const field of err.fields) map[field.field] = field.message;
         setFieldErrors(map);
       } else {
-        setError("Something went wrong. Please try again.");
+        setError(t("Something went wrong. Please try again."));
       }
       setSubmitting(false);
     }
@@ -78,13 +80,13 @@ export function RegisterForm({ next }: { next: string }) {
   return (
     <form onSubmit={onSubmit} className="space-y-5" noValidate>
       {error && (
-        <Alert tone="danger" title="Could not create your account">
+        <Alert tone="danger" title={t("Could not create your account")}>
           {error}
         </Alert>
       )}
 
       <fieldset>
-        <legend className="mb-2 text-sm font-medium text-fg">What brings you here?</legend>
+        <legend className="mb-2 text-sm font-medium text-fg">{t("What brings you here?")}</legend>
         <div className="grid gap-2 sm:grid-cols-2">
           {ROLE_OPTIONS.map((option) => (
             <button
@@ -100,21 +102,21 @@ export function RegisterForm({ next }: { next: string }) {
               )}
             >
               <span className="flex items-center justify-between gap-2">
-                <span className="text-sm font-semibold text-fg">{option.label}</span>
+                <span className="text-sm font-semibold text-fg">{t(option.label)}</span>
                 {role === option.value && <Check className="size-4 shrink-0 text-brand" aria-hidden />}
               </span>
               <span className="mt-0.5 block text-xs leading-snug text-fg-muted">
-                {option.description}
+                {t(option.description)}
               </span>
             </button>
           ))}
         </div>
         <p className="mt-2 text-xs text-fg-subtle">
-          You can add any of these later — one account does everything.
+          {t("You can add any of these later — one account does everything.")}
         </p>
       </fieldset>
 
-      <Field label="Your name" required error={fieldErrors.name}>
+      <Field label={t("Your name")} required error={fieldErrors.name}>
         {({ id, describedBy, invalid }) => (
           <Input
             id={id}
@@ -126,12 +128,12 @@ export function RegisterForm({ next }: { next: string }) {
             maxLength={80}
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder={role === "CLINIC_ADMIN" ? "Dr Leila Farouk" : "Alex Morgan"}
+            placeholder={role === "CLINIC_ADMIN" ? t("Dr Leila Farouk") : t("Alex Morgan")}
           />
         )}
       </Field>
 
-      <Field label="Email address" required error={fieldErrors.email}>
+      <Field label={t("Email address")} required error={fieldErrors.email}>
         {({ id, describedBy, invalid }) => (
           <Input
             id={id}
@@ -149,10 +151,10 @@ export function RegisterForm({ next }: { next: string }) {
       </Field>
 
       <Field
-        label="Password"
+        label={t("Password")}
         required
         error={fieldErrors.password}
-        hint="At least 10 characters. Length beats symbols."
+        hint={t("At least 10 characters. Length beats symbols.")}
       >
         {({ id, describedBy, invalid }) => (
           <div className="space-y-2">
@@ -171,7 +173,7 @@ export function RegisterForm({ next }: { next: string }) {
                   type="button"
                   onClick={() => setShowPassword((s) => !s)}
                   className="rounded p-0.5 hover:text-fg"
-                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  aria-label={showPassword ? t("Hide password") : t("Show password")}
                 >
                   {showPassword ? <EyeOff className="size-4" aria-hidden /> : <Eye className="size-4" aria-hidden />}
                 </button>
@@ -190,16 +192,16 @@ export function RegisterForm({ next }: { next: string }) {
           computation into "I agree to the and". An explicit aria-label keeps
           the announced text complete without changing what is on screen. */}
       <Checkbox
-        aria-label="I agree to the terms of service and the privacy policy"
+        aria-label={t("I agree to the terms of service and the privacy policy")}
         label={
           <>
-            I agree to the{" "}
+            {t("I agree to the")}{" "}
             <Link href="/terms" className="font-medium text-brand underline">
-              terms
+              {t("terms")}
             </Link>{" "}
-            and{" "}
+            {t("and")}{" "}
             <Link href="/privacy" className="font-medium text-brand underline">
-              privacy policy
+              {t("privacy policy")}
             </Link>
           </>
         }
@@ -216,10 +218,10 @@ export function RegisterForm({ next }: { next: string }) {
         fullWidth
         size="lg"
         loading={submitting}
-        loadingText="Creating your account…"
+        loadingText={t("Creating your account…")}
         disabled={!acceptedTerms || strength.problems.length > 0 || !name || !email}
       >
-        Create free account
+        {t("Create free account")}
       </Button>
     </form>
   );

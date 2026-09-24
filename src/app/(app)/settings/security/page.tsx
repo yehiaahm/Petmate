@@ -8,6 +8,7 @@ import { PageHeader, Card, CardHeader, DataRow, Badge } from "@/components/ui/pr
 import { ResendVerification } from "@/components/auth/resend-verification";
 import { TwoFactorPanel } from "@/components/settings/two-factor-panel";
 import { getTwoFactorStatus } from "@/lib/services/two-factor.service";
+import { listLinkedAccounts } from "@/lib/services/oauth.service";
 import { getI18n } from "@/lib/i18n/server";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -29,7 +30,7 @@ export default async function SecuritySettingsPage() {
     "auth.backup_codes_regenerated": t("New backup codes made"),
   };
 
-  const [sessions, user, recentAuthEvents, twoFactor] = await Promise.all([
+  const [sessions, user, recentAuthEvents, twoFactor, linked] = await Promise.all([
     listSessions(auth.user.id, auth.sessionId),
     db.user.findUniqueOrThrow({
       where: { id: auth.user.id },
@@ -56,7 +57,9 @@ export default async function SecuritySettingsPage() {
       select: { id: true, action: true, ip: true, createdAt: true, summary: true },
     }),
     getTwoFactorStatus(auth.user.id),
+    listLinkedAccounts(auth.user.id),
   ]);
+  const providerName: Record<string, string> = { GOOGLE: "Google", FACEBOOK: "Facebook" };
 
   return (
     <>
@@ -116,6 +119,31 @@ export default async function SecuritySettingsPage() {
             <TwoFactorPanel enabled={twoFactor.enabled} backupCodesLeft={twoFactor.backupCodesLeft} />
           </div>
         </Card>
+
+        {linked.length > 0 && (
+          <Card>
+            <CardHeader
+              title={t("Connected sign-in")}
+              description={t("You can also sign in with these accounts. Two-step sign-in, if on, still applies.")}
+            />
+            <div className="p-5">
+              <dl>
+                {linked.map((account) => (
+                  <DataRow
+                    key={account.id}
+                    label={providerName[account.provider] ?? account.provider}
+                    value={
+                      <span className="text-sm">
+                        {account.email} ·{" "}
+                        <span className="text-fg-subtle">{t("last used {date}", { date: fmt.date(account.lastUsedAt) })}</span>
+                      </span>
+                    }
+                  />
+                ))}
+              </dl>
+            </div>
+          </Card>
+        )}
 
         <Card>
           <CardHeader

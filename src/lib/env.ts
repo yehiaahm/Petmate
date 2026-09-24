@@ -42,6 +42,15 @@ const serverSchema = z.object({
    */
   PETMATE_DIRECT_URL: z.string().optional(),
 
+  // ---- Social sign-in ------------------------------------------------------
+  // Each provider appears on the sign-in page only when both of its values are
+  // set. Redirect URI to register with the provider:
+  //   {NEXT_PUBLIC_APP_URL}/api/auth/oauth/google/callback (and /facebook/)
+  GOOGLE_CLIENT_ID: z.string().optional(),
+  GOOGLE_CLIENT_SECRET: z.string().optional(),
+  FACEBOOK_APP_ID: z.string().optional(),
+  FACEBOOK_APP_SECRET: z.string().optional(),
+
   // ---- Payments -----------------------------------------------------------
   // With no Stripe key the platform runs on the internal double-entry ledger
   // provider, which is a real implementation (see lib/payments/ledger.ts), not
