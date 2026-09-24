@@ -82,7 +82,7 @@ export async function getEntitlements(userId: string): Promise<Entitlements> {
     activeListings: num("activeListings", settings.freeActiveListingLimit),
     breedingRequestsPerMonth: num("breedingRequestsPerMonth", settings.freeBreedingRequestLimit),
     savedSearchAlerts: num("savedSearchAlerts", settings.freeSavedSearchLimit),
-    visibilityBoost: num("visibilityBoost", 1),
+    visibilityBoost: clampVisibilityBoost(num("visibilityBoost", 1)),
     analytics: bool("analytics", false),
     verifiedBadgeEligible: true,
     prioritySupport: bool("prioritySupport", false),
@@ -90,6 +90,49 @@ export async function getEntitlements(userId: string): Promise<Entitlements> {
     advancedMatching: bool("advancedMatching", false),
     commissionDiscountBps: num("commissionDiscountBps", 0),
   };
+}
+
+/**
+ * Ceiling on the ranking multiplier a plan can buy. A plan row with a typo'd
+ * boost of 14 instead of 1.4 must not let a subscriber bury every organic
+ * result, so the value is clamped here rather than trusted from the database.
+ */
+export const MAX_VISIBILITY_BOOST = 1.5;
+
+export function clampVisibilityBoost(value: unknown): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) return 1;
+  return Math.min(MAX_VISIBILITY_BOOST, Math.max(1, value));
+}
+
+/**
+ * Ranking multipliers for many accounts at once.
+ *
+ * Search ranks a page of candidates from many different sellers; resolving
+ * each seller's plan through `getEntitlements` would be one query per row.
+ * This reads every active subscription for the set in one query. Accounts
+ * without a paid plan are absent from the map, which callers treat as 1.
+ */
+export async function getVisibilityBoosts(userIds: string[]): Promise<Map<string, number>> {
+  const ids = [...new Set(userIds)];
+  const boosts = new Map<string, number>();
+  if (ids.length === 0) return boosts;
+
+  const rows = await db.subscription.findMany({
+    where: {
+      userId: { in: ids },
+      status: { in: ["ACTIVE", "TRIALING"] },
+      currentPeriodEnd: { gt: new Date() },
+    },
+    select: { userId: true, plan: { select: { limits: true } } },
+  });
+
+  for (const row of rows) {
+    const boost = clampVisibilityBoost(parseJsonRecord(row.plan.limits).visibilityBoost);
+    // Someone mid-upgrade can briefly hold two live subscriptions; the better
+    // plan is the one they are paying for.
+    if (boost > (boosts.get(row.userId) ?? 1)) boosts.set(row.userId, boost);
+  }
+  return boosts;
 }
 
 export const isUnlimited = (n: number) => n >= UNLIMITED;

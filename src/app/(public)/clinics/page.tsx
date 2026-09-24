@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
-import { Stethoscope, MapPin, Star, Siren, Home, BadgeCheck } from "lucide-react";
+import { Stethoscope, MapPin, Star, Siren, Home, BadgeCheck, Sparkles } from "lucide-react";
 import { searchClinics } from "@/lib/services/vet.service";
 import { formatMoney, formatRating } from "@/lib/money";
 import { formatDistance } from "@/lib/utils";
@@ -152,6 +152,11 @@ export default async function ClinicsPage({ searchParams }: { searchParams: Sear
                             </div>
 
                             <div className="flex shrink-0 flex-wrap gap-1.5">
+                              {clinic.featured && (
+                                <Badge tone="accent" size="sm" icon={<Sparkles className="size-3" aria-hidden />}>
+                                  Featured
+                                </Badge>
+                              )}
                               {clinic.verifiedAt && (
                                 <Badge
                                   tone="success"

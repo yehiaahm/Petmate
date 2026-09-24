@@ -255,6 +255,41 @@ export async function makeClinicWithService(ownerUserId: string) {
   return { clinicId: clinic.id, vetId: vet.id, serviceId: service.id, service };
 }
 
+/**
+ * Puts a user on a paid plan with the given limits. Plans are reference data
+ * and survive `resetDatabase`, so each call upserts its own plan code.
+ */
+export async function subscribeUser(
+  userId: string,
+  limits: Record<string, number | boolean | string>,
+  code = `test-plan-${unique()}`,
+) {
+  const plan = await db.plan.upsert({
+    where: { code },
+    create: {
+      code,
+      name: `Plan ${code}`,
+      audience: "CONSUMER",
+      priceMonthlyCents: 10_000,
+      features: "[]",
+      limits: JSON.stringify(limits),
+    },
+    update: { limits: JSON.stringify(limits) },
+    select: { id: true },
+  });
+
+  await db.subscription.create({
+    data: {
+      userId,
+      planId: plan.id,
+      status: "ACTIVE",
+      currentPeriodStart: new Date(),
+      currentPeriodEnd: addDays(new Date(), 30),
+    },
+  });
+  return plan.id;
+}
+
 /** Wipes every table between suites, in FK-safe order. */
 export async function resetDatabase() {
   const tables = [
@@ -262,7 +297,7 @@ export async function resetDatabase() {
     "DeliveryEvent", "Delivery", "OrderItem", "Order", "PetOrder", "CartItem",
     "ProductVariant", "ProductImage", "Product", "Shop",
     "Appointment", "Service", "ClinicHours", "AvailabilityException", "Vet", "ClinicMember", "Clinic",
-    "DisputeMessage", "Dispute", "Report", "Verification", "TrustSignal", "RiskEvent", "Block",
+    "SupportMessage", "SupportTicket", "DisputeMessage", "Dispute", "Report", "Verification", "TrustSignal", "RiskEvent", "Block",
     "Message", "ConversationParticipant", "Conversation",
     "Notification", "NotificationPreference", "EmailMessage",
     "AdoptionApplication", "ListingQuestion", "ListingView", "Favorite", "SavedSearch", "Listing",

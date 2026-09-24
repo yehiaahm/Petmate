@@ -8,6 +8,7 @@ import type { AuthContext } from "@/lib/auth/session";
 import { addMinutes, boundingBox, haversineKm, readableCode, startOfDayUTC, uniqueSlug } from "@/lib/utils";
 import { applyBps } from "@/lib/money";
 import { resolveCommissionBps } from "@/lib/settings";
+import { getEntitlements, getVisibilityBoosts } from "@/lib/billing/entitlements";
 import { buildSearchText, searchTextClauses } from "@/lib/search/text";
 import { notify } from "./notification.service";
 import { postSystemMessage, getOrCreateConversation } from "./chat.service";
@@ -481,7 +482,14 @@ export async function bookAppointment(auth: AuthContext, input: z.infer<typeof b
   const matching = available.find((s) => s.startAt.getTime() === input.startAt.getTime());
   if (!matching) throw conflict("That time is no longer available. Pick another slot.");
 
-  const commissionBps = await resolveCommissionBps("APPOINTMENT", clinic.commissionBps);
+  // The clinic owner's plan discount applies here exactly as a seller's does on
+  // a pet sale: Clinic Pro advertises a lower booking commission, so the rate
+  // written onto the appointment (and later settled) must reflect it.
+  const [baseBps, ownerEntitlements] = await Promise.all([
+    resolveCommissionBps("APPOINTMENT", clinic.commissionBps),
+    getEntitlements(clinic.ownerUserId),
+  ]);
+  const commissionBps = Math.max(0, baseBps - ownerEntitlements.commissionDiscountBps);
   const commissionCents = applyBps(service.priceCents, commissionBps);
 
   try {
@@ -717,6 +725,13 @@ export async function searchClinics(params: ClinicSearchParams) {
       : {}),
   } as const;
 
+  // The default order is ranked in memory over a bounded window so that
+  // distance, quality and the clinic's plan are weighed together. Explicit
+  // sorts (rating, price, distance) are what the visitor asked for and a
+  // subscription does not reorder them.
+  const ranked = (!params.sort || params.sort === "relevance") && page * limit <= CLINIC_RANK_WINDOW;
+  const windowed = Boolean(box) || ranked;
+
   const [rows, total] = await Promise.all([
     db.clinic.findMany({
       where,
@@ -726,9 +741,10 @@ export async function searchClinics(params: ClinicSearchParams) {
           : params.sort === "price"
             ? [{ bookingCount: "desc" }]
             : [{ verifiedAt: "desc" }, { ratingAvgBps: "desc" }],
-      skip: box ? 0 : (page - 1) * limit,
-      take: box ? 300 : limit,
+      skip: windowed ? 0 : (page - 1) * limit,
+      take: windowed ? CLINIC_RANK_WINDOW : limit,
       select: {
+        ownerUserId: true,
         id: true,
         name: true,
         slug: true,
@@ -758,32 +774,79 @@ export async function searchClinics(params: ClinicSearchParams) {
     db.clinic.count({ where }),
   ]);
 
+  const boosts = windowed ? await getVisibilityBoosts(rows.map((c) => c.ownerUserId)) : new Map<string, number>();
+
+  let candidates = rows.map(({ ownerUserId, ...c }) => {
+    const planBoost = boosts.get(ownerUserId) ?? 1;
+    return {
+      ...c,
+      // Paid placement is labelled as such wherever it changes the order.
+      featured: planBoost > 1,
+      planBoost,
+      distanceKm:
+        box && params.lat != null && params.lng != null && c.lat != null && c.lng != null
+          ? haversineKm(params.lat, params.lng, c.lat, c.lng)
+          : null,
+    };
+  });
+
   // The bounding box is a coarse pre-filter; the exact radius is applied here.
-  if (box && params.lat != null && params.lng != null) {
-    const withDistance = rows
-      .map((c) => ({
-        ...c,
-        distanceKm:
-          c.lat != null && c.lng != null
-            ? haversineKm(params.lat!, params.lng!, c.lat, c.lng)
-            : null,
-      }))
-      .filter((c) => c.distanceKm != null && c.distanceKm <= (params.radiusKm ?? 50));
+  if (box) {
+    candidates = candidates.filter((c) => c.distanceKm != null && c.distanceKm <= (params.radiusKm ?? 50));
+  }
 
-    if (params.sort === "distance" || !params.sort) {
-      withDistance.sort((a, b) => (a.distanceKm ?? 0) - (b.distanceKm ?? 0));
-    }
+  if (params.sort === "distance") {
+    candidates.sort((a, b) => (a.distanceKm ?? 0) - (b.distanceKm ?? 0));
+  } else if (ranked) {
+    const score = (c: (typeof candidates)[number]) =>
+      clinicRankScore({
+        verified: Boolean(c.verifiedAt),
+        ratingAvgBps: c.ratingAvgBps,
+        ratingCount: c.ratingCount,
+        bookingCount: c.bookingCount,
+        distanceKm: c.distanceKm,
+        planBoost: c.planBoost,
+      });
+    candidates.sort((a, b) => score(b) - score(a));
+  }
 
+  const items = candidates.map(({ planBoost: _boost, ...c }) => c);
+
+  if (windowed) {
     const start = (page - 1) * limit;
     return {
-      items: withDistance.slice(start, start + limit),
-      total: withDistance.length,
+      items: items.slice(start, start + limit),
+      total: box ? items.length : total,
       page,
       limit,
     };
   }
 
-  return { items: rows.map((c) => ({ ...c, distanceKm: null })), total, page, limit };
+  return { items, total, page, limit };
+}
+
+const CLINIC_RANK_WINDOW = 300;
+
+/**
+ * Clinic ranking. Distance dominates a local search because a vet an hour away
+ * is not a useful answer; after that, verification and a rating weighted by how
+ * many people gave it. Clinic Pro's featured placement multiplies the result
+ * (capped at `MAX_VISIBILITY_BOOST`) instead of pinning a clinic to the top.
+ */
+export function clinicRankScore(input: {
+  verified: boolean;
+  ratingAvgBps: number;
+  ratingCount: number;
+  bookingCount: number;
+  distanceKm: number | null;
+  planBoost?: number;
+}): number {
+  let score = input.verified ? 20 : 0;
+  const confidence = Math.min(1, input.ratingCount / 10);
+  score += (Math.min(500, input.ratingAvgBps) / 500) * 30 * confidence;
+  score += Math.min(15, Math.log1p(input.bookingCount) * 3);
+  if (input.distanceKm != null) score += Math.max(0, 40 - input.distanceKm);
+  return score * (input.planBoost ?? 1);
 }
 
 export async function getClinicBySlug(slug: string) {

@@ -4,6 +4,7 @@ import { boundingBox, haversineKm, ageInMonths } from "@/lib/utils";
 import { searchTextClauses, relevanceScore } from "@/lib/search/text";
 import { LIMITS, PUBLIC_LISTING_STATUSES, type Species } from "@/lib/constants";
 import { logger } from "@/lib/logger";
+import { getVisibilityBoosts } from "@/lib/billing/entitlements";
 
 /**
  * Listing discovery.
@@ -13,8 +14,8 @@ import { logger } from "@/lib/logger";
  * location box) and only then applies the text match and in-memory ranking to a
  * bounded page. Nothing in this file scans the table.
  *
- * Ranking is explicit rather than magical: paid placement, then recency-decayed
- * quality, then relevance. A seller can read this and know what to improve,
+ * Ranking is explicit rather than magical: recency-decayed quality and
+ * relevance, multiplied by paid placement and the seller's plan boost. A seller can read this and know what to improve,
  * which is the only kind of ranking a marketplace can defend.
  */
 
@@ -230,6 +231,12 @@ export async function searchListings(params: ListingSearchParams): Promise<{
       )
     : new Set<string>();
 
+  // Plan boosts only matter when the page is ranked in memory; a price or date
+  // sort is the order the buyer asked for and a subscription does not change it.
+  const boosts = needsPostRanking
+    ? await getVisibilityBoosts(rows.map((r) => r.seller.id))
+    : new Map<string, number>();
+
   let cards: (ListingCard & { _rank: number })[] = rows.map((row) => {
     const distanceKm =
       box && params.lat != null && params.lng != null && row.lat != null && row.lng != null
@@ -279,6 +286,7 @@ export async function searchListings(params: ListingSearchParams): Promise<{
         sellerTrust: row.seller.trustScore,
         favoriteCount: row.favoriteCount,
         distanceKm,
+        planBoost: boosts.get(row.seller.id) ?? 1,
         relevance: params.query
           ? relevanceScore(params.query, { title: row.title, secondary: row.description })
           : 0,
@@ -351,10 +359,13 @@ export async function searchListings(params: ListingSearchParams): Promise<{
  * Paid placement is a multiplier rather than an override: a featured listing
  * with no photos and an untrusted seller still loses to a great organic one.
  * Selling visibility is fine; selling the ability to outrank quality is how a
- * marketplace rots.
+ * marketplace rots. The same holds for a plan's boost, which is capped at
+ * `MAX_VISIBILITY_BOOST` in the entitlements module.
  */
-function rankScore(input: {
+export function rankScore(input: {
   featured: boolean;
+  /** The seller's plan multiplier; 1 for the free tier. */
+  planBoost?: number;
   publishedAt: Date | null;
   healthScore: number;
   verificationLevel: string;
@@ -391,6 +402,7 @@ function rankScore(input: {
     score += Math.max(0, 20 - input.distanceKm / 10);
   }
 
+  score *= input.planBoost ?? 1;
   return input.featured ? score * 1.35 : score;
 }
 

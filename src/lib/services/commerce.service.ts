@@ -8,9 +8,9 @@ import type { AuthContext } from "@/lib/auth/session";
 import { applyBps } from "@/lib/money";
 import { resolveCommissionBps } from "@/lib/settings";
 import { generateOrderNumber, uniqueSlug } from "@/lib/utils";
-import { buildSearchText, searchTextClauses } from "@/lib/search/text";
+import { buildSearchText, searchTextClauses, relevanceScore } from "@/lib/search/text";
 import { enforceRateLimit } from "@/lib/rate-limit";
-import { getEntitlements } from "@/lib/billing/entitlements";
+import { getEntitlements, getVisibilityBoosts } from "@/lib/billing/entitlements";
 import {
   safeText,
   safeParagraph,
@@ -749,12 +749,18 @@ export async function searchProducts(params: ProductSearchParams) {
             ? [{ ratingAvgBps: "desc" as const }, { ratingCount: "desc" as const }]
             : [{ soldCount: "desc" as const }, { viewCount: "desc" as const }];
 
-  const [items, total] = await Promise.all([
+  // The default ("relevance") order is ranked in memory over a bounded window
+  // so it can weigh text match, quality and the shop's plan boost together.
+  // Past the window it degrades to the SQL popularity order rather than
+  // scanning further; nobody pages 17 deep into a product search.
+  const ranked = (!params.sort || params.sort === "relevance") && page * limit <= PRODUCT_RANK_WINDOW;
+
+  const [rows, total] = await Promise.all([
     db.product.findMany({
       where,
       orderBy,
-      skip: (page - 1) * limit,
-      take: limit,
+      skip: ranked ? 0 : (page - 1) * limit,
+      take: ranked ? PRODUCT_RANK_WINDOW : limit,
       select: {
         id: true,
         title: true,
@@ -770,7 +776,7 @@ export async function searchProducts(params: ProductSearchParams) {
         ratingCount: true,
         soldCount: true,
         images: { orderBy: { position: "asc" }, take: 1, select: { url: true, alt: true } },
-        shop: { select: { id: true, name: true, slug: true, verifiedAt: true } },
+        shop: { select: { id: true, name: true, slug: true, verifiedAt: true, ownerUserId: true } },
         category: { select: { id: true, name: true, slug: true } },
         variants: { where: { isDefault: true }, take: 1, select: { id: true } },
       },
@@ -778,7 +784,61 @@ export async function searchProducts(params: ProductSearchParams) {
     db.product.count({ where }),
   ]);
 
+  let ordered = rows;
+  if (ranked) {
+    const boosts = await getVisibilityBoosts(rows.map((r) => r.shop.ownerUserId));
+    const scored = rows.map((row) => ({
+      row,
+      score: productRankScore({
+        soldCount: row.soldCount,
+        ratingAvgBps: row.ratingAvgBps,
+        ratingCount: row.ratingCount,
+        inStock: row.status === "ACTIVE",
+        verifiedShop: Boolean(row.shop.verifiedAt),
+        relevance: params.query ? relevanceScore(params.query, { title: row.title, secondary: row.brand ?? undefined }) : 0,
+        planBoost: boosts.get(row.shop.ownerUserId) ?? 1,
+      }),
+    }));
+    scored.sort((a, b) => b.score - a.score);
+    ordered = scored.slice((page - 1) * limit, page * limit).map((s) => s.row);
+  }
+
+  // The owner id was only needed for ranking; it is not part of the public card.
+  const items = ordered.map(({ shop: { ownerUserId: _owner, ...shop }, ...row }) => ({ ...row, shop }));
+
   return { items, total, page, limit, pages: Math.max(1, Math.ceil(total / limit)) };
+}
+
+const PRODUCT_RANK_WINDOW = 400;
+
+/**
+ * Product ranking, in one readable place, on the same principle as listing
+ * ranking: quality and relevance first, and a paid plan multiplies that score
+ * (capped at `MAX_VISIBILITY_BOOST`) rather than overriding it. An out-of-stock
+ * product from a Seller Pro shop still sits below a well-reviewed one in stock.
+ */
+export function productRankScore(input: {
+  soldCount: number;
+  ratingAvgBps: number;
+  ratingCount: number;
+  inStock: boolean;
+  verifiedShop: boolean;
+  relevance: number;
+  planBoost?: number;
+}): number {
+  // A baseline for simply being listed. Without it a brand-new product scores
+  // zero, and a multiplier on zero is zero, so a new Seller Pro shop would get
+  // nothing for its plan until it had already sold something.
+  let score = 10;
+  score += Math.min(60, input.relevance);
+  score += Math.min(30, Math.log1p(input.soldCount) * 6);
+  // A rating only counts in proportion to how many people gave it; one
+  // five-star review is not evidence of anything.
+  const confidence = Math.min(1, input.ratingCount / 10);
+  score += (Math.min(500, input.ratingAvgBps) / 500) * 20 * confidence;
+  if (input.verifiedShop) score += 8;
+  if (!input.inStock) score *= 0.5;
+  return score * (input.planBoost ?? 1);
 }
 
 export async function getProductBySlug(slug: string) {
