@@ -113,6 +113,28 @@ per thousand impressions at the price fixed when bought (`adCpm*Cents`).
   to the advertiser's wallet with an `ADJUSTMENT` (revenue → user available).
 - Ads are selected by slot and even pacing only; no personal data is used.
 
+## Coupons and referrals
+
+PetMate funds every discount and referral reward from the
+`PLATFORM/PROMOTIONS` account, which runs negative by design; shops are always
+credited full price.
+
+- **Online order with a coupon:** gateway −(total − discount), revenue
+  +commission, shop +earnings (+shipping), promotions −discount.
+- **Cash on delivery:** the shop collects the discounted amount; at delivery
+  its balance is charged the commission and credited its share of the
+  discount (`OrderItem.discountCents`), and promotions is debited that share.
+- A coupon use is claimed inside the order's transaction with the usage cap in
+  the WHERE clause; cancelling the order releases it. Refunds of discounted
+  orders reverse through `clawBackOrderEarnings` and net to zero for the
+  platform.
+- **Referrals:** `/r/CODE` remembers the inviter for 30 days. The new member
+  gets a personal first-order code at sign-up. The `referrals.qualify` job
+  credits the inviter's wallet (promotions → user available) once the new
+  member's first order of at least `referralMinOrderCents` has been delivered
+  for 14 days and their phone is verified, up to `referralMonthlyCap` rewards
+  per 30 days.
+
 ## Exactly-once settlement
 
 Three mechanisms, each guarding a different failure:

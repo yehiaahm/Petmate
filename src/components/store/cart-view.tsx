@@ -34,11 +34,17 @@ export function CartView({
   defaultName,
   defaultCity,
   defaultCountry,
+  defaultPhone = "",
+  myCoupons = [],
 }: {
   initialCart: CartSummary;
   defaultName: string;
   defaultCity: string | null;
   defaultCountry: string | null;
+  /** A verified mobile number, so COD buyers do not type it again. */
+  defaultPhone?: string;
+  /** Personal codes (a referral welcome) the buyer can still use. */
+  myCoupons?: string[];
 }) {
   const { t, tm, fmt } = useI18n();
   const router = useRouter();
@@ -50,10 +56,29 @@ export function CartView({
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [method, setMethod] = useState<PaymentMethod>("ONLINE");
+  const [coupon, setCoupon] = useState<{ code: string; discountCents: number } | null>(null);
+  const [couponInput, setCouponInput] = useState("");
+  const [couponError, setCouponError] = useState<string | null>(null);
+  const [applyingCoupon, setApplyingCoupon] = useState(false);
+
+  async function applyCoupon(code: string) {
+    setApplyingCoupon(true);
+    setCouponError(null);
+    try {
+      const quote = await api.post<{ code: string; discountCents: number }>("/api/cart", { action: "preview-coupon", code });
+      setCoupon(quote);
+      setCouponInput("");
+    } catch (err) {
+      setCoupon(null);
+      setCouponError(err instanceof ApiError ? err.message : t("Please try again."));
+    } finally {
+      setApplyingCoupon(false);
+    }
+  }
 
   const [shipping, setShipping] = useState({
     shippingName: defaultName,
-    shippingPhone: "",
+    shippingPhone: defaultPhone,
     shippingLine1: "",
     shippingLine2: "",
     shippingCity: defaultCity ?? "",
@@ -80,6 +105,8 @@ export function CartView({
         ...(quantity > 0 ? { quantity } : {}),
       });
       setCart(next);
+      // The discount depends on the basket, so check the code again.
+      if (coupon) void applyCoupon(coupon.code);
       router.refresh();
     } catch (err) {
       toast.error(t("Could not update the basket"), err instanceof ApiError ? err.message : t("Please try again."));
@@ -111,6 +138,7 @@ export function CartView({
           shippingPostal: shipping.shippingPostal || undefined,
           shippingNote: shipping.shippingNote || undefined,
           paymentMethod: cod ? "COD" : "ONLINE",
+          couponCode: coupon?.code,
         },
         idempotencyKey: stableKey("checkout"),
       });
@@ -375,11 +403,55 @@ export function CartView({
               <dt className="text-fg-muted">{t("Shipping")}</dt>
               <dd className="font-medium tabular text-fg">{fmt.money(cart.shippingCents, cart.currency, { showFree: true })}</dd>
             </div>
+            {coupon && (
+              <div className="flex justify-between">
+                <dt className="text-fg-muted">
+                  {t("Discount")} <span className="font-mono text-xs" dir="ltr">{coupon.code}</span>
+                </dt>
+                <dd className="font-medium tabular text-[var(--success)]">−{fmt.money(coupon.discountCents, cart.currency)}</dd>
+              </div>
+            )}
             <div className="flex justify-between border-t border-[var(--border)] pt-2.5">
               <dt className="font-semibold text-fg">{cod ? t("To pay on delivery") : t("Total")}</dt>
-              <dd className="font-display text-xl font-semibold tabular text-fg">{fmt.money(cart.totalCents, cart.currency)}</dd>
+              <dd className="font-display text-xl font-semibold tabular text-fg">
+                {fmt.money(cart.totalCents - (coupon?.discountCents ?? 0), cart.currency)}
+              </dd>
             </div>
           </dl>
+
+          <div className="mt-4">
+            {coupon ? (
+              <button type="button" className="text-xs text-fg-muted hover:underline" onClick={() => setCoupon(null)}>
+                {t("Remove code")}
+              </button>
+            ) : (
+              <div className="flex gap-2">
+                <Input
+                  aria-label={t("Discount code")}
+                  placeholder={t("Discount code")}
+                  dir="ltr"
+                  value={couponInput}
+                  onChange={(e) => {
+                    setCouponInput(e.target.value);
+                    setCouponError(null);
+                  }}
+                  className="uppercase"
+                />
+                <Button variant="outline" loading={applyingCoupon} disabled={couponInput.trim().length < 2} onClick={() => void applyCoupon(couponInput)}>
+                  {t("Apply")}
+                </Button>
+              </div>
+            )}
+            {couponError && <p className="mt-1.5 text-xs text-[var(--danger)]">{couponError}</p>}
+            {!coupon && myCoupons.length > 0 && (
+              <p className="mt-2 text-xs text-fg-muted">
+                {t("You have a welcome code:")}{" "}
+                <button type="button" className="font-mono font-semibold text-brand hover:underline" dir="ltr" onClick={() => void applyCoupon(myCoupons[0]!)}>
+                  {myCoupons[0]}
+                </button>
+              </p>
+            )}
+          </div>
 
           <Button
             fullWidth

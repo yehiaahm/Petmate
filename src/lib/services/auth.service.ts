@@ -20,6 +20,7 @@ import {
 } from "@/lib/rate-limit";
 import { awardTrustSignal } from "./trust.service";
 import { seedNotificationPreferences } from "./notification.service";
+import { recordReferral } from "./referral.service";
 import { getSettings } from "@/lib/settings";
 import { getLocale } from "@/lib/i18n/server";
 import { PLATFORM_CURRENCY } from "@/lib/currency";
@@ -68,6 +69,8 @@ export interface RegisterInput {
   acceptedTerms: boolean;
   ip?: string | null;
   userAgent?: string | null;
+  /** From the invite cookie, if they arrived through someone's link. */
+  referralCode?: string | null;
 }
 
 export async function register(input: RegisterInput): Promise<{ userId: string }> {
@@ -143,6 +146,7 @@ export async function register(input: RegisterInput): Promise<{ userId: string }
     });
 
     await seedNotificationPreferences(created.id, tx);
+    await recordReferral(created.id, input.referralCode, tx);
 
     await audit(
       {

@@ -84,6 +84,7 @@ export default async function ShopOrdersPage({
             totalCents: item.totalCents,
             sellerEarningsCents: item.sellerEarningsCents,
             commissionCents: item.commissionCents,
+            discountCents: item.discountCents,
             fulfillmentStatus: item.fulfillmentStatus,
             orderNumber: item.order.orderNumber,
             orderStatus: item.order.status,

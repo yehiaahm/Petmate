@@ -9,6 +9,8 @@ import { Alert } from "@/components/ui/primitives";
 import { getI18n } from "@/lib/i18n/server";
 import { enabledOAuthProviders } from "@/lib/auth/oauth";
 import { SocialSignIn } from "@/components/auth/social-sign-in";
+import { bpsToPercent, formatMoney } from "@/lib/money";
+import { PLATFORM_CURRENCY } from "@/lib/currency";
 
 export async function generateMetadata(): Promise<Metadata> {
   const { t } = await getI18n();
@@ -22,7 +24,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function RegisterPage({
   searchParams,
 }: {
-  searchParams: Promise<{ next?: string }>;
+  searchParams: Promise<{ next?: string; invited?: string }>;
 }) {
   const [params, { t }] = await Promise.all([searchParams, getI18n()]);
   const next = safeRedirect(params.next, "/dashboard");
@@ -50,6 +52,14 @@ export default async function RegisterPage({
       <div className="mt-8">
         {settings.registrationOpen ? (
           <div className="space-y-5">
+            {params.invited === "1" && settings.referralEnabled && (
+              <Alert tone="success" title={t("You were invited")}>
+                {t("Your first order from the store gets {percent} off, up to {max}. The code is waiting in your basket.", {
+                  percent: bpsToPercent(settings.referralWelcomeBps),
+                  max: formatMoney(settings.referralWelcomeMaxCents, PLATFORM_CURRENCY),
+                })}
+              </Alert>
+            )}
             <SocialSignIn
               providers={enabledOAuthProviders()}
               next={next}

@@ -16,6 +16,7 @@ import {
 import { notify } from "@/lib/services/notification.service";
 import { resolveBreedingFee } from "@/lib/services/breeding-fee.service";
 import { reviewAdCampaign } from "@/lib/services/ad.service";
+import { couponSchema, createCoupon, setCouponActive } from "@/lib/services/coupon.service";
 import { cuidSchema, safeParagraph, safeText } from "@/lib/validation/common";
 import { ROLES } from "@/lib/constants";
 
@@ -211,6 +212,8 @@ export const POST = route({
       payoutId: cuidSchema,
       reason: safeText(300, 3),
     }),
+    z.object({ action: z.literal("create-coupon"), coupon: z.record(z.string(), z.unknown()) }),
+    z.object({ action: z.literal("set-coupon-active"), couponId: cuidSchema, active: z.boolean() }),
     z.object({
       action: z.literal("review-ad"),
       campaignId: cuidSchema,
@@ -398,6 +401,17 @@ export const POST = route({
         await requirePermission("admin:finance");
         await rejectPayout(auth, body.payoutId, body.reason);
         return { ok: true };
+
+      case "create-coupon": {
+        await requirePermission("admin:finance");
+        const parsed = couponSchema.safeParse(body.coupon);
+        if (!parsed.success) throw badRequest(parsed.error.issues[0]?.message ?? "Please check the coupon.");
+        return { coupon: await createCoupon(auth, parsed.data) };
+      }
+
+      case "set-coupon-active":
+        await requirePermission("admin:finance");
+        return setCouponActive(auth, body.couponId, body.active);
 
       case "review-ad":
         await requirePermission("admin:moderation");

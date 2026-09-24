@@ -22,6 +22,8 @@ export interface FulfilmentItem {
   totalCents: number;
   sellerEarningsCents: number;
   commissionCents: number;
+  /** The buyer's coupon on this item. PetMate pays it; on COD it comes off the cash. */
+  discountCents: number;
   fulfillmentStatus: string;
   orderNumber: string;
   orderStatus: string;
@@ -188,6 +190,13 @@ export function FulfilmentQueue({
                           {formatMoney(item.unitPriceCents, item.currency)}
                           {item.placedAt ? ` · ${formatDate(item.placedAt)}` : ""}
                         </p>
+                        {item.discountCents > 0 && (
+                          <p className="mt-0.5 text-xs text-fg-muted">
+                            {item.paymentMethod === "COD"
+                              ? `Collect ${formatMoney(item.totalCents - item.discountCents, item.currency)} for this item: the buyer's ${formatMoney(item.discountCents, item.currency)} coupon is credited to your balance by PetMate.`
+                              : `The buyer used a ${formatMoney(item.discountCents, item.currency)} coupon; PetMate pays it, your earnings are unchanged.`}
+                          </p>
+                        )}
 
                         <p className="mt-1 flex items-center gap-1.5 text-xs text-fg-muted">
                           <MapPin className="size-3" aria-hidden />

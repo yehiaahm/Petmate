@@ -15,6 +15,7 @@ import { generateToken } from "@/lib/utils";
 import { finishLogin, generateUniqueHandle, normalizeEmail } from "./auth.service";
 import { issueTwoFactorChallenge } from "./two-factor.service";
 import { seedNotificationPreferences } from "./notification.service";
+import { recordReferral } from "./referral.service";
 import { awardTrustSignal } from "./trust.service";
 
 /**
@@ -79,6 +80,7 @@ export async function completeOAuth(input: {
   cookieState: string | null;
   ip?: string | null;
   userAgent?: string | null;
+  referralCode?: string | null;
 }): Promise<OAuthResult> {
   const expired = () => new OAuthError("expired");
 
@@ -106,7 +108,7 @@ export async function completeOAuth(input: {
     throw new OAuthError("provider");
   }
 
-  const user = await findOrCreateUser(profile, { ip: input.ip, userAgent: input.userAgent });
+  const user = await findOrCreateUser(profile, { ip: input.ip, userAgent: input.userAgent, referralCode: input.referralCode });
 
   if (user.status === "BANNED" || user.status === "DEACTIVATED") throw new OAuthError("closed");
 
@@ -138,7 +140,10 @@ const USER_SELECT = {
   roles: { select: { role: true } },
 } as const;
 
-async function findOrCreateUser(profile: OAuthProfile, context: { ip?: string | null; userAgent?: string | null }) {
+async function findOrCreateUser(
+  profile: OAuthProfile,
+  context: { ip?: string | null; userAgent?: string | null; referralCode?: string | null },
+) {
   const provider = profile.provider.toUpperCase();
   if (!profile.id) throw new OAuthError("provider");
 
@@ -221,6 +226,7 @@ async function findOrCreateUser(profile: OAuthProfile, context: { ip?: string | 
       select: USER_SELECT,
     });
     await seedNotificationPreferences(user.id, tx);
+    await recordReferral(user.id, context.referralCode, tx);
     await audit(
       {
         action: "auth.register",

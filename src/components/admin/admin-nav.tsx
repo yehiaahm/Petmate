@@ -7,6 +7,7 @@ import {
   ShieldAlert,
   Users,
   Landmark,
+  TicketPercent,
   LifeBuoy,
   SlidersHorizontal,
 } from "lucide-react";
@@ -25,6 +26,7 @@ export function AdminNav({
     { href: "/admin/support", label: "Support", icon: LifeBuoy, show: can.moderation },
     { href: "/admin/users", label: "Members", icon: Users, show: can.users },
     { href: "/admin/finance", label: "Finance", icon: Landmark, show: can.finance },
+    { href: "/admin/coupons", label: "Coupons", icon: TicketPercent, show: can.finance },
     { href: "/admin/settings", label: "Settings", icon: SlidersHorizontal, show: can.settings },
   ].filter((i) => i.show);
 

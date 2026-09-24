@@ -36,6 +36,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ prov
       cookieState: cookieState ? decodeURIComponent(cookieState) : null,
       ip: request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || null,
       userAgent: request.headers.get("user-agent"),
+      referralCode: /(?:^|;\s*)pm_ref=([A-Z0-9]{5,12})(?:;|$)/.exec(request.headers.get("cookie") ?? "")?.[1] ?? null,
     });
     if (result.kind === "TWO_FACTOR") {
       return back(`/login?next=${encodeURIComponent(result.next)}&tf=${encodeURIComponent(result.challenge)}`);

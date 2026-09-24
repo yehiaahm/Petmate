@@ -1,11 +1,12 @@
 import "server-only";
+import { redeemCoupon, releaseCoupon } from "./coupon.service";
 import { z } from "zod";
 import { db, type Tx } from "@/lib/db";
 import { audit } from "@/lib/audit";
 import { badRequest, conflict, notFound, unprocessable, upgradeRequired } from "@/lib/errors";
 import { assertOwnsShop, isStaff } from "@/lib/auth/rbac";
 import type { AuthContext } from "@/lib/auth/session";
-import { applyBps, formatMoney, parseMoneyToCents } from "@/lib/money";
+import { applyBps, distributeCents, formatMoney, parseMoneyToCents } from "@/lib/money";
 import { getSettings } from "@/lib/settings";
 import { csvRecords } from "@/lib/csv";
 import { PRODUCT_IMPORT_COLUMNS, MAX_IMPORT_ROWS } from "@/lib/product-import";
@@ -992,6 +993,7 @@ export const checkoutSchema = z.object({
   shippingPostal: optionalText(20),
   shippingNote: optionalText(300),
   paymentMethod: z.enum(PAYMENT_METHOD).default("ONLINE"),
+  couponCode: z.string().trim().max(40).optional(),
 });
 
 /**
@@ -1044,6 +1046,7 @@ export async function createOrder(auth: AuthContext, raw: z.input<typeof checkou
         paymentMethod: input.paymentMethod,
         subtotalCents: cart.subtotalCents,
         shippingCents: cart.shippingCents,
+        // Set below, once the coupon (if any) has been claimed.
         totalCents: cart.totalCents,
         currency: cart.currency,
         shippingName: input.shippingName,
@@ -1124,10 +1127,33 @@ export async function createOrder(auth: AuthContext, raw: z.input<typeof checkou
       });
     }
 
+    // The coupon is claimed in this transaction, so its use and the order
+    // either both exist or neither does. The discount is spread over the
+    // items so each shop's cash-on-delivery amount and refunds stay exact.
+    let discountCents = 0;
+    let couponCode: string | null = null;
+    if (input.couponCode) {
+      const quote = await redeemCoupon(tx, {
+        userId: auth.user.id,
+        code: input.couponCode,
+        subtotalCents: cart.subtotalCents,
+        orderId: created.id,
+      });
+      discountCents = quote.discountCents;
+      couponCode = quote.code;
+      const items = await tx.orderItem.findMany({ where: { orderId: created.id }, orderBy: { id: "asc" }, select: { id: true, totalCents: true } });
+      const shares = distributeCents(discountCents, items.map((i) => i.totalCents));
+      for (const [index, item] of items.entries()) {
+        await tx.orderItem.update({ where: { id: item.id }, data: { discountCents: shares[index] ?? 0 } });
+      }
+    }
+
+    const totalCents = cart.totalCents - discountCents;
     await tx.order.update({
       where: { id: created.id },
-      data: { platformFeeCents: platformFee },
+      data: { platformFeeCents: platformFee, discountCents, couponCode, totalCents },
     });
+    created.totalCents = totalCents;
 
     await tx.cartItem.deleteMany({
       where: { userId: auth.user.id, variantId: { in: available.map((l) => l.variantId) } },
@@ -1236,6 +1262,9 @@ export async function cancelOrder(
       data: { status: "CANCELLED", cancelledAt: new Date(), cancelReason: params.reason },
     });
     if (claimed.count === 0) return null;
+
+    // A cancelled order gives its use of a coupon back.
+    await releaseCoupon(tx, order.id);
 
     const paid = order.paymentMethod === "ONLINE" && (order.status === "PAID" || order.status === "PROCESSING");
     if (paid) {
@@ -1586,6 +1615,7 @@ export async function listShopOrders(auth: AuthContext, shopId: string, status?:
       totalCents: true,
       sellerEarningsCents: true,
       commissionCents: true,
+      discountCents: true,
       fulfillmentStatus: true,
       order: {
         select: {

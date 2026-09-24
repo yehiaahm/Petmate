@@ -17,6 +17,7 @@ import {
   ChevronDown,
   Megaphone,
   Wallet,
+  Gift,
 } from "lucide-react";
 import { Avatar, Badge } from "@/components/ui/primitives";
 import { api } from "@/lib/api-client";
@@ -76,6 +77,7 @@ export function UserMenu({ user }: { user: SessionUser }) {
         { href: "/dashboard/orders", label: t("Orders & purchases"), icon: ShoppingBag },
         { href: "/dashboard/wallet", label: t("Wallet"), icon: Wallet },
         { href: "/dashboard/advertising", label: t("Advertising"), icon: Megaphone },
+        { href: "/dashboard/referrals", label: t("Invite friends"), icon: Gift },
       ],
     },
     ...(isClinic

@@ -92,6 +92,8 @@ const ORDER_FOR_FULFILMENT = {
   totalCents: true,
   shippingCents: true,
   subtotalCents: true,
+  discountCents: true,
+  couponCode: true,
   currency: true,
   shippingName: true,
   shippingLine1: true,
@@ -107,6 +109,7 @@ const ORDER_FOR_FULFILMENT = {
       totalCents: true,
       commissionCents: true,
       sellerEarningsCents: true,
+      discountCents: true,
       fulfillmentStatus: true,
     },
   },
@@ -261,6 +264,11 @@ async function settleProductOrder(intent: SettlementIntent): Promise<void> {
       { account: accounts.external(order.currency), amountCents: -order.totalCents },
       { account: accounts.platformRevenue(order.currency), amountCents: platformFee },
     ];
+    // The buyer paid less than the goods are worth; PetMate makes up the
+    // difference, so the shops below are still credited in full.
+    if (order.discountCents > 0) {
+      entries.push({ account: accounts.platformPromotions(order.currency), amountCents: -order.discountCents });
+    }
     for (const [shopId, shippingShare] of shipping) {
       const earnings =
         order.items.filter((it) => it.shopId === shopId).reduce((a, it) => a + it.sellerEarningsCents, 0) + shippingShare;
@@ -288,6 +296,9 @@ async function settleProductOrder(intent: SettlementIntent): Promise<void> {
       quantity: i.quantity,
     }));
     if (order.shippingCents > 0) lines.push({ description: "Shipping", amountCents: order.shippingCents });
+    if (order.discountCents > 0) {
+      lines.push({ description: `Discount${order.couponCode ? ` (${order.couponCode})` : ""}`, amountCents: -order.discountCents });
+    }
 
     await createInvoice(
       {
@@ -461,25 +472,30 @@ export async function settleCashOnDelivery(tx: Tx, orderId: string, shopId: stri
   if (!items.length) return;
 
   const shippingShare = shippingByShop(order).get(shopId) ?? 0;
-  const collected = items.reduce((a, i) => a + i.totalCents, 0) + shippingShare;
+  // The buyer's coupon comes off what they hand over at the door; PetMate
+  // credits that part back to the shop, so the shop is not paying for it.
+  const discount = items.reduce((a, i) => a + i.discountCents, 0);
+  const collected = items.reduce((a, i) => a + i.totalCents, 0) + shippingShare - discount;
   const commission = items.reduce((a, i) => a + i.commissionCents, 0);
 
   await tx.codCollection.create({
     data: { orderId, shopId, amountCents: collected, commissionCents: commission, currency: order.currency },
   });
 
-  if (commission > 0) {
+  if (commission > 0 || discount > 0) {
+    const entries = [
+      { account: accounts.sellerAvailable(shopId, order.currency), amountCents: discount - commission },
+      { account: accounts.platformRevenue(order.currency), amountCents: commission },
+    ];
+    if (discount > 0) entries.push({ account: accounts.platformPromotions(order.currency), amountCents: -discount });
     await postTransaction(
       {
         kind: "COMMISSION",
-        description: `Commission on cash collected for ${order.orderNumber}`,
+        description: `Commission on cash collected for ${order.orderNumber}${discount > 0 ? " (coupon credited)" : ""}`,
         currency: order.currency,
         referenceType: "ORDER",
         referenceId: order.id,
-        entries: [
-          { account: accounts.sellerAvailable(shopId, order.currency), amountCents: -commission },
-          { account: accounts.platformRevenue(order.currency), amountCents: commission },
-        ],
+        entries: entries.filter((e) => e.amountCents !== 0),
       },
       tx,
     );

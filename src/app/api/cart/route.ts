@@ -12,6 +12,7 @@ import {
 import { createPayment } from "@/lib/payments/service";
 import { clientEnv } from "@/lib/env";
 import { cuidSchema } from "@/lib/validation/common";
+import { evaluateCoupon } from "@/lib/services/coupon.service";
 
 export const GET = route({
   auth: true,
@@ -34,6 +35,7 @@ export const POST = route({
       quantity: z.number().int().min(0).max(99),
     }),
     z.object({ action: z.literal("remove"), itemId: cuidSchema }),
+    z.object({ action: z.literal("preview-coupon"), code: z.string().trim().min(2).max(40) }),
     z.object({
       action: z.literal("checkout"),
       shipping: checkoutSchema,
@@ -55,6 +57,13 @@ export const POST = route({
       case "remove":
         await removeCartItem(auth, body.itemId);
         return getCart(auth.user.id);
+
+      case "preview-coupon": {
+        // A preview only: the code is checked again, and claimed, at checkout.
+        const cart = await getCart(auth.user.id);
+        const quote = await evaluateCoupon(auth.user.id, body.code, cart.subtotalCents);
+        return { code: quote.code, discountCents: quote.discountCents, description: quote.description };
+      }
 
       case "checkout": {
         // The order is priced from the database, then charged for that amount.

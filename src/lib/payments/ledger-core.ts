@@ -292,6 +292,13 @@ export const accounts = {
     kind: "REVENUE",
     currency,
   }),
+  /** What PetMate spends on coupons and referral rewards. Runs negative by design. */
+  platformPromotions: (currency: string = PLATFORM_CURRENCY): AccountRef => ({
+    ownerType: "PLATFORM",
+    ownerId: PLATFORM_OWNER_ID,
+    kind: "PROMOTIONS",
+    currency,
+  }),
   platformFees: (currency: string = PLATFORM_CURRENCY): AccountRef => ({
     ownerType: "PLATFORM",
     ownerId: PLATFORM_OWNER_ID,

@@ -15,6 +15,7 @@ import { autoReleaseEscrow } from "@/lib/services/petorder.service";
 import { autoReleaseBreedingFee } from "@/lib/services/breeding-fee.service";
 import { settleFinishedCampaigns } from "@/lib/services/ad.service";
 import { processMessageQueue } from "@/lib/messaging";
+import { qualifyReferrals } from "@/lib/services/referral.service";
 import { cancelOrder } from "@/lib/services/commerce.service";
 import { expireSubscription } from "@/lib/services/subscription.service";
 import { releaseSellerHold, releaseClinicHold } from "@/lib/payments/settlement";
@@ -124,6 +125,10 @@ const handlers: Record<JobType, Handler> = {
   async "messages.process"() {
     const { sent, failed } = await processMessageQueue();
     return `${sent} sent, ${failed} failed`;
+  },
+
+  async "referrals.qualify"() {
+    return `${await qualifyReferrals()} rewarded`;
   },
 
   async "ads.settle"() {

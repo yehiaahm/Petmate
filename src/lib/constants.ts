@@ -383,6 +383,7 @@ export const LEDGER_ACCOUNT_KIND = [
   "FEES",
   "ESCROW",
   "GATEWAY",
+  "PROMOTIONS",
 ] as const;
 export type LedgerAccountKind = (typeof LEDGER_ACCOUNT_KIND)[number];
 

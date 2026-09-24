@@ -55,7 +55,7 @@ const bodySchema = z.discriminatedUnion("action", [
 
 export const POST = route({
   body: bodySchema,
-  async handler({ body, ip, userAgent }) {
+  async handler({ body, ip, userAgent, request }) {
     switch (body.action) {
       case "register": {
         await register({
@@ -66,6 +66,7 @@ export const POST = route({
           acceptedTerms: body.acceptedTerms,
           ip,
           userAgent,
+          referralCode: /(?:^|;\s*)pm_ref=([A-Z0-9]{5,12})(?:;|$)/.exec(request.headers.get("cookie") ?? "")?.[1] ?? null,
         });
         // Registration never signs the account in: confirming the email is the
         // first step, and it is also what proves the address is real.

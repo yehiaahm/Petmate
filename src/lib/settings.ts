@@ -71,6 +71,19 @@ export interface SettingsShape {
   /** Largest basket that may be paid on delivery, minor units. */
   codMaxOrderCents: number;
 
+  /** Members can invite others with a personal link. */
+  referralEnabled: boolean;
+  /** Wallet credit for the inviter once the invitee's first order is delivered. */
+  referralRewardCents: number;
+  /** The invitee's welcome discount on their first order, basis points. */
+  referralWelcomeBps: number;
+  /** Cap on that welcome discount, minor units. */
+  referralWelcomeMaxCents: number;
+  /** Smallest first order that earns the inviter their reward. */
+  referralMinOrderCents: number;
+  /** Most rewards one member can earn in 30 days. */
+  referralMonthlyCap: number;
+
   /** Platform-wide switch for accepting new registrations. */
   registrationOpen: boolean;
   /** Read-only mode for maintenance windows. */
@@ -112,6 +125,13 @@ export const DEFAULT_SETTINGS: SettingsShape = {
   codEnabled: true,
   codMaxOrderCents: 500_000, // EGP 5,000
 
+  referralEnabled: true,
+  referralRewardCents: 5_000, // EGP 50
+  referralWelcomeBps: 1000, // 10%
+  referralWelcomeMaxCents: 10_000, // EGP 100
+  referralMinOrderCents: 20_000, // EGP 200
+  referralMonthlyCap: 20,
+
   registrationOpen: true,
   maintenanceMode: false,
 
@@ -142,6 +162,12 @@ export const SETTING_DESCRIPTIONS: Record<keyof SettingsShape, string> = {
   minPayoutCents: "Minimum payout a seller can request, in the currency's minor unit.",
   codEnabled: "Allow cash on delivery at shops that accept it.",
   codMaxOrderCents: "Largest basket that can be paid on delivery, in the currency's minor unit.",
+  referralEnabled: "Let members invite others with a personal link.",
+  referralRewardCents: "Wallet credit for the inviter once the new member's first order is delivered, in the currency's minor unit.",
+  referralWelcomeBps: "The new member's discount on their first order, in basis points.",
+  referralWelcomeMaxCents: "Largest welcome discount, in the currency's minor unit.",
+  referralMinOrderCents: "Smallest first order that earns the inviter a reward, in the currency's minor unit.",
+  referralMonthlyCap: "Most referral rewards one member can earn in 30 days.",
   registrationOpen: "Allow new account registrations.",
   maintenanceMode: "Put the platform in read-only maintenance mode.",
   supportEmail: "Address shown to users for support enquiries.",

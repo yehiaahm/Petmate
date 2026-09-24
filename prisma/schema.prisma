@@ -39,6 +39,8 @@ model User {
   bio             String?
   phone           String?
   phoneVerifiedAt DateTime?
+  /// Their own code for inviting others (/r/CODE), made on first use.
+  referralCode    String?   @unique
   /// How phone messages reach them: WHATSAPP | SMS.
   phoneChannel    String    @default("WHATSAPP")
 
@@ -1217,12 +1219,14 @@ model Order {
   paymentMethod String @default("ONLINE") // ONLINE | COD
 
   subtotalCents    Int
-  shippingCents    Int    @default(0)
-  taxCents         Int    @default(0)
-  discountCents    Int    @default(0)
+  shippingCents    Int     @default(0)
+  taxCents         Int     @default(0)
+  discountCents    Int     @default(0)
+  /// The coupon behind `discountCents`, as typed at checkout.
+  couponCode       String?
   totalCents       Int
-  platformFeeCents Int    @default(0)
-  currency         String @default("EGP")
+  platformFeeCents Int     @default(0)
+  currency         String  @default("EGP")
 
   shippingName    String
   shippingPhone   String?
@@ -1288,6 +1292,8 @@ model OrderItem {
 
   commissionBps       Int
   commissionCents     Int
+  /// This item's share of the order's coupon discount.
+  discountCents       Int @default(0)
   sellerEarningsCents Int
 
   fulfillmentStatus String @default("PENDING") // PENDING | PACKED | SHIPPED | DELIVERED | CANCELLED | RETURNED
@@ -2016,6 +2022,65 @@ model NotificationPreference {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, category])
+}
+
+/// A discount code. PetMate funds it, so shops are paid in full either way.
+model Coupon {
+  id               String    @id @default(cuid())
+  code             String    @unique // upper case
+  description      String?
+  kind             String // PERCENT | FIXED
+  percentBps       Int       @default(0)
+  amountCents      Int       @default(0)
+  maxDiscountCents Int? // cap for PERCENT
+  minOrderCents    Int       @default(0)
+  currency         String    @default("EGP")
+  startsAt         DateTime  @default(now())
+  endsAt           DateTime?
+  maxRedemptions   Int? // across everyone
+  perUserLimit     Int       @default(1)
+  redemptionCount  Int       @default(0)
+  firstOrderOnly   Boolean   @default(false)
+  /// A personal code (a referral welcome) only its owner can use.
+  assignedUserId   String?
+  source           String    @default("ADMIN") // ADMIN | REFERRAL_WELCOME
+  active           Boolean   @default(true)
+  createdById      String?
+  createdAt        DateTime  @default(now())
+
+  redemptions CouponRedemption[]
+
+  @@index([assignedUserId])
+}
+
+model CouponRedemption {
+  id            String   @id @default(cuid())
+  couponId      String
+  userId        String
+  orderId       String   @unique
+  discountCents Int
+  createdAt     DateTime @default(now())
+
+  coupon Coupon @relation(fields: [couponId], references: [id], onDelete: Cascade)
+
+  @@index([couponId, userId])
+}
+
+/// Someone invited by an existing member. The inviter is rewarded once the
+/// new member's first order has been delivered and not refunded.
+model Referral {
+  id              String    @id @default(cuid())
+  referrerId      String
+  refereeId       String    @unique
+  status          String    @default("PENDING") // PENDING | REWARDED | VOID
+  rewardCents     Int       @default(0)
+  qualifyingOrder String?
+  voidReason      String?
+  createdAt       DateTime  @default(now())
+  rewardedAt      DateTime?
+
+  @@index([referrerId, status])
+  @@index([status, createdAt])
 }
 
 /// Outbox for WhatsApp and SMS, delivered by the worker like email.
