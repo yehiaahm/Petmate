@@ -17,6 +17,7 @@ import {
   listPayouts,
 } from "@/lib/payments/payout.service";
 import { cuidSchema, optionalText } from "@/lib/validation/common";
+import { PLATFORM_CURRENCY } from "@/lib/currency";
 
 export const GET = route({
   auth: true,
@@ -60,11 +61,11 @@ export const GET = route({
       }
 
       if (query.mode === "earnings") {
-        const earnings = await getEarnings(ownerType, ownerId, auth.user.currency);
+        const earnings = await getEarnings(ownerType, ownerId, PLATFORM_CURRENCY);
         return { earnings };
       }
 
-      const entries = await listLedgerEntries(ownerType, ownerId, { currency: auth.user.currency });
+      const entries = await listLedgerEntries(ownerType, ownerId, { currency: PLATFORM_CURRENCY });
       return { entries };
     }
 

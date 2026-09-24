@@ -9,6 +9,13 @@ Every monetary value is an `Int` in the currency's minor unit. Field names end
 in `Cents`. There is no float arithmetic on money anywhere, and no `Decimal`
 column, because the schema has to run on SQLite too.
 
+There is one currency per deployment, `NEXT_PUBLIC_CURRENCY` (EGP for the
+Egyptian launch; see `src/lib/currency.ts`). There is no exchange-rate engine,
+and the ledger keeps a separate balance per currency, so a price in a second
+currency would not be converted — it would open a second, disconnected set of
+books. Price schemas therefore accept only the platform currency, and every
+balance, payout and report is read in it.
+
 Rates are basis points (`Bps`), 100 = 1%. `commissionBps(amountCents, bps)`
 rounds once, at the end, and the caller never does the arithmetic inline.
 

@@ -15,6 +15,7 @@ import { awardTrustSignal, recomputeTrustScore } from "./trust.service";
 import { revokeAllSessions } from "@/lib/auth/session";
 import { safeParagraph, cuidSchema } from "@/lib/validation/common";
 import { REPORT_REASON, DISPUTE_REASON, VERIFICATION_TYPE } from "@/lib/constants";
+import { PLATFORM_CURRENCY } from "@/lib/currency";
 
 /**
  * Trust and safety.
@@ -701,7 +702,7 @@ export async function resolveDispute(
     },
   });
 
-  const currency = dispute.petOrder?.currency ?? dispute.order?.currency ?? "USD";
+  const currency = dispute.petOrder?.currency ?? dispute.order?.currency ?? PLATFORM_CURRENCY;
 
   if (input.refundCents > 0) {
     const intentId = dispute.petOrder?.paymentIntentId ?? dispute.order?.paymentIntentId;

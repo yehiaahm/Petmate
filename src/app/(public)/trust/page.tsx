@@ -89,7 +89,7 @@ export default async function TrustPage() {
                 </p>
                 <p>
                   Repeatable signals are capped, so nobody can farm a high score with a hundred
-                  one-dollar sales. Penalties are not capped.
+                  token-price sales. Penalties are not capped.
                 </p>
               </>
             ),

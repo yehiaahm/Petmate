@@ -8,6 +8,7 @@ import { PayoutQueue } from "@/components/admin/payout-queue";
 import { PageHeader, Card, CardHeader, Stat, Badge, Alert } from "@/components/ui/primitives";
 import { formatMoney } from "@/lib/money";
 import { formatDate } from "@/lib/utils";
+import { PLATFORM_CURRENCY } from "@/lib/currency";
 
 export const metadata: Metadata = {
   title: "Finance",
@@ -20,8 +21,8 @@ export default async function FinancePage() {
   const [payouts, ledger, escrowHeld, revenue, recentRefunds] = await Promise.all([
     listPendingPayouts(),
     assertLedgerBalanced(),
-    getBalance({ ownerType: "ESCROW", ownerId: "escrow", kind: "ESCROW", currency: "USD" }),
-    getBalance({ ownerType: "PLATFORM", ownerId: "platform", kind: "REVENUE", currency: "USD" }),
+    getBalance({ ownerType: "ESCROW", ownerId: "escrow", kind: "ESCROW", currency: PLATFORM_CURRENCY }),
+    getBalance({ ownerType: "PLATFORM", ownerId: "platform", kind: "REVENUE", currency: PLATFORM_CURRENCY }),
     db.refund.findMany({
       orderBy: { createdAt: "desc" },
       take: 10,
@@ -94,15 +95,15 @@ export default async function FinancePage() {
       )}
 
       <div className="mt-6 grid gap-3 sm:grid-cols-3">
-        <Stat label="Held in escrow" value={formatMoney(escrowHeld, "USD")} hint="Not ours" />
+        <Stat label="Held in escrow" value={formatMoney(escrowHeld, PLATFORM_CURRENCY)} hint="Not ours" />
         <Stat
           label="Platform revenue"
-          value={formatMoney(Math.abs(revenue), "USD")}
+          value={formatMoney(Math.abs(revenue), PLATFORM_CURRENCY)}
           hint="Commission and fees, all time"
         />
         <Stat
           label="Payouts waiting"
-          value={formatMoney(pendingTotal, "USD")}
+          value={formatMoney(pendingTotal, PLATFORM_CURRENCY)}
           hint={`${payouts.length} request${payouts.length === 1 ? "" : "s"}`}
           icon={<Receipt className="size-4" aria-hidden />}
         />

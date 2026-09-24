@@ -3,7 +3,6 @@ import { db } from "@/lib/db";
 import { requireAuth } from "@/lib/auth/rbac";
 import { ProfileForm } from "@/components/settings/profile-form";
 import { PageHeader } from "@/components/ui/primitives";
-import { CURRENCIES } from "@/lib/constants";
 
 export const metadata: Metadata = {
   title: "Profile settings",
@@ -26,7 +25,6 @@ export default async function ProfileSettingsPage() {
       region: true,
       city: true,
       postalCode: true,
-      currency: true,
       createdAt: true,
     },
   });
@@ -38,7 +36,7 @@ export default async function ProfileSettingsPage() {
         description="What other members see. Your email address, phone number and exact address are never shown publicly."
       />
       <div className="mt-6">
-        <ProfileForm profile={profile} currencies={[...CURRENCIES]} />
+        <ProfileForm profile={profile} />
       </div>
     </>
   );

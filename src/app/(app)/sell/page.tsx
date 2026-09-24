@@ -18,6 +18,7 @@ import { bpsToPercent, formatMoney } from "@/lib/money";
 import { PageHeader, Card, CardHeader, Stat, Badge, EmptyState } from "@/components/ui/primitives";
 import { ButtonLink } from "@/components/ui/button";
 import { formatDate, compactNumber } from "@/lib/utils";
+import { PLATFORM_CURRENCY } from "@/lib/currency";
 
 export const metadata: Metadata = {
   title: "Seller console",
@@ -44,7 +45,7 @@ export default async function SellerConsolePage() {
 
   const [analytics, earnings, settings, shops, openApplications, pendingSales] = await Promise.all([
     getSellerAnalytics(auth.user.id, { from, to: now }),
-    getEarnings("USER", auth.user.id, auth.user.currency),
+    getEarnings("USER", auth.user.id, PLATFORM_CURRENCY),
     getSettings(),
     db.shop.findMany({
       where: { ownerUserId: auth.user.id, deletedAt: null },
@@ -152,7 +153,7 @@ export default async function SellerConsolePage() {
         />
         <Stat
           label="Earned (30d)"
-          value={formatMoney(analytics.totals.earningsCents, auth.user.currency)}
+          value={formatMoney(analytics.totals.earningsCents, PLATFORM_CURRENCY)}
           hint={`${analytics.totals.sales} pet sales · ${analytics.totals.productsSold} products`}
           icon={<TrendingUp className="size-4" aria-hidden />}
         />

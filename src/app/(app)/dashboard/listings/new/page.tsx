@@ -8,6 +8,7 @@ import { getSettings } from "@/lib/settings";
 import { Breadcrumbs, PageHeader, EmptyState, Alert } from "@/components/ui/primitives";
 import { ButtonLink } from "@/components/ui/button";
 import { ListingForm } from "@/components/listings/listing-form";
+import { PLATFORM_CURRENCY } from "@/lib/currency";
 
 export const metadata: Metadata = {
   title: "Create a listing",
@@ -126,7 +127,7 @@ export default async function NewListingPage({
               healthRecordCount: pet._count.healthRecords,
             }))}
             preselectedPetId={petId}
-            currency={auth.user.currency}
+            currency={PLATFORM_CURRENCY}
             disabled={atLimit}
             manualReviewPriceCents={settings.manualReviewPriceCents}
             defaultCity={auth.user.city}

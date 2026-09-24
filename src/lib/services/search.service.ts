@@ -1,7 +1,7 @@
 import "server-only";
 import { db } from "@/lib/db";
 import { boundingBox, haversineKm, ageInMonths } from "@/lib/utils";
-import { searchTextClauses, relevanceScore } from "@/lib/search/text";
+import { searchTextClauses, relevanceScore, cityVariants } from "@/lib/search/text";
 import { LIMITS, PUBLIC_LISTING_STATUSES, type Species } from "@/lib/constants";
 import { logger } from "@/lib/logger";
 import { getVisibilityBoosts } from "@/lib/billing/entitlements";
@@ -137,7 +137,7 @@ export async function searchListings(params: ListingSearchParams): Promise<{
     ...(params.sellerId ? { sellerId: params.sellerId } : {}),
     ...(params.excludeSellerId ? { sellerId: { not: params.excludeSellerId } } : {}),
     ...(params.query ? { AND: searchTextClauses(params.query) } : {}),
-    ...(params.city ? { city: params.city } : {}),
+    ...(params.city ? { city: { in: cityVariants(params.city) } } : {}),
     ...(params.country ? { country: params.country } : {}),
     ...(params.minPriceCents != null || params.maxPriceCents != null
       ? {
@@ -757,7 +757,7 @@ export async function runSavedSearches(limit = 50): Promise<number> {
           publishedAt: { gt: since },
           ...(filters.intent ? { intent: filters.intent } : {}),
           ...(filters.country ? { country: filters.country } : {}),
-          ...(filters.city ? { city: filters.city } : {}),
+          ...(filters.city ? { city: { in: cityVariants(filters.city) } } : {}),
           ...(filters.species?.length ? { pet: { species: { in: filters.species } } } : {}),
           ...(filters.maxPriceCents ? { priceCents: { lte: filters.maxPriceCents } } : {}),
         },

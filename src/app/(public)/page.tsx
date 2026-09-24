@@ -175,7 +175,7 @@ function Hero({ stats }: { stats: { pets: number; listings: number; clinics: num
             {[
               "calm small dog near me",
               "kitten for adoption",
-              "vaccinated labrador under 1200",
+              "vaccinated labrador under 20000",
             ].map((example) => (
               <Link
                 key={example}

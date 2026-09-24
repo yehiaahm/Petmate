@@ -1,5 +1,6 @@
 import { CURRENCY_SYMBOL, type Currency } from "./constants";
 import { intlLocale, type Locale } from "./i18n/config";
+import { PLATFORM_CURRENCY } from "./currency";
 
 /**
  * Money is always an integer in the currency minor unit (cents).
@@ -12,13 +13,13 @@ const FREE_LABEL: Record<Locale, string> = { en: "Free", ar: "مجاناً" };
 
 export function formatMoney(
   cents: number,
-  currency: string = "USD",
+  currency: string = PLATFORM_CURRENCY,
   opts: { compact?: boolean; showFree?: boolean; locale?: Locale } = {},
 ): string {
   const locale = opts.locale ?? "en";
   if (opts.showFree && cents === 0) return FREE_LABEL[locale];
 
-  const cur = (currency as Currency) in CURRENCY_SYMBOL ? (currency as Currency) : "USD";
+  const cur = (currency as Currency) in CURRENCY_SYMBOL ? (currency as Currency) : PLATFORM_CURRENCY;
 
   // Arabic is written by Intl, which knows where the currency sign goes in a
   // right-to-left sentence and what it is called ("ج.م." for EGP). English

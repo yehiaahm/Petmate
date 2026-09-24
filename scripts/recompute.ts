@@ -4,9 +4,10 @@ config();
 import { PrismaClient } from "@prisma/client";
 import { recomputeHealthScore } from "../src/lib/services/health.service";
 import { recomputeTrustScore } from "../src/lib/services/trust.service";
+import { rebuildSearchText } from "../src/lib/search/reindex";
 
 /**
- * Recomputes every derived score.
+ * Recomputes every derived score, and rebuilds the search haystacks.
  *
  * Health and trust scores are stored so they can be sorted and filtered on in
  * SQL. That means a change to the scoring rules needs a backfill, and this is
@@ -34,6 +35,9 @@ async function main() {
     const score = await recomputeTrustScore(user.id, db);
     console.log(`trust   ${user.name.padEnd(20)} ${score}`);
   }
+
+  const indexed = await rebuildSearchText(db);
+  console.log(`search  ${JSON.stringify(indexed)}`);
 
   console.log(`\nRecomputed ${pets.length} pets and ${users.length} users.`);
 }

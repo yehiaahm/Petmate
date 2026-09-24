@@ -5,6 +5,7 @@ import { getDispute } from "@/lib/services/safety.service";
 import { isAppError } from "@/lib/errors";
 import { DisputeThread } from "@/components/disputes/dispute-thread";
 import { Breadcrumbs } from "@/components/ui/primitives";
+import { PLATFORM_CURRENCY } from "@/lib/currency";
 
 export const metadata: Metadata = {
   title: "Dispute",
@@ -39,7 +40,7 @@ export default async function DisputePage({ params }: { params: Promise<{ id: st
           reason: dispute.reason,
           amountCents: dispute.amountCents,
           refundCents: dispute.refundCents,
-          currency: dispute.petOrder?.currency ?? dispute.order?.currency ?? "USD",
+          currency: dispute.petOrder?.currency ?? dispute.order?.currency ?? PLATFORM_CURRENCY,
           resolution: dispute.resolution,
           responseDueAt: dispute.responseDueAt?.toISOString() ?? null,
           createdAt: dispute.createdAt.toISOString(),

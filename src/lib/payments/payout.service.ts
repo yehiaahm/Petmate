@@ -10,7 +10,7 @@ import { getBalance, postTransaction, accounts } from "./ledger-core";
 import { emailTemplates } from "@/lib/email";
 import { clientEnv } from "@/lib/env";
 import type { AuthContext } from "@/lib/auth/session";
-import { cuidSchema, centsSchema, safeText, currencySchema } from "@/lib/validation/common";
+import { cuidSchema, centsSchema, safeText, priceCurrencySchema } from "@/lib/validation/common";
 
 /**
  * Payouts: money leaving PetMate for someone's bank.
@@ -32,7 +32,7 @@ export const payoutRequestSchema = z.object({
   ownerType: z.enum(["USER", "SHOP", "CLINIC"]),
   ownerId: cuidSchema.optional(),
   amountCents: centsSchema,
-  currency: currencySchema.default("USD"),
+  currency: priceCurrencySchema,
   destination: safeText(60, 2),
   note: safeText(300, 0).optional(),
 });

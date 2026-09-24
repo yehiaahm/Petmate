@@ -1,4 +1,5 @@
 import "server-only";
+import { PLATFORM_CURRENCY } from "@/lib/currency";
 import { db, type DbClient } from "@/lib/db";
 import { AppError } from "@/lib/errors";
 import type { LedgerAccountKind, LedgerOwnerType } from "@/lib/constants";
@@ -60,7 +61,7 @@ export async function getOrCreateAccount(
   ref: AccountRef,
   client: DbClient = db,
 ): Promise<{ id: string }> {
-  const currency = ref.currency ?? "USD";
+  const currency = ref.currency ?? PLATFORM_CURRENCY;
   const where = {
     ownerType_ownerId_kind_currency: {
       ownerType: ref.ownerType,
@@ -97,7 +98,7 @@ export async function postTransaction(
   input: PostTransactionInput,
   client: DbClient = db,
 ): Promise<{ id: string }> {
-  const currency = input.currency ?? "USD";
+  const currency = input.currency ?? PLATFORM_CURRENCY;
 
   if (input.entries.length < 2) {
     throw new AppError("INTERNAL", "A ledger transaction needs at least two entries.", {
@@ -149,7 +150,7 @@ export async function getBalance(
   ref: AccountRef,
   client: DbClient = db,
 ): Promise<number> {
-  const currency = ref.currency ?? "USD";
+  const currency = ref.currency ?? PLATFORM_CURRENCY;
   const account = await client.ledgerAccount.findUnique({
     where: {
       ownerType_ownerId_kind_currency: {
@@ -181,7 +182,7 @@ export interface EarningsSummary {
 export async function getEarnings(
   ownerType: Extract<LedgerOwnerType, "SHOP" | "CLINIC" | "USER">,
   ownerId: string,
-  currency = "USD",
+  currency: string = PLATFORM_CURRENCY,
 ): Promise<EarningsSummary> {
   const [available, pending] = await Promise.all([
     getBalance({ ownerType, ownerId, kind: "AVAILABLE", currency }),
@@ -215,7 +216,7 @@ export async function listLedgerEntries(
   opts: { limit?: number; currency?: string } = {},
 ) {
   const accounts = await db.ledgerAccount.findMany({
-    where: { ownerType, ownerId, currency: opts.currency ?? "USD" },
+    where: { ownerType, ownerId, currency: opts.currency ?? PLATFORM_CURRENCY },
     select: { id: true, kind: true },
   });
   if (!accounts.length) return [];
@@ -273,61 +274,61 @@ export async function assertLedgerBalanced(): Promise<{
 
 export const accounts = {
   /** Money outside the system: the customer's card, the acquiring bank. */
-  external: (currency = "USD"): AccountRef => ({
+  external: (currency: string = PLATFORM_CURRENCY): AccountRef => ({
     ownerType: "EXTERNAL",
     ownerId: EXTERNAL_OWNER_ID,
     kind: "GATEWAY",
     currency,
   }),
-  escrow: (currency = "USD"): AccountRef => ({
+  escrow: (currency: string = PLATFORM_CURRENCY): AccountRef => ({
     ownerType: "ESCROW",
     ownerId: ESCROW_OWNER_ID,
     kind: "ESCROW",
     currency,
   }),
-  platformRevenue: (currency = "USD"): AccountRef => ({
+  platformRevenue: (currency: string = PLATFORM_CURRENCY): AccountRef => ({
     ownerType: "PLATFORM",
     ownerId: PLATFORM_OWNER_ID,
     kind: "REVENUE",
     currency,
   }),
-  platformFees: (currency = "USD"): AccountRef => ({
+  platformFees: (currency: string = PLATFORM_CURRENCY): AccountRef => ({
     ownerType: "PLATFORM",
     ownerId: PLATFORM_OWNER_ID,
     kind: "FEES",
     currency,
   }),
-  sellerPending: (shopId: string, currency = "USD"): AccountRef => ({
+  sellerPending: (shopId: string, currency: string = PLATFORM_CURRENCY): AccountRef => ({
     ownerType: "SHOP",
     ownerId: shopId,
     kind: "PENDING",
     currency,
   }),
-  sellerAvailable: (shopId: string, currency = "USD"): AccountRef => ({
+  sellerAvailable: (shopId: string, currency: string = PLATFORM_CURRENCY): AccountRef => ({
     ownerType: "SHOP",
     ownerId: shopId,
     kind: "AVAILABLE",
     currency,
   }),
-  clinicPending: (clinicId: string, currency = "USD"): AccountRef => ({
+  clinicPending: (clinicId: string, currency: string = PLATFORM_CURRENCY): AccountRef => ({
     ownerType: "CLINIC",
     ownerId: clinicId,
     kind: "PENDING",
     currency,
   }),
-  clinicAvailable: (clinicId: string, currency = "USD"): AccountRef => ({
+  clinicAvailable: (clinicId: string, currency: string = PLATFORM_CURRENCY): AccountRef => ({
     ownerType: "CLINIC",
     ownerId: clinicId,
     kind: "AVAILABLE",
     currency,
   }),
-  userPending: (userId: string, currency = "USD"): AccountRef => ({
+  userPending: (userId: string, currency: string = PLATFORM_CURRENCY): AccountRef => ({
     ownerType: "USER",
     ownerId: userId,
     kind: "PENDING",
     currency,
   }),
-  userAvailable: (userId: string, currency = "USD"): AccountRef => ({
+  userAvailable: (userId: string, currency: string = PLATFORM_CURRENCY): AccountRef => ({
     ownerType: "USER",
     ownerId: userId,
     kind: "AVAILABLE",

@@ -29,7 +29,6 @@ import {
   phoneSchema,
   passwordSchema,
   cuidSchema,
-  currencySchema,
 } from "@/lib/validation/common";
 import { LIMITS } from "@/lib/constants";
 import { LOCALES } from "@/lib/i18n/config";
@@ -107,7 +106,6 @@ export const POST = route({
       postalCode: optionalText(20),
       lat: z.number().min(-90).max(90).optional(),
       lng: z.number().min(-180).max(180).optional(),
-      currency: currencySchema.optional(),
       avatarFileId: cuidSchema.optional(),
       bannerFileId: cuidSchema.optional(),
     }),
@@ -169,7 +167,6 @@ export const POST = route({
             ...(body.postalCode !== undefined ? { postalCode: body.postalCode ?? null } : {}),
             ...(body.lat !== undefined ? { lat: body.lat } : {}),
             ...(body.lng !== undefined ? { lng: body.lng } : {}),
-            ...(body.currency !== undefined ? { currency: body.currency } : {}),
             ...(avatar ? { avatarUrl: avatar.url } : {}),
             ...(banner ? { bannerUrl: banner.url } : {}),
           },

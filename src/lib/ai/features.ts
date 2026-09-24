@@ -3,7 +3,8 @@ import { z } from "zod";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { db } from "@/lib/db";
 import { formatAge, splitTags } from "@/lib/utils";
-import { normalizeSearchText } from "@/lib/search/text";
+import { normalizeSearchText, EGYPT_CITIES } from "@/lib/search/text";
+import { PLATFORM_CURRENCY } from "@/lib/currency";
 import { SPECIES, LISTING_INTENT, type Species } from "@/lib/constants";
 import {
   aiAvailable,
@@ -302,7 +303,10 @@ export async function parseNaturalSearch(raw: string): Promise<AiResult<ParsedSe
 const SEARCH_SYSTEM = `Convert a person's plain-language pet search into structured filters for PetMate.
 
 Rules:
-- Money is in cents: "under $300" is maxPriceCents 30000.
+- Money is in the minor unit of the platform currency (${PLATFORM_CURRENCY}): "under 3000" is maxPriceCents 300000.
+- The person may write in Arabic, including Egyptian colloquial ("ببلاش" is free, "طلوقة" is a stud, "عايز" is "I want"). Write the interpretation in the same language they used, and put Arabic descriptive words into the query field unchanged.
+- Arabic-Indic digits (٠-٩) are ordinary numbers.
+- City names go in the city field in English as they are commonly spelled (القاهرة is Cairo, الإسكندرية is Alexandria, الجيزة is Giza).
 - Ages are in months: "puppy" is maxAgeMonths 12, "kitten" is maxAgeMonths 12, "young" is maxAgeMonths 36, "adult" is minAgeMonths 24, "senior" is minAgeMonths 84.
 - "adopt", "rescue", "rehome" mean intent ADOPTION. "buy", "for sale", "price" mean SALE. "stud", "mate", "breeding" mean BREEDING.
 - Put descriptive words that are not filters (temperament, colour, coat) into the query field.
@@ -312,6 +316,9 @@ Rules:
 /** Keyword parser. Handles the common shapes without a model. */
 export function deterministicSearchParse(raw: string): ParsedSearch {
   const text = normalizeSearchText(raw);
+  // Arabic has its own vocabulary and word order; see `arabicSearchParse`.
+  if (/[\u0621-\u064a]/.test(text)) return arabicSearchParse(text);
+
   const out: ParsedSearch = { interpretation: "" };
   const applied: string[] = [];
 
@@ -412,6 +419,8 @@ export function deterministicSearchParse(raw: string): ParsedSearch {
       applied.push(`near ${city}`);
     }
   }
+  // The place is a filter, not text the listing must also contain.
+  const cityWords = new Set(out.city ? out.city.split(" ") : []);
 
   // Whatever is left over becomes free text: colours, breeds, temperament.
   const filterWords = new Set([
@@ -426,7 +435,7 @@ export function deterministicSearchParse(raw: string): ParsedSearch {
 
   const remaining = text
     .split(" ")
-    .filter((w) => w && !filterWords.has(w) && !/^\d+$/.test(w))
+    .filter((w) => w && !filterWords.has(w) && !cityWords.has(w) && !/^\d+$/.test(w))
     .join(" ")
     .trim();
 
@@ -436,6 +445,168 @@ export function deterministicSearchParse(raw: string): ParsedSearch {
   }
 
   out.interpretation = applied.length ? `Showing pets ${applied.join(", ")}.` : "Showing all pets.";
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// Arabic search
+// ---------------------------------------------------------------------------
+
+/**
+ * The same parser for Arabic, including common Egyptian colloquial words
+ * ("ببلاش" for free, "طلوقة" for a stud, "عايز" for "I want").
+ *
+ * Works on normalised text (see `normalizeSearchText`: ة is ه, ى is ي, أ/إ/آ
+ * are ا), token by token, because JavaScript's `\b` only understands ASCII
+ * word characters and never fires between Arabic letters. The attached
+ * prefixes ال (the), لل (for the) and بال (with the) are peeled off each token
+ * before it is looked up.
+ */
+const AR_SPECIES: Record<string, Species> = {
+  كلب: "DOG", كلاب: "DOG", جرو: "DOG", جراء: "DOG", جراوي: "DOG",
+  قطه: "CAT", قطط: "CAT", قط: "CAT", بسه: "CAT", هره: "CAT", قطيطه: "CAT",
+  طائر: "BIRD", طير: "BIRD", طيور: "BIRD", عصفور: "BIRD", عصافير: "BIRD", ببغاء: "BIRD", ببغان: "BIRD",
+  ارنب: "RABBIT", ارانب: "RABBIT",
+  زواحف: "REPTILE", سحليه: "REPTILE", ثعبان: "REPTILE", سلحفاه: "REPTILE", سلحفه: "REPTILE",
+  هامستر: "SMALL_MAMMAL", همستر: "SMALL_MAMMAL",
+  حصان: "HORSE", خيل: "HORSE", خيول: "HORSE", فرس: "HORSE", مهر: "HORSE",
+};
+
+const AR_SPECIES_LABEL: Record<Species, string> = {
+  DOG: "كلاب", CAT: "قطط", BIRD: "طيور", RABBIT: "أرانب", REPTILE: "زواحف",
+  SMALL_MAMMAL: "ثدييات صغيرة", HORSE: "خيول", OTHER: "حيوانات أخرى",
+};
+
+/**
+ * Egyptian cities by any single-word Arabic spelling, peeled of its article
+ * ("القاهرة" -> "قاهره"), to [stored English name, Arabic display name].
+ * Built from the shared table in `lib/search/text` so there is one list.
+ */
+const AR_CITIES: ReadonlyMap<string, readonly [string, string]> = (() => {
+  const map = new Map<string, readonly [string, string]>();
+  for (const [english, ...arabic] of EGYPT_CITIES) {
+    const display = arabic[0] ?? english;
+    for (const name of arabic) {
+      for (const word of normalizeSearchText(name).split(" ")) {
+        const key = peelArabicPrefix(word);
+        if (key.length >= 3 && !/^\d+$/.test(key) && !map.has(key)) map.set(key, [english, display]);
+      }
+    }
+  }
+  return map;
+})();
+
+const AR_ADOPTION = new Set(["تبني", "تبنى", "انقاذ", "تبرع", "ببلاش"]);
+const AR_BREEDING = new Set(["تزاوج", "تلقيح", "طلوقه", "جواز", "تزويج"]);
+const AR_SALE = new Set(["بيع", "شراء", "اشتري", "للبيع"]);
+const AR_UNDER = new Set(["تحت", "اقل", "حتي", "لحد", "اقصي", "ميزانيه"]);
+const AR_OVER = new Set(["فوق", "اكثر", "اعلي"]);
+const AR_FREE = new Set(["ببلاش", "مجانا", "مجاني", "مجانيه"]);
+const AR_YOUNG = new Set(["صغير", "صغيره", "بيبي", "رضيع"]);
+const AR_ADULT = new Set(["بالغ", "بالغه", "كبير", "كبيره"]);
+const AR_SENIOR = new Set(["مسن", "مسنه", "عجوز"]);
+const AR_MALE = new Set(["ذكر", "ولد", "دكر"]);
+const AR_FEMALE = new Set(["انثي", "بنت", "نتايه", "نتاية"]);
+const AR_VACCINATED = new Set(["متطعم", "متطعمه", "مطعم", "مطعمه", "تطعيم", "تطعيمات", "ملقح", "ملقحه"]);
+const AR_VERIFIED = new Set(["موثق", "موثقه", "اوراق", "بيديجري", "نسب", "شهاده"]);
+const AR_NEAR = new Set(["في", "قرب", "جنب", "بالقرب", "حوالين", "ناحيه"]);
+const AR_FILLER = new Set(["من", "عايز", "عايزه", "اريد", "ابحث", "عن", "و", "او", "مع", "جنيه", "ج", "سعر", "بسعر", "عمر"]);
+
+function peelArabicPrefix(token: string): string {
+  for (const prefix of ["بال", "لل", "ال"]) {
+    if (token.length > prefix.length + 1 && token.startsWith(prefix)) return token.slice(prefix.length);
+  }
+  return token;
+}
+
+function arabicSearchParse(text: string): ParsedSearch {
+  const out: ParsedSearch = { interpretation: "" };
+  const applied: string[] = [];
+  const tokens = text.split(" ").filter(Boolean);
+  const consumed = new Set<number>();
+  const species = new Set<Species>();
+
+  const numberAfter = (i: number): number | null => {
+    for (let j = i + 1; j < Math.min(tokens.length, i + 3); j++) {
+      if (/^\d+$/.test(tokens[j]!)) {
+        consumed.add(j);
+        return Number(tokens[j]);
+      }
+    }
+    return null;
+  };
+
+  tokens.forEach((raw, i) => {
+    if (consumed.has(i)) return;
+    const token = peelArabicPrefix(raw);
+    const hit = (set: Set<string>) => set.has(token) || set.has(raw);
+
+    const sp = AR_SPECIES[token] ?? AR_SPECIES[raw];
+    if (sp) {
+      species.add(sp);
+      consumed.add(i);
+      if ((token === "جرو" || token === "جراء" || token === "قطيطه") && out.maxAgeMonths == null) out.maxAgeMonths = 12;
+      return;
+    }
+    if (hit(AR_FREE)) {
+      out.maxPriceCents = 0;
+      if (token === "ببلاش") out.intent ??= "ADOPTION";
+      consumed.add(i);
+      applied.push("مجانًا");
+      return;
+    }
+    if (hit(AR_ADOPTION)) { out.intent = "ADOPTION"; consumed.add(i); applied.push("للتبنّي"); return; }
+    if (hit(AR_BREEDING)) { out.intent = "BREEDING"; consumed.add(i); applied.push("للتزاوج"); return; }
+    if (hit(AR_SALE)) { out.intent ??= "SALE"; consumed.add(i); applied.push("للبيع"); return; }
+    if (hit(AR_UNDER)) {
+      const n = numberAfter(i);
+      consumed.add(i);
+      if (n != null) { out.maxPriceCents = n * 100; applied.push(`بأقل من ${n}`); }
+      return;
+    }
+    if (hit(AR_OVER)) {
+      const n = numberAfter(i);
+      consumed.add(i);
+      if (n != null) { out.minPriceCents = n * 100; applied.push(`بأكثر من ${n}`); }
+      return;
+    }
+    if (hit(AR_SENIOR)) { out.minAgeMonths = 84; consumed.add(i); applied.push("كبيرة السن"); return; }
+    if (hit(AR_YOUNG)) { out.maxAgeMonths = 12; consumed.add(i); applied.push("أقل من سنة"); return; }
+    if (hit(AR_ADULT)) { out.minAgeMonths = 24; consumed.add(i); applied.push("بالغة"); return; }
+    if (hit(AR_MALE)) { out.sex = "MALE"; consumed.add(i); applied.push("ذكر"); return; }
+    if (hit(AR_FEMALE)) { out.sex = "FEMALE"; consumed.add(i); applied.push("أنثى"); return; }
+    if (hit(AR_VACCINATED)) { out.vaccinatedOnly = true; consumed.add(i); applied.push("متطعّمة"); return; }
+    if (hit(AR_VERIFIED)) { out.verifiedOnly = true; consumed.add(i); applied.push("موثّقة"); return; }
+
+    const city = AR_CITIES.get(token) ?? AR_CITIES.get(raw);
+    if (city && !out.city) {
+      out.city = city[0];
+      consumed.add(i);
+      // A two-word name ("الشيخ زايد") is one place, not a place and a keyword.
+      for (let j = i + 1; j < tokens.length; j++) {
+        if (AR_CITIES.get(peelArabicPrefix(tokens[j]!))?.[0] !== city[0]) break;
+        consumed.add(j);
+      }
+      if (i > 0 && AR_NEAR.has(tokens[i - 1]!)) consumed.add(i - 1);
+      applied.push(`في ${city[1]}`);
+      return;
+    }
+    if (hit(AR_NEAR) || AR_FILLER.has(raw) || AR_FILLER.has(token)) consumed.add(i);
+  });
+
+  if (species.size) {
+    out.species = [...species];
+    applied.unshift(out.species.map((s) => AR_SPECIES_LABEL[s]).join(" أو "));
+  }
+  if (out.maxAgeMonths === 12 && !applied.includes("أقل من سنة")) applied.push("أقل من سنة");
+
+  const remaining = tokens.filter((t, i) => !consumed.has(i) && !/^\d+$/.test(t)).join(" ").trim();
+  if (remaining) {
+    out.query = remaining;
+    applied.push(`تطابق «${remaining}»`);
+  }
+
+  out.interpretation = applied.length ? `عرض الحيوانات: ${applied.join("، ")}.` : "عرض كل الحيوانات.";
   return out;
 }
 

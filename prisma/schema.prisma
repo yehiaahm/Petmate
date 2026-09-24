@@ -49,7 +49,7 @@ model User {
   lng        Float?
 
   locale   String @default("ar") // ar | en — the language email, SMS and notifications are written in
-  currency String @default("USD")
+  currency String @default("EGP")
   timezone String @default("UTC")
 
   status       String    @default("ACTIVE") // ACTIVE | SUSPENDED | FROZEN | DEACTIVATED | BANNED
@@ -497,7 +497,7 @@ model Listing {
   description String
 
   priceCents       Int     @default(0)
-  currency         String  @default("USD")
+  currency         String  @default("EGP")
   negotiable       Boolean @default(false)
   // Adoption listings use a fee, not a price; kept separate so the two never mix.
   adoptionFeeCents Int     @default(0)
@@ -680,7 +680,7 @@ model BreedingProfile {
 
   goals             String? // PEDIGREE | COMPANION | WORKING | SHOW
   studFeeCents      Int     @default(0)
-  currency          String  @default("USD")
+  currency          String  @default("EGP")
   feeType           String  @default("FEE") // FEE | PICK_OF_LITTER | SPLIT | FREE
   willingToTravelKm Int     @default(50)
 
@@ -754,7 +754,7 @@ model BreedingRequest {
 
   // Terms, agreed by both sides before anything is scheduled.
   feeCents          Int       @default(0)
-  currency          String    @default("USD")
+  currency          String    @default("EGP")
   feeType           String    @default("FEE")
   termsText         String?
   termsProposedById String?
@@ -894,7 +894,7 @@ model Service {
   species         String? // comma-delimited, empty means all
   durationMinutes Int     @default(30)
   priceCents      Int
-  currency        String  @default("USD")
+  currency        String  @default("EGP")
   isActive        Boolean @default(true)
   position        Int     @default(0)
 
@@ -953,7 +953,7 @@ model Appointment {
   status String @default("PENDING_PAYMENT") // PENDING_PAYMENT | CONFIRMED | CHECKED_IN | COMPLETED | CANCELLED | NO_SHOW | RESCHEDULED
 
   priceCents      Int
-  currency        String    @default("USD")
+  currency        String    @default("EGP")
   commissionCents Int       @default(0)
   paymentIntentId String?
   paidAt          DateTime?
@@ -1066,7 +1066,7 @@ model Product {
 
   priceCents     Int
   compareAtCents Int?
-  currency       String @default("USD")
+  currency       String @default("EGP")
 
   trackInventory Boolean @default(true)
   stock          Int     @default(0)
@@ -1159,7 +1159,7 @@ model Order {
   discountCents    Int    @default(0)
   totalCents       Int
   platformFeeCents Int    @default(0)
-  currency         String @default("USD")
+  currency         String @default("EGP")
 
   shippingName    String
   shippingPhone   String?
@@ -1231,7 +1231,7 @@ model PetOrder {
   status String @default("PENDING_PAYMENT") // PENDING_PAYMENT | IN_ESCROW | HANDOVER_PENDING | COMPLETED | CANCELLED | REFUNDED | DISPUTED
 
   amountCents       Int
-  currency          String @default("USD")
+  currency          String @default("EGP")
   platformFeeCents  Int    @default(0)
   sellerPayoutCents Int    @default(0)
 
@@ -1337,7 +1337,7 @@ model PaymentIntent {
 
   purpose     String // PET_PURCHASE | PRODUCT_ORDER | APPOINTMENT | SUBSCRIPTION | FEATURED_LISTING | AD_CAMPAIGN | WALLET_TOPUP
   amountCents Int
-  currency    String @default("USD")
+  currency    String @default("EGP")
 
   status String @default("REQUIRES_PAYMENT") // REQUIRES_PAYMENT | PROCESSING | SUCCEEDED | FAILED | CANCELLED | REFUNDED | PARTIALLY_REFUNDED
 
@@ -1377,7 +1377,7 @@ model Refund {
   id              String    @id @default(cuid())
   paymentIntentId String
   amountCents     Int
-  currency        String    @default("USD")
+  currency        String    @default("EGP")
   reason          String // REQUESTED_BY_CUSTOMER | DUPLICATE | FRAUDULENT | DISPUTE_RESOLUTION | CANCELLED_ORDER
   status          String    @default("PENDING") // PENDING | SUCCEEDED | FAILED
   note            String?
@@ -1399,7 +1399,7 @@ model LedgerAccount {
   ownerType String // USER | SHOP | CLINIC | PLATFORM | ESCROW | EXTERNAL
   ownerId   String // "platform" / "escrow" for the singleton system accounts
   kind      String // AVAILABLE | PENDING | PAYABLE | REVENUE | FEES | ESCROW | GATEWAY
-  currency  String   @default("USD")
+  currency  String   @default("EGP")
   createdAt DateTime @default(now())
 
   entries LedgerEntry[]
@@ -1415,7 +1415,7 @@ model LedgerTransaction {
   referenceType   String?
   referenceId     String?
   paymentIntentId String?
-  currency        String   @default("USD")
+  currency        String   @default("EGP")
   createdAt       DateTime @default(now())
   createdById     String?
 
@@ -1433,7 +1433,7 @@ model LedgerEntry {
   /// Signed minor units. Positive credits the account, negative debits it.
   /// The sum of every entry in a transaction must be exactly 0.
   amountCents   Int
-  currency      String   @default("USD")
+  currency      String   @default("EGP")
   createdAt     DateTime @default(now())
 
   transaction LedgerTransaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
@@ -1448,7 +1448,7 @@ model Payout {
   ownerType    String // SHOP | CLINIC | USER
   ownerId      String
   amountCents  Int
-  currency     String    @default("USD")
+  currency     String    @default("EGP")
   status       String    @default("REQUESTED") // REQUESTED | APPROVED | PAID | REJECTED | FAILED
   method       String    @default("BANK_TRANSFER")
   destination  String? // masked reference only, never full bank details
@@ -1469,7 +1469,7 @@ model Invoice {
   paymentIntentId String   @unique
   totalCents      Int
   taxCents        Int      @default(0)
-  currency        String   @default("USD")
+  currency        String   @default("EGP")
   lines           String // JSON
   billingName     String
   billingAddress  String?
@@ -1488,7 +1488,7 @@ model Plan {
   audience          String // CONSUMER | BREEDER | SELLER | CLINIC
   priceMonthlyCents Int     @default(0)
   priceYearlyCents  Int     @default(0)
-  currency          String  @default("USD")
+  currency          String  @default("EGP")
   features          String // JSON array of human-readable feature strings
   limits            String // JSON map consumed by lib/billing/entitlements.ts
   isActive          Boolean @default(true)
@@ -1535,7 +1535,7 @@ model FeaturedPlacement {
   startAt         DateTime
   endAt           DateTime
   amountCents     Int
-  currency        String   @default("USD")
+  currency        String   @default("EGP")
   paymentIntentId String?
   impressions     Int      @default(0)
   clicks          Int      @default(0)

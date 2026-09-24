@@ -9,7 +9,7 @@ import { addMinutes, boundingBox, haversineKm, readableCode, startOfDayUTC, uniq
 import { applyBps } from "@/lib/money";
 import { resolveCommissionBps } from "@/lib/settings";
 import { getEntitlements, getVisibilityBoosts } from "@/lib/billing/entitlements";
-import { buildSearchText, searchTextClauses } from "@/lib/search/text";
+import { buildSearchText, searchTextClauses, cityVariants } from "@/lib/search/text";
 import { notify } from "./notification.service";
 import { postSystemMessage, getOrCreateConversation } from "./chat.service";
 import {
@@ -705,7 +705,7 @@ export async function searchClinics(params: ClinicSearchParams) {
     deletedAt: null,
     status: "ACTIVE",
     ...(params.query ? { AND: searchTextClauses(params.query) } : {}),
-    ...(params.city ? { city: params.city } : {}),
+    ...(params.city ? { city: { in: cityVariants(params.city) } } : {}),
     ...(params.country ? { country: params.country } : {}),
     ...(params.emergency ? { emergencyServices: true } : {}),
     ...(params.homeVisits ? { homeVisits: true } : {}),

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { CURRENCIES } from "@/lib/constants";
 
 /**
  * Environment contract.
@@ -98,6 +99,13 @@ const clientSchema = z.object({
       }
     }, "NEXT_PUBLIC_APP_TIMEZONE must be an IANA time zone such as Africa/Cairo")
     .default("Africa/Cairo"),
+  /**
+   * The one currency this deployment trades in. Every price, balance and
+   * ledger account uses it. It is configuration rather than an admin
+   * setting on purpose: the ledger keeps balances per currency, so switching
+   * it on a live platform would strand every existing balance in the old one.
+   */
+  NEXT_PUBLIC_CURRENCY: z.enum(CURRENCIES).default("EGP"),
 });
 
 type ServerEnv = z.infer<typeof serverSchema>;
@@ -118,6 +126,7 @@ const parsedClient = clientSchema.safeParse({
   NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
   NEXT_PUBLIC_APP_NAME: process.env.NEXT_PUBLIC_APP_NAME,
   NEXT_PUBLIC_APP_TIMEZONE: process.env.NEXT_PUBLIC_APP_TIMEZONE,
+  NEXT_PUBLIC_CURRENCY: process.env.NEXT_PUBLIC_CURRENCY,
 });
 
 export const clientEnv: ClientEnv = parsedClient.success
@@ -126,6 +135,7 @@ export const clientEnv: ClientEnv = parsedClient.success
       NEXT_PUBLIC_APP_URL: "http://localhost:3000",
       NEXT_PUBLIC_APP_NAME: "PetMate",
       NEXT_PUBLIC_APP_TIMEZONE: "Africa/Cairo",
+      NEXT_PUBLIC_CURRENCY: "EGP",
     };
 
 let cachedServerEnv: ServerEnv | null = null;

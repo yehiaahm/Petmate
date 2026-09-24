@@ -54,7 +54,7 @@ const GROUPS: { title: string; blurb: string; keys: (keyof typeof DEFAULT_SETTIN
   {
     title: "Platform",
     blurb: "Switches that affect everyone. Handle with care.",
-    keys: ["registrationOpen", "maintenanceMode", "defaultCurrency", "supportEmail"],
+    keys: ["registrationOpen", "maintenanceMode", "supportEmail"],
   },
 ];
 

@@ -7,6 +7,7 @@ import { getEntitlements } from "@/lib/billing/entitlements";
 import { PageHeader, EmptyState, Alert } from "@/components/ui/primitives";
 import { ButtonLink } from "@/components/ui/button";
 import { BreedingWorkspace } from "@/components/breeding/breeding-workspace";
+import { PLATFORM_CURRENCY } from "@/lib/currency";
 
 export const metadata: Metadata = {
   title: "Breeding",
@@ -108,7 +109,7 @@ export default async function BreedingPage() {
               hasProfile: Boolean(pet.breedingProfile),
               profileStatus: pet.breedingProfile?.status ?? null,
               studFeeCents: pet.breedingProfile?.studFeeCents ?? 0,
-              currency: pet.breedingProfile?.currency ?? auth.user.currency,
+              currency: pet.breedingProfile?.currency ?? PLATFORM_CURRENCY,
               feeType: pet.breedingProfile?.feeType ?? "FEE",
               willingToTravelKm: pet.breedingProfile?.willingToTravelKm ?? 50,
               requiresHealthTests: pet.breedingProfile?.requiresHealthTests ?? true,

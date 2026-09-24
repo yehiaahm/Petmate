@@ -22,6 +22,7 @@ import { awardTrustSignal } from "./trust.service";
 import { seedNotificationPreferences } from "./notification.service";
 import { getSettings } from "@/lib/settings";
 import { getLocale } from "@/lib/i18n/server";
+import { PLATFORM_CURRENCY } from "@/lib/currency";
 import { generateToken, slugify, readableCode, addDays } from "@/lib/utils";
 import type { Role } from "@/lib/constants";
 
@@ -129,7 +130,7 @@ export async function register(input: RegisterInput): Promise<{ userId: string }
         name: input.name.trim(),
         handle,
         acceptedTermsAt: new Date(),
-        currency: settings.defaultCurrency,
+        currency: PLATFORM_CURRENCY,
         locale,
         roles: {
           create:

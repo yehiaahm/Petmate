@@ -23,10 +23,11 @@ import {
   optionalText,
   cuidSchema,
   centsSchema,
-  currencySchema,
   temperamentSchema,
+  priceCurrencySchema,
 } from "@/lib/validation/common";
 import { BREEDING_FEE_TYPE, LIMITS } from "@/lib/constants";
+import { PLATFORM_CURRENCY } from "@/lib/currency";
 
 /**
  * The breeding network.
@@ -41,7 +42,7 @@ export const breedingProfileSchema = z.object({
   petId: cuidSchema,
   goals: z.enum(["PEDIGREE", "COMPANION", "WORKING", "SHOW"]).optional(),
   studFeeCents: centsSchema.default(0),
-  currency: currencySchema.default("USD"),
+  currency: priceCurrencySchema,
   feeType: z.enum(BREEDING_FEE_TYPE).default("FEE"),
   willingToTravelKm: z.number().int().min(0).max(5000).default(50),
   minPartnerAgeMonths: z.number().int().min(0).max(360).optional(),
@@ -386,7 +387,7 @@ export async function findMatches(
       owner: row.owner,
       fee: {
         cents: row.breedingProfile?.studFeeCents ?? 0,
-        currency: row.breedingProfile?.currency ?? "USD",
+        currency: row.breedingProfile?.currency ?? PLATFORM_CURRENCY,
         type: row.breedingProfile?.feeType ?? "FEE",
       },
       compatibility,
@@ -506,7 +507,7 @@ export async function sendBreedingRequest(
         compatibilityScore: compatibility.score,
         compatibilityBreakdown: stringifyJson(compatibility.factors),
         feeCents: toRow.breedingProfile?.studFeeCents ?? 0,
-        currency: toRow.breedingProfile?.currency ?? "USD",
+        currency: toRow.breedingProfile?.currency ?? PLATFORM_CURRENCY,
         feeType: toRow.breedingProfile?.feeType ?? "FEE",
         conversationId: conversation.id,
       },
@@ -638,7 +639,7 @@ export async function respondToBreedingRequest(
 
 export const breedingTermsSchema = z.object({
   feeCents: centsSchema,
-  currency: currencySchema.default("USD"),
+  currency: priceCurrencySchema,
   feeType: z.enum(BREEDING_FEE_TYPE),
   termsText: safeParagraph(3000, 20),
   scheduledAt: z

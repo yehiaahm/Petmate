@@ -11,6 +11,7 @@ import { PayoutRequest } from "@/components/wallet/payout-request";
 import { PageHeader, Card, CardHeader, Stat, Badge, Alert, EmptyState } from "@/components/ui/primitives";
 import { formatMoney } from "@/lib/money";
 import { formatDate, formatDateTime, cn } from "@/lib/utils";
+import { PLATFORM_CURRENCY } from "@/lib/currency";
 
 export const metadata: Metadata = {
   title: "Wallet",
@@ -27,7 +28,7 @@ const PAYOUT_TONE: Record<string, "info" | "warning" | "success" | "danger" | "n
 
 export default async function WalletPage() {
   const auth = await requireAuth();
-  const currency = auth.user.currency;
+  const currency = PLATFORM_CURRENCY;
 
   const [earnings, entries, payouts, settings, shops, clinics] = await Promise.all([
     getEarnings("USER", auth.user.id, currency),

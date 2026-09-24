@@ -62,7 +62,6 @@ export interface SettingsShape {
   /** Read-only mode for maintenance windows. */
   maintenanceMode: boolean;
 
-  defaultCurrency: string;
   supportEmail: string;
 }
 
@@ -81,19 +80,19 @@ export const DEFAULT_SETTINGS: SettingsShape = {
   freeBreedingRequestLimit: 5,
   freeSavedSearchLimit: 3,
 
-  featuredListing7dCents: 1200,
-  featuredListing30dCents: 3900,
+  // Amounts are in the platform currency's minor unit (EGP piastres).
+  featuredListing7dCents: 14_900, // EGP 149
+  featuredListing30dCents: 44_900, // EGP 449
 
-  manualReviewPriceCents: 500_000, // $5,000
+  manualReviewPriceCents: 10_000_000, // EGP 100,000
   reviewAllListings: false,
 
   payoutHoldDays: 7,
-  minPayoutCents: 2500,
+  minPayoutCents: 20_000, // EGP 200
 
   registrationOpen: true,
   maintenanceMode: false,
 
-  defaultCurrency: "USD",
   supportEmail: "support@petmate.app",
 };
 
@@ -102,22 +101,21 @@ export const SETTING_DESCRIPTIONS: Record<keyof SettingsShape, string> = {
   commissionProductBps: "Commission taken from each product order, in basis points.",
   commissionAppointmentBps: "Commission taken from each vet booking, in basis points.",
   commissionBreedingBps: "Commission taken from paid breeding arrangements, in basis points.",
-  transactionFeeCents: "Flat fee added to every transaction, in cents.",
+  transactionFeeCents: "Flat fee added to every transaction, in the currency's minor unit.",
   escrowAutoReleaseHours: "Hours a pet sale is held in escrow before releasing automatically.",
   disputeWindowDays: "Days a buyer has to open a dispute after completion.",
   listingDurationDays: "Days a listing stays active before expiring.",
   freeActiveListingLimit: "Active listings allowed on the free plan.",
   freeBreedingRequestLimit: "Open breeding requests allowed on the free plan.",
   freeSavedSearchLimit: "Saved searches with alerts allowed on the free plan.",
-  featuredListing7dCents: "Price of a 7-day featured placement, in cents.",
-  featuredListing30dCents: "Price of a 30-day featured placement, in cents.",
+  featuredListing7dCents: "Price of a 7-day featured placement, in the currency's minor unit.",
+  featuredListing30dCents: "Price of a 30-day featured placement, in the currency's minor unit.",
   manualReviewPriceCents: "Listings priced above this go to manual review.",
   reviewAllListings: "Send every new listing to manual review before publishing.",
   payoutHoldDays: "Days seller earnings are held before becoming available.",
-  minPayoutCents: "Minimum payout a seller can request, in cents.",
+  minPayoutCents: "Minimum payout a seller can request, in the currency's minor unit.",
   registrationOpen: "Allow new account registrations.",
   maintenanceMode: "Put the platform in read-only maintenance mode.",
-  defaultCurrency: "Currency used when a user has not chosen one.",
   supportEmail: "Address shown to users for support enquiries.",
 };
 

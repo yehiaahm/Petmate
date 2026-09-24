@@ -10,6 +10,7 @@ import { DEFAULT_SETTINGS, SETTING_DESCRIPTIONS, settingCategory } from "../src/
 import { recomputeHealthScore } from "../src/lib/services/health.service";
 import { awardTrustSignal } from "../src/lib/services/trust.service";
 import type { TrustSignalKind } from "../src/lib/constants";
+import { PLATFORM_CURRENCY } from "../src/lib/currency";
 
 const db = new PrismaClient();
 
@@ -104,6 +105,7 @@ async function seedReferenceData() {
         audience: plan.audience,
         priceMonthlyCents: plan.priceMonthlyCents,
         priceYearlyCents: plan.priceYearlyCents,
+        currency: PLATFORM_CURRENCY,
         features: JSON.stringify(plan.features),
         limits: JSON.stringify(plan.limits),
         position: plan.position,
@@ -113,6 +115,7 @@ async function seedReferenceData() {
         tagline: plan.tagline,
         priceMonthlyCents: plan.priceMonthlyCents,
         priceYearlyCents: plan.priceYearlyCents,
+        currency: PLATFORM_CURRENCY,
         features: JSON.stringify(plan.features),
         limits: JSON.stringify(plan.limits),
       },
@@ -328,8 +331,8 @@ async function seedDemoData() {
     priceCents?: number;
     description?: string;
   }[] = [
-    { ownerId: breeder.id, ownerCity: breeder, species: "DOG", breedName: "Labrador Retriever", sex: "FEMALE", ageMonths: 4, name: "Maple", temperament: "Playful,Gentle,Good with kids", intent: "SALE", priceCents: 95000, description: "Maple is from our spring litter, out of a hip-scored dam and a sire with a clear eye certificate. She has been raised in the house with two children and a cat, is used to the vacuum, the doorbell and being handled all over. Toilet training is well underway and she sleeps through the night in her crate. She comes with her first two vaccinations, microchip, a four-week insurance policy and lifetime breeder support. I ask every buyer to visit at least once before deciding, and I will always take a dog back if circumstances change." },
-    { ownerId: breeder.id, ownerCity: breeder, species: "DOG", breedName: "Golden Retriever", sex: "MALE", ageMonths: 5, name: "Basil", temperament: "Affectionate,Energetic,Good with other pets", intent: "SALE", priceCents: 110000, description: "Basil is a confident, sociable pup who has met everything from wheelie bins to horses. Both parents are health-tested and live with us. He has been clicker-introduced and will sit for his food. He needs an active family who will take training seriously, not a household that wants an ornament. First vaccinations done, microchipped, wormed to date, and I will meet you at the vet for the second set if you would find that reassuring." },
+    { ownerId: breeder.id, ownerCity: breeder, species: "DOG", breedName: "Labrador Retriever", sex: "FEMALE", ageMonths: 4, name: "Maple", temperament: "Playful,Gentle,Good with kids", intent: "SALE", priceCents: 2_500_000, description: "Maple is from our spring litter, out of a hip-scored dam and a sire with a clear eye certificate. She has been raised in the house with two children and a cat, is used to the vacuum, the doorbell and being handled all over. Toilet training is well underway and she sleeps through the night in her crate. She comes with her first two vaccinations, microchip, a four-week insurance policy and lifetime breeder support. I ask every buyer to visit at least once before deciding, and I will always take a dog back if circumstances change." },
+    { ownerId: breeder.id, ownerCity: breeder, species: "DOG", breedName: "Golden Retriever", sex: "MALE", ageMonths: 5, name: "Basil", temperament: "Affectionate,Energetic,Good with other pets", intent: "SALE", priceCents: 3_000_000, description: "Basil is a confident, sociable pup who has met everything from wheelie bins to horses. Both parents are health-tested and live with us. He has been clicker-introduced and will sit for his food. He needs an active family who will take training seriously, not a household that wants an ornament. First vaccinations done, microchipped, wormed to date, and I will meet you at the vet for the second set if you would find that reassuring." },
     { ownerId: rescuer.id, ownerCity: rescuer, species: "DOG", breedName: "Mixed Breed", sex: "FEMALE", ageMonths: 36, name: "Willow", temperament: "Calm,Shy,Quiet", intent: "ADOPTION", description: "Willow came to us from a hoarding case and has taken nine months to become the dog she is now. She is soft, quiet and deeply bonded to the one person she trusts. She needs an adult-only home with no other dogs, a secure garden, and someone who is home most of the day. She will not be the dog who greets your visitors. She will be the dog who lies against your leg every evening for the next ten years. Adoption fee covers spay, vaccinations, microchip and dental work." },
     { ownerId: rescuer.id, ownerCity: rescuer, species: "CAT", breedName: "Domestic Shorthair", sex: "MALE", ageMonths: 18, name: "Pepper", temperament: "Playful,Curious,Good with other pets", intent: "ADOPTION", description: "Pepper was found in a car park at about six weeks old and has never met a stranger he did not like. He is neutered, vaccinated, FIV/FeLV negative and litter trained. He would be happiest with another young cat or a confident older one, and he must have access to a garden or a catio because he is relentlessly nosy. He is not suitable for a household that wants a lap cat; he wants to be involved in everything you do from a distance of about a metre." },
     { ownerId: owner.id, ownerCity: owner, species: "CAT", breedName: "Maine Coon", sex: "FEMALE", ageMonths: 30, name: "Nova", temperament: "Gentle,Affectionate,Calm", intent: "BREEDING", description: "Nova is a registered Maine Coon with HCM-clear parents and her own echo done at two years. She has had one previous litter with no complications. I am looking for a stud with current HCM and SMA screening, papers, and an owner who wants to be involved rather than just collect a fee. Happy to travel within a few hours or to host. Terms to be agreed properly in writing before anything is arranged." },
@@ -454,8 +457,8 @@ async function seedDemoData() {
           slug: `${slugify(title, 50)}-${readableCode(6).toLowerCase()}`,
           description: spec.description ?? "",
           priceCents: spec.intent === "SALE" ? (spec.priceCents ?? 0) : 0,
-          adoptionFeeCents: spec.intent === "ADOPTION" ? 15000 : 0,
-          studFeeCents: spec.intent === "BREEDING" ? 60000 : 0,
+          adoptionFeeCents: spec.intent === "ADOPTION" ? 50_000 : 0,
+          studFeeCents: spec.intent === "BREEDING" ? 800_000 : 0,
           status: "ACTIVE",
           moderationStatus: "APPROVED",
           publishedAt: addDays(new Date(), -Math.floor(Math.random() * 20)),
@@ -498,7 +501,7 @@ async function seedDemoData() {
           ownerId: spec.ownerId,
           status: "ACTIVE",
           goals: "PEDIGREE",
-          studFeeCents: 60000,
+          studFeeCents: 800_000,
           feeType: spec.sex === "MALE" ? "FEE" : "PICK_OF_LITTER",
           willingToTravelKm: 150,
           requiresHealthTests: true,
@@ -572,17 +575,17 @@ async function seedDemoData() {
   });
 
   const services = [
-    { name: "General consultation", category: "CONSULTATION", durationMinutes: 30, priceCents: 25000, description: "A full physical examination with time to actually talk through what you are seeing at home." },
-    { name: "Vaccination appointment", category: "VACCINATION", durationMinutes: 20, priceCents: 18000, description: "Core or booster vaccination, recorded straight into your pet's PetMate health timeline." },
-    { name: "Dental scale and polish", category: "DENTAL", durationMinutes: 90, priceCents: 120000, description: "Under general anaesthetic, with pre-anaesthetic bloods included." },
-    { name: "Neutering (cat)", category: "SURGERY", durationMinutes: 60, priceCents: 90000, description: "Includes pain relief, post-operative check and a collar." },
-    { name: "Annual wellness screen", category: "WELLNESS", durationMinutes: 45, priceCents: 45000, description: "Examination, bloods and urinalysis. Recommended yearly from seven years old." },
-    { name: "Emergency assessment", category: "EMERGENCY", durationMinutes: 30, priceCents: 60000, description: "Same-day triage and stabilisation." },
+    { name: "General consultation", category: "CONSULTATION", durationMinutes: 30, priceCents: 40_000, description: "A full physical examination with time to actually talk through what you are seeing at home." },
+    { name: "Vaccination appointment", category: "VACCINATION", durationMinutes: 20, priceCents: 35_000, description: "Core or booster vaccination, recorded straight into your pet's PetMate health timeline." },
+    { name: "Dental scale and polish", category: "DENTAL", durationMinutes: 90, priceCents: 250_000, description: "Under general anaesthetic, with pre-anaesthetic bloods included." },
+    { name: "Neutering (cat)", category: "SURGERY", durationMinutes: 60, priceCents: 180_000, description: "Includes pain relief, post-operative check and a collar." },
+    { name: "Annual wellness screen", category: "WELLNESS", durationMinutes: 45, priceCents: 90_000, description: "Examination, bloods and urinalysis. Recommended yearly from seven years old." },
+    { name: "Emergency assessment", category: "EMERGENCY", durationMinutes: 30, priceCents: 80_000, description: "Same-day triage and stabilisation." },
   ];
 
   for (const [index, service] of services.entries()) {
     await db.service.create({
-      data: { ...service, clinicId: clinic.id, position: index, currency: "USD" },
+      data: { ...service, clinicId: clinic.id, position: index, currency: PLATFORM_CURRENCY },
     });
   }
   console.log("  1 verified clinic with 6 services");
@@ -599,8 +602,8 @@ async function seedDemoData() {
       city: "Dubai",
       status: "ACTIVE",
       verifiedAt: new Date(),
-      flatShippingCents: 599,
-      freeShippingThresholdCents: 5000,
+      flatShippingCents: 6_000,
+      freeShippingThresholdCents: 150_000,
       ratingAvgBps: 460,
       ratingCount: 112,
       orderCount: 340,
@@ -613,14 +616,14 @@ async function seedDemoData() {
   const categoryBySlug = new Map(categories.map((c) => [c.slug, c.id]));
 
   const products = [
-    { title: "Grain-free adult dog food, 12kg", slug: "grain-free-adult-dog-food-12kg", category: "dry-food", priceCents: 6499, compareAtCents: 7499, stock: 42, brand: "Northfield", description: "Single-protein salmon recipe with no wheat, corn or soy. Suitable for adult dogs of all sizes, including those with grain sensitivities. Contains glucosamine and chondroitin for joint support, and omega oils for coat condition. Feeding guide on the pack; transition over seven days when switching.", image: "https://images.unsplash.com/photo-1589924691995-400dc9ecc119?w=800&q=80" },
-    { title: "Stainless steel slow feeder bowl", slug: "stainless-steel-slow-feeder-bowl", category: "beds-mats", priceCents: 1899, stock: 88, brand: "Northfield", description: "A raised maze insert that turns a thirty-second meal into a five-minute one, which helps with bloat risk in deep-chested dogs and with cats who eat too fast and bring it straight back up. Dishwasher safe, non-slip base.", image: "https://images.unsplash.com/photo-1601758124510-52d02ddb7cbd?w=800&q=80" },
-    { title: "Spot-on flea and tick treatment, 6 pack", slug: "spot-on-flea-tick-6-pack", category: "flea-tick", priceCents: 3299, stock: 120, brand: "Vetline", description: "Six monthly pipettes for dogs 10-25kg. Kills fleas within 24 hours and ticks within 48, and breaks the flea life cycle by preventing egg development. Read the weight band carefully before buying, and never use a dog product on a cat.", image: "https://images.unsplash.com/photo-1607923432780-7a2d0c9d1e4f?w=800&q=80" },
-    { title: "Orthopaedic memory foam dog bed, large", slug: "orthopaedic-memory-foam-dog-bed-large", category: "beds-mats", priceCents: 8999, compareAtCents: 10999, stock: 17, brand: "Restwell", description: "10cm of high-density memory foam with a bolstered edge, sized for dogs up to 40kg. Genuinely worth it for older dogs and for any breed prone to hip or elbow problems. Removable, machine-washable cover with a waterproof inner liner.", image: "https://images.unsplash.com/photo-1583337130417-3346a1be7dee?w=800&q=80" },
-    { title: "Interactive treat puzzle, level 2", slug: "interactive-treat-puzzle-level-2", category: "puzzle-feeders", priceCents: 2499, stock: 64, brand: "Braintoy", description: "Sliding compartments and removable pegs that take most dogs ten to fifteen minutes to work through. Real mental work, which tires a dog more reliably than another walk. Not a chew toy — supervise, and put it away afterwards.", image: "https://images.unsplash.com/photo-1601758174114-e711c0cbaa69?w=800&q=80" },
-    { title: "Clumping cat litter, 10L", slug: "clumping-cat-litter-10l", category: "litter-trays", priceCents: 1599, stock: 200, brand: "Northfield", description: "Fine-grain bentonite that clumps hard and scoops clean, with no added fragrance. Low dust, which matters for cats with any respiratory history and for you.", image: "https://images.unsplash.com/photo-1606214174585-fe31582dc6ee?w=800&q=80" },
-    { title: "Adjustable no-pull harness", slug: "adjustable-no-pull-harness", category: "leads-harnesses", priceCents: 3499, stock: 55, brand: "Trailmate", description: "Front and back attachment points with five adjustment points for a genuine fit. The front clip redirects a pulling dog rather than punishing them, which makes loose-lead training far easier. Padded chest plate, reflective stitching.", image: "https://images.unsplash.com/photo-1601758003122-53c40e686a19?w=800&q=80" },
-    { title: "Dental chews, 28 pack", slug: "dental-chews-28-pack", category: "dental-care", priceCents: 1999, stock: 150, brand: "Vetline", description: "Textured chews shown to reduce plaque accumulation when given daily. Not a substitute for brushing or for a scale and polish when one is needed, but a realistic addition for dogs who will not tolerate a toothbrush.", image: "https://images.unsplash.com/photo-1585846888147-3fe14c130048?w=800&q=80" },
+    { title: "Grain-free adult dog food, 12kg", slug: "grain-free-adult-dog-food-12kg", category: "dry-food", priceCents: 285_000, compareAtCents: 320_000, stock: 42, brand: "Northfield", description: "Single-protein salmon recipe with no wheat, corn or soy. Suitable for adult dogs of all sizes, including those with grain sensitivities. Contains glucosamine and chondroitin for joint support, and omega oils for coat condition. Feeding guide on the pack; transition over seven days when switching.", image: "https://images.unsplash.com/photo-1589924691995-400dc9ecc119?w=800&q=80" },
+    { title: "Stainless steel slow feeder bowl", slug: "stainless-steel-slow-feeder-bowl", category: "beds-mats", priceCents: 45_000, stock: 88, brand: "Northfield", description: "A raised maze insert that turns a thirty-second meal into a five-minute one, which helps with bloat risk in deep-chested dogs and with cats who eat too fast and bring it straight back up. Dishwasher safe, non-slip base.", image: "https://images.unsplash.com/photo-1601758124510-52d02ddb7cbd?w=800&q=80" },
+    { title: "Spot-on flea and tick treatment, 6 pack", slug: "spot-on-flea-tick-6-pack", category: "flea-tick", priceCents: 95_000, stock: 120, brand: "Vetline", description: "Six monthly pipettes for dogs 10-25kg. Kills fleas within 24 hours and ticks within 48, and breaks the flea life cycle by preventing egg development. Read the weight band carefully before buying, and never use a dog product on a cat.", image: "https://images.unsplash.com/photo-1607923432780-7a2d0c9d1e4f?w=800&q=80" },
+    { title: "Orthopaedic memory foam dog bed, large", slug: "orthopaedic-memory-foam-dog-bed-large", category: "beds-mats", priceCents: 320_000, compareAtCents: 390_000, stock: 17, brand: "Restwell", description: "10cm of high-density memory foam with a bolstered edge, sized for dogs up to 40kg. Genuinely worth it for older dogs and for any breed prone to hip or elbow problems. Removable, machine-washable cover with a waterproof inner liner.", image: "https://images.unsplash.com/photo-1583337130417-3346a1be7dee?w=800&q=80" },
+    { title: "Interactive treat puzzle, level 2", slug: "interactive-treat-puzzle-level-2", category: "puzzle-feeders", priceCents: 65_000, stock: 64, brand: "Braintoy", description: "Sliding compartments and removable pegs that take most dogs ten to fifteen minutes to work through. Real mental work, which tires a dog more reliably than another walk. Not a chew toy — supervise, and put it away afterwards.", image: "https://images.unsplash.com/photo-1601758174114-e711c0cbaa69?w=800&q=80" },
+    { title: "Clumping cat litter, 10L", slug: "clumping-cat-litter-10l", category: "litter-trays", priceCents: 32_000, stock: 200, brand: "Northfield", description: "Fine-grain bentonite that clumps hard and scoops clean, with no added fragrance. Low dust, which matters for cats with any respiratory history and for you.", image: "https://images.unsplash.com/photo-1606214174585-fe31582dc6ee?w=800&q=80" },
+    { title: "Adjustable no-pull harness", slug: "adjustable-no-pull-harness", category: "leads-harnesses", priceCents: 85_000, stock: 55, brand: "Trailmate", description: "Front and back attachment points with five adjustment points for a genuine fit. The front clip redirects a pulling dog rather than punishing them, which makes loose-lead training far easier. Padded chest plate, reflective stitching.", image: "https://images.unsplash.com/photo-1601758003122-53c40e686a19?w=800&q=80" },
+    { title: "Dental chews, 28 pack", slug: "dental-chews-28-pack", category: "dental-care", priceCents: 48_000, stock: 150, brand: "Vetline", description: "Textured chews shown to reduce plaque accumulation when given daily. Not a substitute for brushing or for a scale and polish when one is needed, but a realistic addition for dogs who will not tolerate a toothbrush.", image: "https://images.unsplash.com/photo-1585846888147-3fe14c130048?w=800&q=80" },
   ];
 
   for (const product of products) {

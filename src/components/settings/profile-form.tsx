@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Camera, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Field, Input, Textarea, Select } from "@/components/ui/field";
+import { Field, Input, Textarea } from "@/components/ui/field";
 import { Alert, Avatar, Card, CardHeader } from "@/components/ui/primitives";
 import { useToast } from "@/components/ui/toast";
 import { api, ApiError } from "@/lib/api-client";
@@ -21,16 +21,9 @@ interface Profile {
   region: string | null;
   city: string | null;
   postalCode: string | null;
-  currency: string;
 }
 
-export function ProfileForm({
-  profile,
-  currencies,
-}: {
-  profile: Profile;
-  currencies: string[];
-}) {
+export function ProfileForm({ profile }: { profile: Profile }) {
   const router = useRouter();
   const toast = useToast();
 
@@ -43,7 +36,6 @@ export function ProfileForm({
     region: profile.region ?? "",
     city: profile.city ?? "",
     postalCode: profile.postalCode ?? "",
-    currency: profile.currency,
   });
   const [avatarUrl, setAvatarUrl] = useState(profile.avatarUrl);
   const [avatarFileId, setAvatarFileId] = useState<string | null>(null);
@@ -96,7 +88,6 @@ export function ProfileForm({
         region: values.region || undefined,
         city: values.city || undefined,
         postalCode: values.postalCode || undefined,
-        currency: values.currency,
         ...(avatarFileId ? { avatarFileId } : {}),
       });
       toast.success("Profile saved");
@@ -262,18 +253,6 @@ export function ProfileForm({
                 onChange={(e) => set("postalCode", e.target.value)}
                 autoComplete="postal-code"
               />
-            )}
-          </Field>
-
-          <Field label="Currency" hint="Prices are shown to you in this currency.">
-            {({ id }) => (
-              <Select id={id} value={values.currency} onChange={(e) => set("currency", e.target.value)}>
-                {currencies.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </Select>
             )}
           </Field>
         </div>

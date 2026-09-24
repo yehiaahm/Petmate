@@ -45,8 +45,50 @@ export function uuid(): string {
 // Slugs
 // ---------------------------------------------------------------------------
 
+/**
+ * Arabic letters, romanised for URLs. Slugs stay ASCII so a link survives
+ * being pasted into WhatsApp, an SMS or an email client that mangles
+ * percent-encoding; without this an Arabic title had no slug at all and every
+ * Arabic listing's URL read "item-x7k2p9". Egyptian usage: ج is "g".
+ */
+const ARABIC_LATIN: Record<string, string> = {
+  "\u0627": "a", "\u0623": "a", "\u0625": "e", "\u0622": "a", "\u0671": "a",
+  "\u0628": "b", "\u062a": "t", "\u062b": "th", "\u062c": "g", "\u062d": "h",
+  "\u062e": "kh", "\u062f": "d", "\u0630": "z", "\u0631": "r", "\u0632": "z",
+  "\u0633": "s", "\u0634": "sh", "\u0635": "s", "\u0636": "d", "\u0637": "t",
+  "\u0638": "z", "\u0639": "a", "\u063a": "gh", "\u0641": "f", "\u0642": "q",
+  "\u0643": "k", "\u0644": "l", "\u0645": "m", "\u0646": "n", "\u0647": "h",
+  "\u0648": "w", "\u064a": "y", "\u0649": "a", "\u0629": "a", "\u0624": "o",
+  "\u0626": "e", "\u0621": "",
+};
+
+const ARABIC_LETTER = /[\u0621-\u064a\u0671]/;
+const LONG_VOWEL_LETTERS = new Set(["\u0627", "\u0648", "\u064a"]);
+
+export function transliterateArabic(input: string): string {
+  const chars = [...input
+    .replace(/[\u064b-\u065f\u0670\u0640]/g, "")
+    .replace(/[\u0660-\u0669]/g, (d) => String(d.charCodeAt(0) - 0x0660))];
+
+  return chars
+    .map((ch, i) => {
+      if (!ARABIC_LETTER.test(ch)) return ch;
+      // و and ي are consonants at the start of a word or after another vowel
+      // letter ("ولد" -> wld, "ايوه" -> aywh) and long vowels elsewhere
+      // ("جرو" -> gru, "شيرازي" -> shirazi), which reads far more naturally.
+      if (ch === "\u0648" || ch === "\u064a") {
+        const prev = chars[i - 1];
+        const consonant = !prev || !ARABIC_LETTER.test(prev) || LONG_VOWEL_LETTERS.has(prev);
+        if (ch === "\u0648") return consonant ? "w" : "u";
+        return consonant ? "y" : "i";
+      }
+      return ARABIC_LATIN[ch] ?? "";
+    })
+    .join("");
+}
+
 export function slugify(input: string, maxLength = 60): string {
-  const base = input
+  const base = transliterateArabic(input)
     .normalize("NFKD")
     .replace(/[̀-ͯ]/g, "")
     .toLowerCase()

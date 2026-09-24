@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { parseJsonArray, parseJsonRecord } from "@/lib/json";
 import { ModerationQueues } from "@/components/admin/moderation-queues";
 import { PageHeader } from "@/components/ui/primitives";
+import { PLATFORM_CURRENCY } from "@/lib/currency";
 
 export const metadata: Metadata = {
   title: "Moderation",
@@ -195,7 +196,7 @@ export default async function ModerationPage({
             status: d.status,
             details: d.details,
             amountCents: d.amountCents,
-            currency: d.petOrder?.currency ?? d.order?.currency ?? "USD",
+            currency: d.petOrder?.currency ?? d.order?.currency ?? PLATFORM_CURRENCY,
             createdAt: d.createdAt.toISOString(),
             responseDueAt: d.responseDueAt?.toISOString() ?? null,
             raisedByName: d.raisedBy.name,

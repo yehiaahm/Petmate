@@ -13,6 +13,7 @@ import {
   type DisputeReason,
   type DisputeStatus,
 } from "@/lib/constants";
+import { PLATFORM_CURRENCY } from "@/lib/currency";
 
 export const metadata: Metadata = {
   title: "Disputes",
@@ -76,7 +77,7 @@ export default async function DisputesPage() {
                       <p className="text-sm font-semibold tabular text-fg">
                         {formatMoney(
                           dispute.amountCents,
-                          dispute.petOrder?.currency ?? dispute.order?.currency ?? "USD",
+                          dispute.petOrder?.currency ?? dispute.order?.currency ?? PLATFORM_CURRENCY,
                         )}
                       </p>
                       <Badge tone={TONE[dispute.status] ?? "neutral"} size="sm">

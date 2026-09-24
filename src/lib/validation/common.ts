@@ -6,6 +6,7 @@ import {
   CURRENCIES,
   TEMPERAMENT_TAGS,
 } from "@/lib/constants";
+import { PLATFORM_CURRENCY } from "@/lib/currency";
 
 /**
  * Shared validators.
@@ -110,6 +111,16 @@ export const centsSchema = z
   .max(LIMITS.maxPriceCents, "That amount is too large.");
 
 export const currencySchema = z.enum(CURRENCIES);
+
+/**
+ * The currency on anything that carries a price. Only the platform currency is
+ * accepted, and it is the default, so a form never has to send it. A listing
+ * priced in another currency would land in a ledger account nobody's balance
+ * reads — see `lib/currency.ts`.
+ */
+export const priceCurrencySchema = z
+  .literal(PLATFORM_CURRENCY, { error: `Prices on PetMate are in ${PLATFORM_CURRENCY}.` })
+  .default(PLATFORM_CURRENCY);
 
 export const speciesSchema = z.enum(SPECIES);
 export const sexSchema = z.enum(SEX);

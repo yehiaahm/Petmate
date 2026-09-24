@@ -17,11 +17,12 @@ import {
   optionalText,
   cuidSchema,
   centsSchema,
-  currencySchema,
   emailSchema,
   phoneSchema,
+  priceCurrencySchema,
 } from "@/lib/validation/common";
 import { LIMITS } from "@/lib/constants";
+import { PLATFORM_CURRENCY } from "@/lib/currency";
 
 /**
  * Commerce.
@@ -49,7 +50,7 @@ export const shopSchema = z.object({
   country: safeText(60, 2),
   region: optionalText(80),
   city: optionalText(80),
-  flatShippingCents: centsSchema.default(599),
+  flatShippingCents: centsSchema.default(6_000), // EGP 60
   freeShippingThresholdCents: centsSchema.optional(),
 });
 
@@ -100,7 +101,7 @@ export const productSchema = z.object({
   sku: optionalText(60),
   priceCents: centsSchema.refine((v) => v > 0, "A product needs a price."),
   compareAtCents: centsSchema.optional(),
-  currency: currencySchema.default("USD"),
+  currency: priceCurrencySchema,
   stock: z.number().int().min(0).max(1_000_000).default(0),
   trackInventory: z.boolean().default(true),
   lowStockAt: z.number().int().min(0).max(1000).default(5),
@@ -461,7 +462,7 @@ export async function getCart(userId: string): Promise<CartSummary> {
     subtotalCents,
     shippingCents,
     totalCents: subtotalCents + shippingCents,
-    currency: lines[0]?._currency ?? "USD",
+    currency: lines[0]?._currency ?? PLATFORM_CURRENCY,
     hasUnavailable: lines.some((l) => !l.available),
   };
 }

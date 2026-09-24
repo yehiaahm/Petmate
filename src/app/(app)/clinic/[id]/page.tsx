@@ -31,6 +31,7 @@ import {
 import { ButtonLink } from "@/components/ui/button";
 import { formatMoney, bpsToPercent } from "@/lib/money";
 import { splitTags } from "@/lib/utils";
+import { PLATFORM_CURRENCY } from "@/lib/currency";
 
 export const metadata: Metadata = {
   title: "Clinic console",
@@ -110,7 +111,7 @@ export default async function ClinicConsolePage({
 
   const [analytics, earnings, settings] = await Promise.all([
     getClinicAnalytics(clinic.id, { from, to: now }),
-    isOwner ? getEarnings("CLINIC", clinic.id, auth.user.currency) : null,
+    isOwner ? getEarnings("CLINIC", clinic.id, PLATFORM_CURRENCY) : null,
     getSettings(),
   ]);
 
@@ -194,8 +195,8 @@ export default async function ClinicConsolePage({
         />
         <Stat
           label="Net earned (30d)"
-          value={formatMoney(analytics.revenue.netCents, auth.user.currency)}
-          hint={`after ${formatMoney(analytics.revenue.commissionCents, auth.user.currency)} commission`}
+          value={formatMoney(analytics.revenue.netCents, PLATFORM_CURRENCY)}
+          hint={`after ${formatMoney(analytics.revenue.commissionCents, PLATFORM_CURRENCY)} commission`}
           icon={<Wallet className="size-4" aria-hidden />}
         />
         <Stat
@@ -309,7 +310,7 @@ export default async function ClinicConsolePage({
                       <span className="min-w-0 truncate text-fg-muted">{service.name}</span>
                       <span className="shrink-0 text-end">
                         <span className="block font-medium tabular text-fg">
-                          {formatMoney(service.revenueCents, auth.user.currency)}
+                          {formatMoney(service.revenueCents, PLATFORM_CURRENCY)}
                         </span>
                         <span className="block text-xs text-fg-subtle tabular">
                           {service.count} visits
