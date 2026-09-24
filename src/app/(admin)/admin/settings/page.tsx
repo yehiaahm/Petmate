@@ -58,6 +58,12 @@ const GROUPS: { title: string; blurb: string; keys: (keyof typeof DEFAULT_SETTIN
     keys: ["featuredListing7dCents", "featuredListing30dCents"],
   },
   {
+    title: "Advertising",
+    blurb:
+      "Self-serve ads are bought per thousand impressions. The budget is paid up front and whatever is not delivered by the end date goes back to the advertiser's wallet. Changing a price affects campaigns bought from now on.",
+    keys: ["adCpmHomeCents", "adCpmSearchCents", "adCpmClinicsCents", "adMinBudgetCents"],
+  },
+  {
     title: "Platform",
     blurb: "Switches that affect everyone. Handle with care.",
     keys: ["registrationOpen", "maintenanceMode", "supportEmail"],

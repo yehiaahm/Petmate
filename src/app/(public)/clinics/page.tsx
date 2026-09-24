@@ -9,6 +9,7 @@ import { Card, Badge, EmptyState, PageHeader } from "@/components/ui/primitives"
 import { ButtonLink } from "@/components/ui/button";
 import { ClinicFilters } from "@/components/clinics/clinic-filters";
 import { Pagination } from "@/components/ui/pagination";
+import { AdSlot } from "@/components/ads/ad-slot";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
@@ -70,8 +71,9 @@ export default async function ClinicsPage({ searchParams }: { searchParams: Sear
       />
 
       <div className="mt-8 grid gap-8 lg:grid-cols-[16rem_1fr]">
-        <div className="lg:sticky lg:top-24 lg:h-fit">
+        <div className="space-y-6 lg:sticky lg:top-24 lg:h-fit">
           <ClinicFilters resultCount={results.total} />
+          <AdSlot slot="CLINIC_SIDEBAR" />
         </div>
 
         <div className="min-w-0">

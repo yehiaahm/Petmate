@@ -359,6 +359,10 @@ export const PAYMENT_PURPOSE = [
 ] as const;
 export type PaymentPurpose = (typeof PAYMENT_PURPOSE)[number];
 
+/** Where a self-serve ad can run. Each is a real slot rendered by a page. */
+export const AD_SLOTS = ["HOME_HERO", "SEARCH_INLINE", "CLINIC_SIDEBAR"] as const;
+export type AdSlot = (typeof AD_SLOTS)[number];
+
 export const PAYMENT_STATUS = [
   "REQUIRES_PAYMENT",
   "PROCESSING",
@@ -575,6 +579,7 @@ export const NOTIFICATION_CATEGORY = [
   "ADOPTION",
   "HEALTH",
   "DELIVERY",
+  "COMMUNITY",
   "SECURITY",
   "SYSTEM",
   "MARKETING",
@@ -591,6 +596,7 @@ export const NOTIFICATION_CATEGORY_LABEL: Record<NotificationCategory, string> =
   ADOPTION: "Adoption",
   HEALTH: "Pet health",
   DELIVERY: "Delivery",
+  COMMUNITY: "Community replies",
   SECURITY: "Security",
   SYSTEM: "Platform updates",
   MARKETING: "Tips and offers",

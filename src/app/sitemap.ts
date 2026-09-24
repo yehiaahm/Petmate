@@ -18,7 +18,7 @@ const BASE = clientEnv.NEXT_PUBLIC_APP_URL;
 export const revalidate = 3600;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const [listings, clinics, products, breeds] = await Promise.all([
+  const [listings, clinics, products, breeds, groups] = await Promise.all([
     db.listing.findMany({
       where: { status: { in: PUBLIC_LISTING_STATUSES }, deletedAt: null },
       select: { slug: true, updatedAt: true },
@@ -41,6 +41,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       orderBy: { popularity: "desc" },
       take: 2_000,
     }),
+    db.group.findMany({
+      where: { visibility: "PUBLIC" },
+      select: { slug: true },
+      orderBy: { memberCount: "desc" },
+      take: 2_000,
+    }),
   ]);
 
   const staticPages: MetadataRoute.Sitemap = [
@@ -50,6 +56,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${BASE}/clinics`, changeFrequency: "daily", priority: 0.8 },
     { url: `${BASE}/store`, changeFrequency: "daily", priority: 0.8 },
     { url: `${BASE}/breeds`, changeFrequency: "weekly", priority: 0.7 },
+    { url: `${BASE}/community`, changeFrequency: "daily", priority: 0.6 },
     { url: `${BASE}/breeding`, changeFrequency: "weekly", priority: 0.7 },
     { url: `${BASE}/pricing`, changeFrequency: "monthly", priority: 0.6 },
     { url: `${BASE}/trust`, changeFrequency: "monthly", priority: 0.6 },
@@ -83,6 +90,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       url: `${BASE}/breeds/${breed.slug}`,
       changeFrequency: "monthly" as const,
       priority: 0.5,
+    })),
+    ...groups.map((group) => ({
+      url: `${BASE}/community/${group.slug}`,
+      changeFrequency: "daily" as const,
+      priority: 0.4,
     })),
   ];
 }

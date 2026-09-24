@@ -22,6 +22,7 @@ export type JobType =
   | "appointment.complete"
   | "escrow.autoRelease"
   | "breeding.releaseFee"
+  | "ads.settle"
   | "payouts.release"
   | "clinic.releaseHold"
   | "subscription.expire"
@@ -171,6 +172,7 @@ export const RECURRING_JOBS: { type: JobType; intervalSeconds: number }[] = [
   { type: "prune.rateLimits", intervalSeconds: 3600 },
   { type: "prune.auth", intervalSeconds: 86400 },
   { type: "analytics.rollup", intervalSeconds: 3600 },
+  { type: "ads.settle", intervalSeconds: 900 },
 ];
 
 export async function scheduleRecurringJobs(): Promise<void> {

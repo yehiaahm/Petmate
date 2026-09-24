@@ -97,6 +97,22 @@ NONE ─ both agree paid terms ─▶ DUE ─ payer pays ─▶ HELD ─┬─ r
   refunded straight away. A refund the gateway refuses leaves the fee
   `REFUND_PENDING`, which staff retry from the same queue.
 
+## Advertising
+
+Self-serve campaigns (`/dashboard/advertising`) are paid up front and billed
+per thousand impressions at the price fixed when bought (`adCpm*Cents`).
+
+- Paying posts a `CHARGE` (gateway → platform revenue) and moves the campaign
+  from `DRAFT` to `PENDING_REVIEW`; a payment for a discarded draft is refunded.
+- Staff approve or reject from Admin → Moderation; rejecting refunds in full.
+- An impression is counted when half the ad has been on screen for a second,
+  once per visitor per campaign per 30 minutes (`countOnce`, which is never
+  disabled by configuration and fails closed), and at most 40 per network.
+- The campaign closes when its budget is delivered, its end date passes (the
+  `ads.settle` job) or the advertiser ends it. Undelivered budget is returned
+  to the advertiser's wallet with an `ADJUSTMENT` (revenue → user available).
+- Ads are selected by slot and even pacing only; no personal data is used.
+
 ## Exactly-once settlement
 
 Three mechanisms, each guarding a different failure:

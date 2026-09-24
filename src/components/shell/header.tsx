@@ -38,6 +38,7 @@ export async function Header() {
     { href: "/breeding", label: t("Breeding") },
     { href: "/clinics", label: t("Vets") },
     { href: "/store", label: t("Store") },
+    { href: "/community", label: t("Community") },
   ];
 
   return (

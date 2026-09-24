@@ -15,6 +15,7 @@ import {
 } from "@/lib/services/support.service";
 import { notify } from "@/lib/services/notification.service";
 import { resolveBreedingFee } from "@/lib/services/breeding-fee.service";
+import { reviewAdCampaign } from "@/lib/services/ad.service";
 import { cuidSchema, safeParagraph, safeText } from "@/lib/validation/common";
 import { ROLES } from "@/lib/constants";
 
@@ -211,6 +212,12 @@ export const POST = route({
       reason: safeText(300, 3),
     }),
     z.object({
+      action: z.literal("review-ad"),
+      campaignId: cuidSchema,
+      decision: z.enum(["APPROVE", "REJECT"]),
+      note: safeText(300, 3),
+    }),
+    z.object({
       action: z.literal("resolve-breeding-fee"),
       requestId: cuidSchema,
       decision: z.enum(["RELEASE", "REFUND"]),
@@ -391,6 +398,10 @@ export const POST = route({
         await requirePermission("admin:finance");
         await rejectPayout(auth, body.payoutId, body.reason);
         return { ok: true };
+
+      case "review-ad":
+        await requirePermission("admin:moderation");
+        return reviewAdCampaign(auth, body.campaignId, body.decision, body.note);
 
       case "resolve-breeding-fee":
         await requirePermission("admin:finance");

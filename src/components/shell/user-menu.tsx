@@ -15,14 +15,18 @@ import {
   Shield,
   CreditCard,
   ChevronDown,
+  Megaphone,
+  Wallet,
 } from "lucide-react";
 import { Avatar, Badge } from "@/components/ui/primitives";
 import { api } from "@/lib/api-client";
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 import type { SessionUser } from "@/lib/auth/session";
+import { useI18n } from "@/components/i18n/i18n-provider";
 
 export function UserMenu({ user }: { user: SessionUser }) {
+  const { t } = useI18n();
   const router = useRouter();
   const toast = useToast();
   const [open, setOpen] = useState(false);
@@ -51,7 +55,7 @@ export function UserMenu({ user }: { user: SessionUser }) {
       router.push("/");
       router.refresh();
     } catch {
-      toast.error("We could not sign you out", "Please try again.");
+      toast.error(t("We could not sign you out"), t("Please try again."));
       setSigningOut(false);
     }
   }
@@ -66,25 +70,27 @@ export function UserMenu({ user }: { user: SessionUser }) {
   const groups: { label?: string; items: { href: string; label: string; icon: typeof PawPrint }[] }[] = [
     {
       items: [
-        { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-        { href: "/dashboard/pets", label: "My pets", icon: PawPrint },
-        { href: "/dashboard/listings", label: "My listings", icon: Heart },
-        { href: "/dashboard/orders", label: "Orders & purchases", icon: ShoppingBag },
+        { href: "/dashboard", label: t("Dashboard"), icon: LayoutDashboard },
+        { href: "/dashboard/pets", label: t("My pets"), icon: PawPrint },
+        { href: "/dashboard/listings", label: t("My listings"), icon: Heart },
+        { href: "/dashboard/orders", label: t("Orders & purchases"), icon: ShoppingBag },
+        { href: "/dashboard/wallet", label: t("Wallet"), icon: Wallet },
+        { href: "/dashboard/advertising", label: t("Advertising"), icon: Megaphone },
       ],
     },
     ...(isClinic
-      ? [{ label: "Clinic", items: [{ href: "/clinic", label: "Clinic console", icon: Stethoscope }] }]
+      ? [{ label: t("Clinic"), items: [{ href: "/clinic", label: t("Clinic console"), icon: Stethoscope }] }]
       : []),
     ...(isSeller
-      ? [{ label: "Shop", items: [{ href: "/sell", label: "Seller console", icon: Store }] }]
+      ? [{ label: t("Shop"), items: [{ href: "/sell", label: t("Seller console"), icon: Store }] }]
       : []),
     ...(isStaff
-      ? [{ label: "Staff", items: [{ href: "/admin", label: "Admin", icon: Shield }] }]
+      ? [{ label: t("Staff"), items: [{ href: "/admin", label: t("Admin"), icon: Shield }] }]
       : []),
     {
       items: [
-        { href: "/settings/billing", label: "Plan & billing", icon: CreditCard },
-        { href: "/settings", label: "Settings", icon: Settings },
+        { href: "/settings/billing", label: t("Plan & billing"), icon: CreditCard },
+        { href: "/settings", label: t("Settings"), icon: Settings },
       ],
     },
   ];
@@ -103,7 +109,7 @@ export function UserMenu({ user }: { user: SessionUser }) {
           className={cn("size-3.5 text-fg-subtle transition-transform", open && "rotate-180")}
           aria-hidden
         />
-        <span className="sr-only">Open account menu</span>
+        <span className="sr-only">{t("Open account menu")}</span>
       </button>
 
       {open && (
@@ -116,11 +122,11 @@ export function UserMenu({ user }: { user: SessionUser }) {
             <p className="mt-0.5 truncate text-xs text-fg-muted">{user.email}</p>
             <div className="mt-2 flex flex-wrap items-center gap-1.5">
               <Badge tone="brand" size="sm">
-                Trust {user.trustScore}
+                {t("Trust {score}", { score: user.trustScore })}
               </Badge>
               {!user.emailVerified && (
                 <Badge tone="warning" size="sm">
-                  Email unconfirmed
+                  {t("Email unconfirmed")}
                 </Badge>
               )}
             </div>
@@ -160,7 +166,7 @@ export function UserMenu({ user }: { user: SessionUser }) {
               className="flex w-full items-center gap-3 px-4 py-2 text-sm text-fg-muted transition-colors hover:bg-bg-sunken hover:text-fg disabled:opacity-50"
             >
               <LogOut className="rtl:-scale-x-100 size-4 shrink-0" aria-hidden />
-              {signingOut ? "Signing out…" : "Sign out"}
+              {signingOut ? t("Signing out…") : t("Sign out")}
             </button>
           </div>
         </div>

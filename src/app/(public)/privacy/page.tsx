@@ -100,7 +100,8 @@ const sections: LegalSection[] = [
   {
     heading: "Cookies",
     paragraphs: [
-      "We use two: a session cookie that keeps you signed in, and a CSRF token that stops another site submitting forms as you. Both are strictly necessary for the service to work.",
+      "We use three: a session cookie that keeps you signed in, a CSRF token that stops another site submitting forms as you, and a cookie that remembers the language you chose. All three are needed for the service to work as you set it up.",
+      "Sponsored placements on PetMate are chosen by the page they appear on, never by who is looking. To count an ad once per visitor we use a one-way hash of the CSRF token, kept for at most 30 minutes and never linked to your account.",
       "We do not use advertising or cross-site tracking cookies, which is why you are not being asked to dismiss a consent banner.",
     ],
   },

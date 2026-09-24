@@ -3,6 +3,8 @@ import { requirePermission } from "@/lib/auth/rbac";
 import { db } from "@/lib/db";
 import { parseJsonArray, parseJsonRecord } from "@/lib/json";
 import { ModerationQueues } from "@/components/admin/moderation-queues";
+import { AdReviewQueue } from "@/components/admin/ad-review-queue";
+import { listCampaignsForReview } from "@/lib/services/ad.service";
 import { PageHeader } from "@/components/ui/primitives";
 import { PLATFORM_CURRENCY } from "@/lib/currency";
 
@@ -26,7 +28,7 @@ export default async function ModerationPage({
   // eslint-disable-next-line react-hooks/purity -- server render, once per request
   const newAccountCutoff = new Date(Date.now() - 14 * 86_400_000);
 
-  const [reports, listings, verifications, disputes, risks] = await Promise.all([
+  const [reports, listings, verifications, disputes, risks, ads] = await Promise.all([
     db.report.findMany({
       where: { status: { in: ["OPEN", "IN_REVIEW"] } },
       orderBy: [{ priority: "desc" }, { createdAt: "asc" }],
@@ -120,6 +122,7 @@ export default async function ModerationPage({
         user: { select: { name: true, handle: true } },
       },
     }),
+    listCampaignsForReview(),
   ]);
 
   // Risk is recorded as events against the entity, not as a column on it, so
@@ -212,6 +215,33 @@ export default async function ModerationPage({
           }))}
         />
       </div>
+
+      <section className="mt-10">
+        <h2 className="font-display text-xl font-semibold text-fg">Ad campaigns</h2>
+        <p className="mt-1 text-sm text-fg-muted">
+          Check the claim, the image and where the link goes. No medicines, no live-animal sales
+          outside PetMate listings, nothing that asks for payment off the platform.
+        </p>
+        <div className="mt-4">
+          <AdReviewQueue
+            campaigns={ads.map((a) => ({
+              id: a.id,
+              name: a.name,
+              slot: a.slot,
+              headline: a.headline,
+              body: a.body,
+              imageUrl: a.imageUrl,
+              destinationUrl: a.destinationUrl,
+              budgetCents: a.budgetCents,
+              currency: a.currency,
+              startAt: a.startAt.toISOString(),
+              endAt: new Date(a.endAt.getTime() - 1).toISOString(),
+              createdAt: a.createdAt.toISOString(),
+              advertiser: `${a.advertiser.name} <${a.advertiser.email}>`,
+            }))}
+          />
+        </div>
+      </section>
     </>
   );
 }

@@ -20,6 +20,7 @@ import { ListingCard, ListingGrid } from "@/components/listings/listing-card";
 import { HeroSearch } from "@/components/home/hero-search";
 import { SPECIES_PLURAL, type Species } from "@/lib/constants";
 import { compactNumber } from "@/lib/utils";
+import { AdSlot } from "@/components/ads/ad-slot";
 
 export const metadata: Metadata = {
   title: {
@@ -72,6 +73,10 @@ export default async function HomePage() {
       )}
 
       <TrustStrip />
+
+      <div className="container-page pt-10">
+        <AdSlot slot="HOME_HERO" />
+      </div>
 
       {featured.items.length > 0 && (
         <Section

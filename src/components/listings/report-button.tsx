@@ -9,6 +9,7 @@ import { Field, Select, Textarea } from "@/components/ui/field";
 import { useToast } from "@/components/ui/toast";
 import { api, ApiError } from "@/lib/api-client";
 import { REPORT_REASON, REPORT_REASON_LABEL, type ReportReason } from "@/lib/constants";
+import { useI18n } from "@/components/i18n/i18n-provider";
 
 /**
  * Reporting.
@@ -20,12 +21,13 @@ import { REPORT_REASON, REPORT_REASON_LABEL, type ReportReason } from "@/lib/con
 export function ReportButton({
   entityType,
   entityId,
-  label = "Report this listing",
+  label,
 }: {
   entityType: "LISTING" | "USER" | "MESSAGE" | "PRODUCT" | "POST" | "COMMENT" | "REVIEW" | "CLINIC";
   entityId: string;
   label?: string;
 }) {
+  const { t } = useI18n();
   const router = useRouter();
   const toast = useToast();
 
@@ -47,14 +49,14 @@ export function ReportButton({
 
       setOpen(false);
       setDetails("");
-      toast.success("Report received", "Our team will look at this. Thank you.");
+      toast.success(t("Report received"), t("Our team will look at this. Thank you."));
     } catch (err) {
       if (err instanceof ApiError && err.isAuth) {
         setOpen(false);
         router.push("/login");
         return;
       }
-      setError(err instanceof ApiError ? err.message : "We could not send that report.");
+      setError(err instanceof ApiError ? err.message : t("We could not send that report."));
     } finally {
       setSending(false);
     }
@@ -68,22 +70,22 @@ export function ReportButton({
         className="inline-flex items-center gap-1.5 text-sm text-fg-subtle transition-colors hover:text-fg-muted"
       >
         <Flag className="size-3.5" aria-hidden />
-        {label}
+        {label ?? t("Report this listing")}
       </button>
 
       <Modal
         open={open}
         onClose={() => setOpen(false)}
-        title="Report a problem"
-        description="Tell us what is wrong. Reports about animal welfare and fraud go to the front of the queue."
+        title={t("Report a problem")}
+        description={t("Tell us what is wrong. Reports about animal welfare and fraud go to the front of the queue.")}
       >
         <div className="space-y-4">
-          <Field label="What is the problem?" required>
+          <Field label={t("What is the problem?")} required>
             {({ id }) => (
               <Select id={id} value={reason} onChange={(e) => setReason(e.target.value as ReportReason)}>
                 {REPORT_REASON.map((value) => (
                   <option key={value} value={value}>
-                    {REPORT_REASON_LABEL[value]}
+                    {t(REPORT_REASON_LABEL[value])}
                   </option>
                 ))}
               </Select>
@@ -91,8 +93,8 @@ export function ReportButton({
           </Field>
 
           <Field
-            label="Anything else we should know?"
-            hint="Specifics help: what was said, when, and what made you suspicious."
+            label={t("Anything else we should know?")}
+            hint={t("Specifics help: what was said, when, and what made you suspicious.")}
             error={error}
             trailing={`${details.length}/2000`}
           >
@@ -110,10 +112,10 @@ export function ReportButton({
 
           <div className="flex justify-end gap-2">
             <Button variant="ghost" onClick={() => setOpen(false)}>
-              Cancel
+              {t("Cancel")}
             </Button>
-            <Button onClick={() => void submit()} loading={sending} loadingText="Sending…">
-              Send report
+            <Button onClick={() => void submit()} loading={sending} loadingText={t("Sending…")}>
+              {t("Send report")}
             </Button>
           </div>
         </div>

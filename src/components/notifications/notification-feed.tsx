@@ -19,6 +19,7 @@ import {
   Megaphone,
   Tag,
   CheckCheck,
+  Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, EmptyState } from "@/components/ui/primitives";
@@ -47,6 +48,7 @@ const ICONS: Record<string, typeof Bell> = {
   ADOPTION: Heart,
   HEALTH: Syringe,
   DELIVERY: Truck,
+  COMMUNITY: Users,
   SECURITY: ShieldAlert,
   SYSTEM: Bell,
   MARKETING: Megaphone,

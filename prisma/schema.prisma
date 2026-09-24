@@ -1202,11 +1202,11 @@ model Order {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  buyer         User           @relation("OrderBuyer", fields: [buyerId], references: [id], onDelete: Cascade)
-  items         OrderItem[]
-  deliveries    Delivery[]
-  paymentIntent PaymentIntent? @relation(fields: [paymentIntentId], references: [id], onDelete: SetNull)
-  disputes      Dispute[]
+  buyer          User            @relation("OrderBuyer", fields: [buyerId], references: [id], onDelete: Cascade)
+  items          OrderItem[]
+  deliveries     Delivery[]
+  paymentIntent  PaymentIntent?  @relation(fields: [paymentIntentId], references: [id], onDelete: SetNull)
+  disputes       Dispute[]
   codCollections CodCollection[]
 
   @@index([buyerId, createdAt])
@@ -1373,10 +1373,10 @@ model DeliveryEvent {
 // ============================================================================
 
 model PaymentIntent {
-  id          String  @id @default(cuid())
-  userId      String
-  provider    String // stripe | paymob | ledger
-  providerRef String? @unique
+  id                String  @id @default(cuid())
+  userId            String
+  provider          String // stripe | paymob | ledger
+  providerRef       String? @unique
   /// The captured charge, where the provider refunds by it (Paymob's transaction id).
   providerChargeRef String?
 
@@ -1591,28 +1591,38 @@ model FeaturedPlacement {
 }
 
 model AdCampaign {
-  id             String   @id @default(cuid())
-  advertiserId   String
-  name           String
-  slot           String // HOME_HERO | SEARCH_INLINE | CLINIC_SIDEBAR | NEWSLETTER
-  status         String   @default("DRAFT") // DRAFT | PENDING_REVIEW | ACTIVE | PAUSED | COMPLETED | REJECTED
-  budgetCents    Int
-  spentCents     Int      @default(0)
-  cpmCents       Int      @default(500)
-  targeting      String? // JSON
-  headline       String
-  body           String?
-  imageUrl       String?
-  destinationUrl String
-  startAt        DateTime
-  endAt          DateTime
-  impressions    Int      @default(0)
-  clicks         Int      @default(0)
-  createdAt      DateTime @default(now())
+  id              String    @id @default(cuid())
+  advertiserId    String
+  name            String
+  slot            String // HOME_HERO | SEARCH_INLINE | CLINIC_SIDEBAR
+  status          String    @default("DRAFT") // DRAFT | PENDING_REVIEW | ACTIVE | PAUSED | COMPLETED | REJECTED | CANCELLED
+  budgetCents     Int
+  spentCents      Int       @default(0)
+  cpmCents        Int       @default(500)
+  currency        String    @default("EGP")
+  // Budget not delivered by the end date, credited back to the advertiser.
+  returnedCents   Int       @default(0)
+  paymentIntentId String?
+  reviewNote      String?
+  reviewedById    String?
+  reviewedAt      DateTime?
+  completedAt     DateTime?
+  targeting       String? // JSON
+  headline        String
+  body            String?
+  imageUrl        String?
+  destinationUrl  String
+  startAt         DateTime
+  endAt           DateTime
+  impressions     Int       @default(0)
+  clicks          Int       @default(0)
+  createdAt       DateTime  @default(now())
 
   advertiser User @relation(fields: [advertiserId], references: [id], onDelete: Cascade)
 
   @@index([status, startAt, endAt])
+  @@index([advertiserId, createdAt])
+  @@index([slot, status])
 }
 
 /// Every commercial rule the business may want to change without a deploy.

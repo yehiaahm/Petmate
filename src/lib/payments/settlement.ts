@@ -907,17 +907,23 @@ async function settleFeaturedListing(intent: SettlementIntent): Promise<void> {
   });
 }
 
+/**
+ * The whole budget is paid up front and booked as revenue; whatever is not
+ * delivered is returned to the advertiser's wallet when the campaign ends
+ * (`completeCampaign`). A payment for a draft that was discarded meanwhile is
+ * refunded rather than kept.
+ */
 async function settleAdCampaign(intent: SettlementIntent): Promise<void> {
-  await db.$transaction(async (tx) => {
-    await tx.adCampaign.update({
-      where: { id: intent.referenceId! },
-      data: { status: "PENDING_REVIEW" },
+  const claimed = await db.$transaction(async (tx) => {
+    const moved = await tx.adCampaign.updateMany({
+      where: { id: intent.referenceId!, status: "DRAFT", advertiserId: intent.userId, budgetCents: intent.amountCents },
+      data: { status: "PENDING_REVIEW", paymentIntentId: intent.id },
     });
 
     await postTransaction(
       {
         kind: "CHARGE",
-        description: "Ad campaign funding",
+        description: moved.count ? "Ad campaign funding" : "Ad campaign payment after the draft was discarded",
         currency: intent.currency,
         paymentIntentId: intent.id,
         referenceType: "AD_CAMPAIGN",
@@ -929,7 +935,39 @@ async function settleAdCampaign(intent: SettlementIntent): Promise<void> {
       },
       tx,
     );
+
+    if (moved.count) {
+      await createInvoice(
+        {
+          paymentIntentId: intent.id,
+          userId: intent.userId,
+          totalCents: intent.amountCents,
+          currency: intent.currency,
+          lines: [{ description: "Advertising budget", amountCents: intent.amountCents }],
+          billingName: intent.user?.name ?? "PetMate member",
+        },
+        tx,
+      );
+    }
+    return moved.count > 0;
   });
+
+  if (!claimed) {
+    const { refundPayment } = await import("./service");
+    try {
+      await refundPayment({
+        intentId: intent.id,
+        amountCents: intent.amountCents,
+        reason: "CANCELLED_ORDER",
+        approvedById: intent.userId,
+        note: "Payment for a discarded ad campaign",
+        idempotencyKey: `ad_orphan_${intent.id}`,
+      });
+    } catch (e) {
+      logger.exception("orphaned ad payment could not be refunded", e, { intentId: intent.id });
+    }
+    return;
+  }
 
   await notify({
     userId: intent.userId,

@@ -11,6 +11,7 @@ import { SaveSearchButton } from "@/components/listings/save-search-button";
 import { Pagination } from "@/components/ui/pagination";
 import { EmptyState, PageHeader } from "@/components/ui/primitives";
 import { ButtonLink } from "@/components/ui/button";
+import { AdSlot } from "@/components/ads/ad-slot";
 import {
   SPECIES,
   SPECIES_PLURAL,
@@ -161,6 +162,8 @@ export default async function PetsPage({ searchParams }: { searchParams: SearchP
             </p>
             <SortSelect hasLocation={params.lat != null} />
           </div>
+
+          <AdSlot slot="SEARCH_INLINE" className="mb-6" />
 
           <Suspense fallback={<LoadingGrid />}>
             {results.items.length > 0 ? (

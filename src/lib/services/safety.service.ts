@@ -1,4 +1,5 @@
 import "server-only";
+import { hideIfReportedEnough, restoreIfHidden } from "./community.service";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { audit } from "@/lib/audit";
@@ -79,6 +80,8 @@ export async function fileReport(auth: AuthContext, input: z.infer<typeof report
     where: { entityType: input.entityType, entityId: input.entityId, status: { in: ["OPEN", "IN_REVIEW"] } },
   });
 
+  await hideIfReportedEnough(input.entityType, input.entityId, reportCount);
+
   if (reportCount >= 3 && input.entityType === "LISTING") {
     await db.listing.updateMany({
       where: { id: input.entityId, status: "ACTIVE" },
@@ -134,8 +137,27 @@ export async function resolveReport(
       });
     }
     if (input.action === "REMOVE" && report.entityType === "POST") {
-      await db.post.update({ where: { id: report.entityId }, data: { status: "REMOVED" } });
+      const removed = await db.post.updateMany({
+        where: { id: report.entityId, status: { not: "REMOVED" } },
+        data: { status: "REMOVED" },
+      });
+      if (removed.count) {
+        const post = await db.post.findUnique({ where: { id: report.entityId }, select: { groupId: true } });
+        if (post?.groupId) await db.group.update({ where: { id: post.groupId }, data: { postCount: { decrement: 1 } } });
+      }
     }
+    if (input.action === "REMOVE" && report.entityType === "COMMENT") {
+      const removed = await db.comment.updateMany({
+        where: { id: report.entityId, status: { not: "REMOVED" } },
+        data: { status: "REMOVED" },
+      });
+      if (removed.count) {
+        const comment = await db.comment.findUnique({ where: { id: report.entityId }, select: { postId: true } });
+        if (comment) await db.post.update({ where: { id: comment.postId }, data: { commentCount: { decrement: 1 } } });
+      }
+    }
+    // Upheld without removing anything: whatever the reports hid comes back.
+    if (!input.action || input.action === "NONE") await restoreIfHidden(report.entityType, report.entityId);
     if (input.action === "REMOVE" && report.entityType === "REVIEW") {
       await db.review.update({ where: { id: report.entityId }, data: { status: "REMOVED" } });
     }
@@ -157,6 +179,7 @@ export async function resolveReport(
   } else {
     // A dismissed report is still worth telling the reporter about: silence is
     // what makes people stop reporting.
+    await restoreIfHidden(report.entityType, report.entityId);
     await db.listing.updateMany({
       where: { id: report.entityId, status: "PENDING_REVIEW", moderationStatus: "FLAGGED" },
       data: { status: "ACTIVE", moderationStatus: "APPROVED", moderationNote: null },

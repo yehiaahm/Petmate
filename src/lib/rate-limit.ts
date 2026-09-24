@@ -45,6 +45,12 @@ export const RATE_LIMITS = {
   report: { window: 3600, max: 10 },
   upload: { window: 600, max: 40 },
   productImport: { window: 3600, max: 20 },
+  adCampaign: { window: 3600, max: 10 },
+  // One billable impression / click per visitor per campaign per window, so a
+  // refresh loop cannot drain a competitor's budget.
+  adImpression: { window: 1800, max: 1 },
+  adClick: { window: 1800, max: 1 },
+  groupCreate: { window: 86400, max: 3 },
   post: { window: 3600, max: 20 },
   comment: { window: 300, max: 30 },
   supportTicket: { window: 3600, max: 6 },
@@ -108,6 +114,30 @@ export async function checkRateLimit(
   } catch (e) {
     logger.exception("rate limiter unavailable, failing open", e, { name });
     return { allowed: true, remaining: rule.max, retryAfter: 0, limit: rule.max };
+  }
+}
+
+/**
+ * Counts an event at most `max` times per key per window, for rules that
+ * decide what someone is charged (an ad impression) rather than protect the
+ * server. Unlike `checkRateLimit` it is never switched off by configuration
+ * or in tests, and it fails closed: when the counter cannot be read, the event
+ * is not counted, so an outage can never bill anyone for more than happened.
+ */
+export async function countOnce(key: string, windowSeconds: number, max = 1): Promise<boolean> {
+  const windowStart = Math.floor(Date.now() / (windowSeconds * 1000)) * windowSeconds * 1000;
+  const bucket = `once:${key}:${windowStart}`;
+  try {
+    const row = await db.rateLimitCounter.upsert({
+      where: { bucket },
+      create: { bucket, count: 1, expiresAt: new Date(windowStart + windowSeconds * 1000) },
+      update: { count: { increment: 1 } },
+      select: { count: true },
+    });
+    return row.count <= max;
+  } catch (e) {
+    logger.exception("event counter unavailable, not counting", e, { key });
+    return false;
   }
 }
 
