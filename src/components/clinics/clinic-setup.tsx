@@ -8,8 +8,9 @@ import { Card, CardHeader, Badge, Alert } from "@/components/ui/primitives";
 import { Field, Input, Textarea, Select, Checkbox } from "@/components/ui/field";
 import { useToast } from "@/components/ui/toast";
 import { api, ApiError } from "@/lib/api-client";
-import { formatMoney } from "@/lib/money";
-import { SERVICE_CATEGORY, SPECIES, SPECIES_LABEL, type Species } from "@/lib/constants";
+import { SERVICE_CATEGORY, SERVICE_CATEGORY_LABEL, SPECIES, SPECIES_LABEL, type ServiceCategory, type Species } from "@/lib/constants";
+import { useI18n } from "@/components/i18n/i18n-provider";
+import { RichText } from "@/components/i18n/rich-text";
 
 export interface ExistingService {
   id: string;
@@ -70,6 +71,7 @@ export function ClinicSetup({
   hours: HoursRow[];
   canManage: boolean;
 }) {
+  const { t, fmt } = useI18n();
   const router = useRouter();
   const toast = useToast();
   const [busy, setBusy] = useState<string | null>(null);
@@ -109,7 +111,7 @@ export function ClinicSetup({
       return true;
     } catch (err) {
       toast.error(
-        "That did not go through",
+        t("That did not go through"),
         err instanceof ApiError ? err.message : "Please try again.",
       );
       return false;
@@ -139,8 +141,7 @@ export function ClinicSetup({
     return (
       <Alert tone="info">
         <p>
-          Services, hours and vets are managed by the clinic owner. You have access to the calendar
-          and to the records of animals this clinic has treated.
+          {t("Services, hours and vets are managed by the clinic owner. You have access to the calendar and to the records of animals this clinic has treated.")}
         </p>
       </Alert>
     );
@@ -151,8 +152,8 @@ export function ClinicSetup({
       {/* ---- Services ------------------------------------------------- */}
       <Card>
         <CardHeader
-          title="Services"
-          description="What can be booked, how long it takes and what it costs. The price here is the price charged — a client never states an amount."
+          title={t("Services")}
+          description={t("What can be booked, how long it takes and what it costs. The price here is the price charged — a client never states an amount.")}
         />
         <div className="p-5">
           {services.length > 0 && (
@@ -164,17 +165,17 @@ export function ClinicSetup({
                       {s.name}
                       {!s.isActive && (
                         <Badge tone="neutral" size="sm" className="ms-2">
-                          inactive
+                          {t("inactive")}
                         </Badge>
                       )}
                     </span>
                     <span className="block text-xs text-fg-subtle">
-                      {s.category.toLowerCase()} · {s.durationMinutes} min
+                      {t(SERVICE_CATEGORY_LABEL[s.category as ServiceCategory] ?? s.category)} · {t("{count} min", { count: s.durationMinutes })}
                       {s.vetName ? ` · ${s.vetName}` : ""}
                     </span>
                   </span>
                   <span className="shrink-0 text-sm font-semibold tabular text-fg">
-                    {formatMoney(s.priceCents, s.currency)}
+                    {fmt.money(s.priceCents, s.currency)}
                   </span>
                 </li>
               ))}
@@ -216,7 +217,7 @@ export function ClinicSetup({
             }}
           >
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Name" required>
+              <Field label={t("Name")} required>
                 {({ id, invalid }) => (
                   <Input
                     id={id}
@@ -225,12 +226,12 @@ export function ClinicSetup({
                     maxLength={120}
                     value={service.name}
                     onChange={(e) => setService((s) => ({ ...s, name: e.target.value }))}
-                    placeholder="Annual health check"
+                    placeholder={t("Annual health check")}
                   />
                 )}
               </Field>
 
-              <Field label="Category" required>
+              <Field label={t("Category")} required>
                 {({ id }) => (
                   <Select
                     id={id}
@@ -246,7 +247,7 @@ export function ClinicSetup({
                 )}
               </Field>
 
-              <Field label="Duration (minutes)" required>
+              <Field label={t("Duration (minutes)")} required>
                 {({ id, invalid }) => (
                   <Input
                     id={id}
@@ -265,7 +266,7 @@ export function ClinicSetup({
                 )}
               </Field>
 
-              <Field label="Price" required>
+              <Field label={t("Price")} required>
                 {({ id, invalid }) => (
                   <Input
                     id={id}
@@ -284,15 +285,15 @@ export function ClinicSetup({
             </div>
 
             <fieldset>
-              <legend className="text-sm font-medium text-fg">Species</legend>
+              <legend className="text-sm font-medium text-fg">{t("Species")}</legend>
               <p className="mt-0.5 text-xs text-fg-muted">
-                Leave all unticked to offer it for every species.
+                {t("Leave all unticked to offer it for every species.")}
               </p>
               <div className="mt-2 flex flex-wrap gap-3">
                 {SPECIES.map((s) => (
                   <Checkbox
                     key={s}
-                    label={SPECIES_LABEL[s as Species]}
+                    label={t(SPECIES_LABEL[s as Species])}
                     checked={service.species.includes(s)}
                     onChange={(e) =>
                       setService((prev) => ({
@@ -307,7 +308,7 @@ export function ClinicSetup({
               </div>
             </fieldset>
 
-            <Field label="Description">
+            <Field label={t("Description")}>
               {({ id, invalid }) => (
                 <Textarea
                   id={id}
@@ -316,7 +317,7 @@ export function ClinicSetup({
                   maxLength={1000}
                   value={service.description}
                   onChange={(e) => setService((s) => ({ ...s, description: e.target.value }))}
-                  placeholder="Full physical, weight check and vaccination review."
+                  placeholder={t("Full physical, weight check and vaccination review.")}
                 />
               )}
             </Field>
@@ -324,11 +325,11 @@ export function ClinicSetup({
             <Button
               type="submit"
               loading={busy === "service"}
-              loadingText="Adding…"
+              loadingText={t("Adding…")}
               disabled={!service.name || !service.price}
             >
               <Plus className="size-4" aria-hidden />
-              Add service
+              {t("Add service")}
             </Button>
           </form>
         </div>
@@ -337,8 +338,8 @@ export function ClinicSetup({
       {/* ---- Hours ---------------------------------------------------- */}
       <Card>
         <CardHeader
-          title="Opening hours"
-          description="Saved as a whole week. A day with both times at 00:00 is closed."
+          title={t("Opening hours")}
+          description={t("Saved as a whole week. A day with both times at 00:00 is closed.")}
         />
         <div className="p-5">
           <ul className="space-y-2">
@@ -349,11 +350,11 @@ export function ClinicSetup({
                   key={row.weekday}
                   className="grid grid-cols-[92px_1fr_1fr_84px] items-center gap-3"
                 >
-                  <span className="text-sm text-fg">{WEEKDAYS[row.weekday]}</span>
+                  <span className="text-sm text-fg">{t(WEEKDAYS[row.weekday] ?? "")}</span>
 
                   <input
                     type="time"
-                    aria-label={`${WEEKDAYS[row.weekday]} opening time`}
+                    aria-label={t("{value} opening time", { value: t(WEEKDAYS[row.weekday] ?? "") })}
                     value={toTime(row.startMinute)}
                     onChange={(e) =>
                       setWeek((w) =>
@@ -366,7 +367,7 @@ export function ClinicSetup({
                   />
                   <input
                     type="time"
-                    aria-label={`${WEEKDAYS[row.weekday]} closing time`}
+                    aria-label={t("{value} closing time", { value: t(WEEKDAYS[row.weekday] ?? "") })}
                     value={toTime(row.endMinute)}
                     onChange={(e) =>
                       setWeek((w) =>
@@ -379,7 +380,7 @@ export function ClinicSetup({
                   />
 
                   {closed ? (
-                    <span className="text-xs text-fg-subtle">Closed</span>
+                    <span className="text-xs text-fg-subtle">{t("Closed")}</span>
                   ) : (
                     <button
                       type="button"
@@ -393,7 +394,7 @@ export function ClinicSetup({
                       className="flex items-center gap-1 text-xs text-fg-subtle hover:text-fg"
                     >
                       <Trash2 className="size-3" aria-hidden />
-                      Close
+                      {t("Close")}
                     </button>
                   )}
                 </li>
@@ -403,7 +404,7 @@ export function ClinicSetup({
 
           <div className="mt-4 flex items-end gap-3">
             <div className="w-40">
-              <Field label="Slot length" hint="Minutes per bookable slot.">
+              <Field label={t("Slot length")} hint={t("Minutes per bookable slot.")}>
                 {({ id }) => (
                   <Select
                     id={id}
@@ -416,7 +417,7 @@ export function ClinicSetup({
                   >
                     {[15, 20, 30, 45, 60].map((n) => (
                       <option key={n} value={n}>
-                        {n} minutes
+                        {t.plural(n, { one: "{count} minute", other: "{count} minutes" })}
                       </option>
                     ))}
                   </Select>
@@ -426,7 +427,7 @@ export function ClinicSetup({
 
             <Button
               loading={busy === "hours"}
-              loadingText="Saving…"
+              loadingText={t("Saving…")}
               onClick={() =>
                 post(
                   "hours",
@@ -452,7 +453,7 @@ export function ClinicSetup({
               }
             >
               <Clock className="size-4" aria-hidden />
-              Save the week
+              {t("Save the week")}
             </Button>
           </div>
         </div>
@@ -461,8 +462,8 @@ export function ClinicSetup({
       {/* ---- Vets ------------------------------------------------------ */}
       <Card>
         <CardHeader
-          title="Vets"
-          description="Each vet gets their own calendar, and anything they record carries the clinic-verified badge."
+          title={t("Vets")}
+          description={t("Each vet gets their own calendar, and anything they record carries the clinic-verified badge.")}
         />
         <div className="p-5">
           {vets.length > 0 && (
@@ -471,7 +472,7 @@ export function ClinicSetup({
                 <li key={v.id} className="py-2.5">
                   <p className="text-sm font-medium text-fg">{v.name}</p>
                   <p className="text-xs text-fg-subtle">
-                    {v.licenseNumber ? `Licence ${v.licenseNumber}` : "No licence recorded"}
+                    {v.licenseNumber ? t("Licence {number}", { number: v.licenseNumber }) : t("No licence recorded")}
                     {v.specialties.length ? ` · ${v.specialties.join(", ")}` : ""}
                   </p>
                 </li>
@@ -485,8 +486,8 @@ export function ClinicSetup({
             <div className="flex items-end gap-3">
               <div className="flex-1">
                 <Field
-                  label="Their PetMate handle"
-                  hint="They need an account first — we add them to the clinic, we do not create accounts for people."
+                  label={t("Their PetMate handle")}
+                  hint={t("They need an account first — we add them to the clinic, we do not create accounts for people.")}
                 >
                   {({ id, invalid }) => (
                     <Input
@@ -497,26 +498,27 @@ export function ClinicSetup({
                         setVetHandle(e.target.value);
                         setVetLookup(null);
                       }}
-                      placeholder="dr-amani"
+                      placeholder={t("dr-amani")}
                     />
                   )}
                 </Field>
               </div>
               <Button variant="outline" onClick={findVet} disabled={vetHandle.trim().length < 2}>
-                Find
+                {t("Find")}
               </Button>
             </div>
 
             {vetLookup && (
               <div className="rounded-[var(--radius-card)] bg-bg-sunken p-4">
                 <p className="text-sm text-fg">
-                  Found <span className="font-semibold">{vetLookup.name}</span>. Adding them grants
-                  access to this clinic&rsquo;s calendar and to the records of animals it has
-                  treated.
+                  <RichText
+                    text={t("Found {name}. Adding them grants access to this clinic’s calendar and to the records of animals it has treated.")}
+                    values={{ name: <span className="font-semibold">{vetLookup.name}</span> }}
+                  />
                 </p>
 
                 <div className="mt-3">
-                  <Field label="Veterinary licence number">
+                  <Field label={t("Veterinary licence number")}>
                     {({ id, invalid }) => (
                       <Input
                         id={id}
@@ -532,7 +534,7 @@ export function ClinicSetup({
                 <Button
                   className="mt-3"
                   loading={busy === "vet"}
-                  loadingText="Adding…"
+                  loadingText={t("Adding…")}
                   onClick={async () => {
                     const ok = await post(
                       "vet",
@@ -552,7 +554,7 @@ export function ClinicSetup({
                   }}
                 >
                   <UserPlus className="size-4" aria-hidden />
-                  Add {vetLookup.name}
+                  {t("Add {name}", { name: vetLookup.name })}
                 </Button>
               </div>
             )}

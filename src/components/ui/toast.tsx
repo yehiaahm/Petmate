@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { CheckCircle2, AlertTriangle, Info, XCircle, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/components/i18n/i18n-provider";
 
 /**
  * Toasts.
@@ -87,6 +88,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 }
 
 function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: (id: string) => void }) {
+  const { t } = useI18n();
   const { icon: Icon, className } = TONE_STYLES[toast.tone];
 
   useEffect(() => {
@@ -123,7 +125,7 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: (id: string)
         type="button"
         onClick={() => onDismiss(toast.id)}
         className="-m-1 rounded p-1 text-fg-subtle transition-colors hover:text-fg"
-        aria-label="Dismiss notification"
+        aria-label={t("Dismiss notification")}
       >
         <X className="size-4" aria-hidden />
       </button>

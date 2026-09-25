@@ -2,11 +2,11 @@ import Link from "next/link";
 import Image from "next/image";
 import { BadgeCheck, MapPin, ShieldCheck, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/primitives";
-import { formatMoney } from "@/lib/money";
-import { formatAge, formatDistance, cn } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import { SPECIES_LABEL, type Species } from "@/lib/constants";
 import type { ListingCard as ListingCardData } from "@/lib/services/search.service";
 import { FavoriteButton } from "./favorite-button";
+import { getI18n } from "@/lib/i18n/server";
 
 /**
  * The listing card.
@@ -16,7 +16,7 @@ import { FavoriteButton } from "./favorite-button";
  * how well documented the animal's health is, and how far away it is. A
  * classifieds card shows a price; this one shows whether you can trust it.
  */
-export function ListingCard({
+export async function ListingCard({
   listing,
   priority = false,
   showFavorite = true,
@@ -27,19 +27,20 @@ export function ListingCard({
   showFavorite?: boolean;
   className?: string;
 }) {
+  const { t, fmt } = await getI18n();
   const verified =
     listing.pet.verificationLevel === "CLINIC_VERIFIED" ||
     listing.pet.verificationLevel === "DOCUMENTED";
 
   const price =
     listing.intent === "SALE"
-      ? formatMoney(listing.priceCents, listing.currency)
+      ? fmt.money(listing.priceCents, listing.currency)
       : listing.intent === "ADOPTION"
         ? listing.adoptionFeeCents > 0
-          ? `${formatMoney(listing.adoptionFeeCents, listing.currency)} fee`
+          ? `${fmt.money(listing.adoptionFeeCents, listing.currency)} fee`
           : "Free to a good home"
         : listing.studFeeCents > 0
-          ? `${formatMoney(listing.studFeeCents, listing.currency)} stud fee`
+          ? `${fmt.money(listing.studFeeCents, listing.currency)} stud fee`
           : "Terms negotiable";
 
   return (
@@ -54,7 +55,7 @@ export function ListingCard({
           {listing.pet.photo ? (
             <Image
               src={listing.pet.photo.url}
-              alt={listing.pet.photo.alt ?? `${listing.pet.name}, a ${listing.pet.breedName ?? SPECIES_LABEL[listing.pet.species as Species]}`}
+              alt={listing.pet.photo.alt ?? `${listing.pet.name}, a ${listing.pet.breedName ?? t(SPECIES_LABEL[listing.pet.species as Species])}`}
               fill
               sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
               priority={priority}
@@ -62,7 +63,7 @@ export function ListingCard({
             />
           ) : (
             <div className="flex size-full items-center justify-center text-sm text-fg-subtle">
-              No photo
+              {t("No photo")}
             </div>
           )}
         </div>
@@ -70,17 +71,17 @@ export function ListingCard({
         <div className="absolute start-3 top-3 flex flex-wrap gap-1.5">
           {listing.featured && (
             <Badge tone="accent" size="sm" icon={<Sparkles className="size-3" aria-hidden />}>
-              Featured
+              {t("Featured")}
             </Badge>
           )}
           {listing.status === "RESERVED" && (
             <Badge tone="warning" size="sm">
-              Reserved
+              {t("Reserved")}
             </Badge>
           )}
           {verified && (
             <Badge tone="success" size="sm" icon={<BadgeCheck className="size-3" aria-hidden />}>
-              {listing.pet.verificationLevel === "CLINIC_VERIFIED" ? "Vet verified" : "Documented"}
+              {listing.pet.verificationLevel === "CLINIC_VERIFIED" ? t("Vet verified") : t("Documented")}
             </Badge>
           )}
         </div>
@@ -109,11 +110,11 @@ export function ListingCard({
         </div>
 
         <p className="mt-0.5 truncate text-sm text-fg-muted">
-          {listing.pet.breedName ?? SPECIES_LABEL[listing.pet.species as Species]}
+          {listing.pet.breedName ?? t(SPECIES_LABEL[listing.pet.species as Species])}
           {" · "}
-          {listing.pet.sex === "MALE" ? "Male" : listing.pet.sex === "FEMALE" ? "Female" : "Unknown"}
+          {listing.pet.sex === "MALE" ? t("Male") : listing.pet.sex === "FEMALE" ? t("Female") : t("Unknown")}
           {" · "}
-          {formatAge(listing.pet.birthDate)}
+          {fmt.age(listing.pet.birthDate)}
         </p>
 
         <div className="mt-auto space-y-2 pt-3">
@@ -126,13 +127,13 @@ export function ListingCard({
               <MapPin className="size-3 shrink-0" aria-hidden />
               <span className="truncate">
                 {listing.distanceKm != null
-                  ? formatDistance(listing.distanceKm)
-                  : ([listing.city, listing.country].filter(Boolean).join(", ") || "Location not set")}
+                  ? fmt.distance(listing.distanceKm)
+                  : ([listing.city, listing.country].filter(Boolean).join(", ") || t("Location not set"))}
               </span>
             </span>
             <span className="flex shrink-0 items-center gap-1">
               <ShieldCheck className="size-3" aria-hidden />
-              Trust {listing.seller.trustScore}
+              {t("Trust {score}", { score: listing.seller.trustScore })}
             </span>
           </div>
         </div>
@@ -141,7 +142,8 @@ export function ListingCard({
   );
 }
 
-function HealthMeter({ score }: { score: number }) {
+async function HealthMeter({ score }: { score: number }) {
+  const { t } = await getI18n();
   const tone =
     score >= 75
       ? "bg-[var(--success)]"
@@ -163,13 +165,13 @@ function HealthMeter({ score }: { score: number }) {
   return (
     <div>
       <div className="flex items-center justify-between text-[11px] text-fg-subtle">
-        <span>Health record</span>
-        <span className="tabular">{label}</span>
+        <span>{t("Health record")}</span>
+        <span className="tabular">{t(label)}</span>
       </div>
       <div
         className="mt-1 h-1 overflow-hidden rounded-full bg-bg-inset"
         role="img"
-        aria-label={`Health record score ${score} out of 100: ${label}`}
+        aria-label={t("Health record score {score} out of 100: {label}", { score, label })}
       >
         <div className={cn("h-full rounded-full transition-all", tone)} style={{ width: `${Math.max(3, score)}%` }} />
       </div>

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Field, Input, Textarea, Checkbox } from "@/components/ui/field";
 import { Alert, Card, CardHeader } from "@/components/ui/primitives";
 import { api, ApiError } from "@/lib/api-client";
+import { useI18n } from "@/components/i18n/i18n-provider";
 
 export function ClinicRegistration({
   defaultEmail,
@@ -16,6 +17,7 @@ export function ClinicRegistration({
   defaultCity: string | null;
   defaultCountry: string | null;
 }) {
+  const { t } = useI18n();
   const router = useRouter();
 
   const [values, setValues] = useState({
@@ -86,9 +88,9 @@ export function ClinicRegistration({
       )}
 
       <Card>
-        <CardHeader title="The practice" />
+        <CardHeader title={t("The practice")} />
         <div className="space-y-5 p-5">
-          <Field label="Clinic name" required error={fieldError("name")}>
+          <Field label={t("Clinic name")} required error={fieldError("name")}>
             {({ id, invalid }) => (
               <Input
                 id={id}
@@ -97,14 +99,14 @@ export function ClinicRegistration({
                 maxLength={120}
                 value={values.name}
                 onChange={(e) => set("name", e.target.value)}
-                placeholder="Maadi Veterinary Centre"
+                placeholder={t("Maadi Veterinary Centre")}
               />
             )}
           </Field>
 
           <Field
-            label="Veterinary registration or licence number"
-            hint="We verify this against the register before the clinic goes live."
+            label={t("Veterinary registration or licence number")}
+            hint={t("We verify this against the register before the clinic goes live.")}
             error={fieldError("licenseNumber")}
           >
             {({ id, invalid }) => (
@@ -119,8 +121,8 @@ export function ClinicRegistration({
           </Field>
 
           <Field
-            label="About the practice"
-            hint="What you do, who your vets are, what you are known for."
+            label={t("About the practice")}
+            hint={t("What you do, who your vets are, what you are known for.")}
             error={fieldError("description")}
           >
             {({ id, invalid }) => (
@@ -138,9 +140,9 @@ export function ClinicRegistration({
       </Card>
 
       <Card>
-        <CardHeader title="Contact" description="Shown publicly on your clinic page." />
+        <CardHeader title={t("Contact")} description={t("Shown publicly on your clinic page.")} />
         <div className="grid gap-5 p-5 sm:grid-cols-2">
-          <Field label="Email" required error={fieldError("email")}>
+          <Field label={t("Email")} required error={fieldError("email")}>
             {({ id, invalid }) => (
               <Input
                 id={id}
@@ -153,7 +155,7 @@ export function ClinicRegistration({
             )}
           </Field>
 
-          <Field label="Phone" error={fieldError("phone")}>
+          <Field label={t("Phone")} error={fieldError("phone")}>
             {({ id, invalid }) => (
               <Input
                 id={id}
@@ -165,7 +167,7 @@ export function ClinicRegistration({
             )}
           </Field>
 
-          <Field label="Website" error={fieldError("website")} className="sm:col-span-2">
+          <Field label={t("Website")} error={fieldError("website")} className="sm:col-span-2">
             {({ id, invalid }) => (
               <Input
                 id={id}
@@ -182,12 +184,12 @@ export function ClinicRegistration({
 
       <Card>
         <CardHeader
-          title="Where you are"
-          description="Owners search by distance, so this needs to be the address they would actually drive to."
+          title={t("Where you are")}
+          description={t("Owners search by distance, so this needs to be the address they would actually drive to.")}
         />
         <div className="grid gap-5 p-5 sm:grid-cols-2">
           <Field
-            label="Street address"
+            label={t("Street address")}
             required
             error={fieldError("addressLine")}
             className="sm:col-span-2"
@@ -205,7 +207,7 @@ export function ClinicRegistration({
             )}
           </Field>
 
-          <Field label="City" required error={fieldError("city")}>
+          <Field label={t("City")} required error={fieldError("city")}>
             {({ id, invalid }) => (
               <Input
                 id={id}
@@ -218,7 +220,7 @@ export function ClinicRegistration({
             )}
           </Field>
 
-          <Field label="Region or governorate" error={fieldError("region")}>
+          <Field label={t("Region or governorate")} error={fieldError("region")}>
             {({ id, invalid }) => (
               <Input
                 id={id}
@@ -230,7 +232,7 @@ export function ClinicRegistration({
             )}
           </Field>
 
-          <Field label="Country" required error={fieldError("country")}>
+          <Field label={t("Country")} required error={fieldError("country")}>
             {({ id, invalid }) => (
               <Input
                 id={id}
@@ -243,7 +245,7 @@ export function ClinicRegistration({
             )}
           </Field>
 
-          <Field label="Postcode" error={fieldError("postalCode")}>
+          <Field label={t("Postcode")} error={fieldError("postalCode")}>
             {({ id, invalid }) => (
               <Input
                 id={id}
@@ -258,22 +260,22 @@ export function ClinicRegistration({
       </Card>
 
       <Card>
-        <CardHeader title="How you work" />
+        <CardHeader title={t("How you work")} />
         <div className="space-y-5 p-5">
           <div className="space-y-3">
             <Checkbox
-              label="Emergency services"
-              hint="You take urgent cases outside normal appointments."
+              label={t("Emergency services")}
+              hint={t("You take urgent cases outside normal appointments.")}
               checked={values.emergencyServices}
               onChange={(e) => set("emergencyServices", e.target.checked)}
             />
             <Checkbox
-              label="Home visits"
+              label={t("Home visits")}
               checked={values.homeVisits}
               onChange={(e) => set("homeVisits", e.target.checked)}
             />
             <Checkbox
-              label="Walk-ins accepted"
+              label={t("Walk-ins accepted")}
               checked={values.acceptsWalkIns}
               onChange={(e) => set("acceptsWalkIns", e.target.checked)}
             />
@@ -281,8 +283,8 @@ export function ClinicRegistration({
 
           <div className="grid gap-5 sm:grid-cols-2">
             <Field
-              label="Booking lead time (hours)"
-              hint="How far ahead a slot must be booked."
+              label={t("Booking lead time (hours)")}
+              hint={t("How far ahead a slot must be booked.")}
               error={fieldError("bookingLeadHours")}
             >
               {({ id, invalid }) => (
@@ -300,8 +302,8 @@ export function ClinicRegistration({
             </Field>
 
             <Field
-              label="Free cancellation window (hours)"
-              hint="Cancelling inside this window may incur a fee."
+              label={t("Free cancellation window (hours)")}
+              hint={t("Cancelling inside this window may incur a fee.")}
               error={fieldError("cancellationHours")}
             >
               {({ id, invalid }) => (
@@ -323,9 +325,7 @@ export function ClinicRegistration({
 
       <Alert tone="info">
         <p>
-          Weekday hours of 9am–5pm are created for you so the calendar is never empty. You can
-          change them, add services and add vets as soon as the clinic exists — you do not have to
-          wait for verification to do the setup.
+          {t("Weekday hours of 9am–5pm are created for you so the calendar is never empty. You can change them, add services and add vets as soon as the clinic exists — you do not have to wait for verification to do the setup.")}
         </p>
       </Alert>
 
@@ -334,10 +334,10 @@ export function ClinicRegistration({
           type="submit"
           size="lg"
           loading={submitting}
-          loadingText="Registering…"
+          loadingText={t("Registering…")}
           disabled={!values.name || !values.addressLine || !values.city || !values.country}
         >
-          Register the clinic
+          {t("Register the clinic")}
         </Button>
       </div>
     </form>

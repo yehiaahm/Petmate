@@ -29,20 +29,25 @@ import {
   DataRow,
 } from "@/components/ui/primitives";
 import { ButtonLink } from "@/components/ui/button";
-import { formatMoney, bpsToPercent } from "@/lib/money";
+import { bpsToPercent } from "@/lib/money";
 import { splitTags } from "@/lib/utils";
 import { PLATFORM_CURRENCY } from "@/lib/currency";
+import { getI18n } from "@/lib/i18n/server";
 
-export const metadata: Metadata = {
-  title: "Clinic console",
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return {
+  title: t("Clinic console"),
   robots: { index: false, follow: false },
 };
+}
 
 export default async function ClinicConsolePage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const { t, fmt } = await getI18n();
   const [{ id }, auth] = await Promise.all([params, requireAuth()]);
 
   // Membership check happens here and again inside every service call below.
@@ -128,14 +133,14 @@ export default async function ClinicConsolePage({
   return (
     <div className="container-page max-w-5xl py-8 lg:py-10">
       <PageHeader
-        eyebrow="Clinic console"
+        eyebrow={t("Clinic console")}
         title={clinic.name}
         description={[clinic.city, clinic.country].filter(Boolean).join(", ") || undefined}
         action={
           <div className="flex flex-wrap gap-2">
             <ButtonLink href={`/clinics/${clinic.slug}`} variant="outline" size="sm">
               <ExternalLink className="size-4" aria-hidden />
-              Public page
+              {t("Public page")}
             </ButtonLink>
           </div>
         }
@@ -145,13 +150,11 @@ export default async function ClinicConsolePage({
         <Alert
           tone="warning"
           className="mt-6"
-          title="Awaiting licence verification"
+          title={t("Awaiting licence verification")}
           icon={<Clock className="size-4" aria-hidden />}
         >
           <p className="mt-1">
-            A person is checking your registration number. Until it clears, the clinic does not
-            appear in search and cannot take bookings — but you can add services, vets and hours
-            now so the calendar is ready.
+            {t("A person is checking your registration number. Until it clears, the clinic does not appear in search and cannot take bookings — but you can add services, vets and hours now so the calendar is ready.")}
           </p>
         </Alert>
       )}
@@ -160,54 +163,55 @@ export default async function ClinicConsolePage({
         <Alert
           tone="danger"
           className="mt-6"
-          title="Suspended"
+          title={t("Suspended")}
           icon={<AlertTriangle className="size-4" aria-hidden />}
         >
           <p className="mt-1">
-            New bookings are blocked. Appointments already on the calendar stand and must still be
-            honoured. Contact support to appeal.
+            {t("New bookings are blocked. Appointments already on the calendar stand and must still be honoured. Contact support to appeal.")}
           </p>
         </Alert>
       )}
 
       {toComplete.length > 0 && (
-        <Alert tone="info" className="mt-4" title="Appointments waiting to be closed">
+        <Alert tone="info" className="mt-4" title={t("Appointments waiting to be closed")}>
           <p className="mt-1">
-            {toComplete.length} appointment{toComplete.length === 1 ? " has" : "s have"} passed
-            without being marked complete. Completing one is what releases its payment to you and
-            writes the visit onto the animal&rsquo;s record.
+            {t.plural(toComplete.length, {
+              one: "{count} appointment has passed without being marked complete.",
+              other: "{count} appointments have passed without being marked complete.",
+            })}{" "}
+            {t("Completing one is what releases its payment to you and writes the visit onto the animal’s record.")}
           </p>
         </Alert>
       )}
 
       <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Stat
-          label="Upcoming"
+          label={t("Upcoming")}
           value={String(upcoming.length)}
-          hint="Next 7 days and beyond"
+          hint={t("Next 7 days and beyond")}
           icon={<CalendarDays className="size-4" aria-hidden />}
         />
         <Stat
-          label="Completed (30d)"
+          label={t("Completed (30d)")}
           value={String(analytics.appointments.completed)}
-          hint={`${analytics.appointments.noShowRate}% no-show`}
+          hint={t("{noShowRate}% no-show", { noShowRate: analytics.appointments.noShowRate })}
           icon={<Stethoscope className="size-4" aria-hidden />}
         />
         <Stat
-          label="Net earned (30d)"
-          value={formatMoney(analytics.revenue.netCents, PLATFORM_CURRENCY)}
-          hint={`after ${formatMoney(analytics.revenue.commissionCents, PLATFORM_CURRENCY)} commission`}
+          label={t("Net earned (30d)")}
+          value={fmt.money(analytics.revenue.netCents, PLATFORM_CURRENCY)}
+          hint={t("after {amount} commission", { amount: fmt.money(analytics.revenue.commissionCents, PLATFORM_CURRENCY) })}
           icon={<Wallet className="size-4" aria-hidden />}
         />
         <Stat
-          label="Rating"
+          label={t("Rating")}
           value={
             analytics.rating.count > 0 ? `${analytics.rating.average.toFixed(1)} / 5` : "—"
           }
           hint={
             analytics.rating.count > 0
-              ? `${analytics.rating.count} reviews`
-              : "No reviews yet"
+              ? t.plural(analytics.rating.count, { one: "{count} review", other: "{count} reviews" })
+              : t("No reviews yet")
           }
           icon={<Star className="size-4" aria-hidden />}
         />
@@ -216,8 +220,8 @@ export default async function ClinicConsolePage({
       <div className="mt-6 grid gap-5 lg:grid-cols-[1fr_300px] lg:items-start">
         <Card>
           <CardHeader
-            title="Schedule"
-            description="The last seven days and everything ahead. Completing an appointment releases its payment and lets you write the visit onto the pet's record."
+            title={t("Schedule")}
+            description={t("The last seven days and everything ahead. Completing an appointment releases its payment and lets you write the visit onto the pet's record.")}
           />
           <div className="p-5">
             <ClinicSchedule
@@ -247,24 +251,24 @@ export default async function ClinicConsolePage({
 
         <aside className="space-y-5">
           <Card>
-            <CardHeader title="Your terms" />
+            <CardHeader title={t("Your terms")} />
             <div className="p-5">
               <dl>
-                <DataRow label="Commission" value={bpsToPercent(commissionBps)} />
+                <DataRow label={t("Commission")} value={bpsToPercent(commissionBps)} />
                 <DataRow
-                  label="Booking lead time"
+                  label={t("Booking lead time")}
                   value={`${clinic.bookingLeadHours} hours`}
                 />
                 <DataRow
-                  label="Free cancellation"
+                  label={t("Free cancellation")}
                   value={`${clinic.cancellationHours} hours before`}
                 />
-                <DataRow label="Vets" value={clinic._count.vets} />
-                <DataRow label="Services" value={clinic._count.services} />
+                <DataRow label={t("Vets")} value={clinic._count.vets} />
+                <DataRow label={t("Services")} value={clinic._count.services} />
               </dl>
               {clinic.commissionBps !== null && (
                 <Badge tone="brand" size="sm" className="mt-3">
-                  negotiated rate
+                  {t("negotiated rate")}
                 </Badge>
               )}
             </div>
@@ -272,25 +276,25 @@ export default async function ClinicConsolePage({
 
           {earnings && (
             <Card>
-              <CardHeader title="Balance" />
+              <CardHeader title={t("Balance")} />
               <div className="p-5">
                 <dl>
                   <DataRow
-                    label="Available"
-                    value={formatMoney(earnings.availableCents, earnings.currency)}
+                    label={t("Available")}
+                    value={fmt.money(earnings.availableCents, earnings.currency)}
                   />
                   <DataRow
-                    label="Pending"
-                    value={formatMoney(earnings.pendingCents, earnings.currency)}
+                    label={t("Pending")}
+                    value={fmt.money(earnings.pendingCents, earnings.currency)}
                   />
                   <DataRow
-                    label="Lifetime"
-                    value={formatMoney(earnings.lifetimeCents, earnings.currency)}
+                    label={t("Lifetime")}
+                    value={fmt.money(earnings.lifetimeCents, earnings.currency)}
                   />
                 </dl>
                 <div className="mt-4">
                   <ButtonLink href="/dashboard/wallet" variant="outline" size="sm" fullWidth>
-                    Withdraw
+                    {t("Withdraw")}
                   </ButtonLink>
                 </div>
               </div>
@@ -299,7 +303,7 @@ export default async function ClinicConsolePage({
 
           {analytics.services.length > 0 && (
             <Card>
-              <CardHeader title="Top services (30d)" />
+              <CardHeader title={t("Top services (30d)")} />
               <div className="p-5">
                 <ul className="space-y-2.5">
                   {analytics.services.slice(0, 6).map((service) => (
@@ -310,10 +314,10 @@ export default async function ClinicConsolePage({
                       <span className="min-w-0 truncate text-fg-muted">{service.name}</span>
                       <span className="shrink-0 text-end">
                         <span className="block font-medium tabular text-fg">
-                          {formatMoney(service.revenueCents, PLATFORM_CURRENCY)}
+                          {fmt.money(service.revenueCents, PLATFORM_CURRENCY)}
                         </span>
                         <span className="block text-xs text-fg-subtle tabular">
-                          {service.count} visits
+                          {t.plural(service.count, { one: "{count} visit", other: "{count} visits" })}
                         </span>
                       </span>
                     </li>
@@ -324,9 +328,9 @@ export default async function ClinicConsolePage({
           )}
 
           <p className="text-xs leading-relaxed text-fg-subtle">
-            Something not covered here?{" "}
+            {t("Something not covered here?")}{" "}
             <Link href="/support?topic=CLINIC" className="font-medium text-brand hover:underline">
-              Ask support
+              {t("Ask support")}
             </Link>
             .
           </p>
@@ -334,9 +338,9 @@ export default async function ClinicConsolePage({
       </div>
 
       <section className="mt-10">
-        <h2 className="font-display text-xl font-semibold text-fg">Setup</h2>
+        <h2 className="font-display text-xl font-semibold text-fg">{t("Setup")}</h2>
         <p className="mt-1 text-sm text-fg-muted">
-          Services, hours and vets. Changes take effect on the booking calendar immediately.
+          {t("Services, hours and vets. Changes take effect on the booking calendar immediately.")}
         </p>
         <div className="mt-4">
           <ClinicSetup

@@ -19,7 +19,8 @@ import { Card, Badge, Avatar, EmptyState, DataRow } from "@/components/ui/primit
 import { Field, Textarea } from "@/components/ui/field";
 import { useToast } from "@/components/ui/toast";
 import { api, ApiError } from "@/lib/api-client";
-import { formatDate, relativeTime, cn } from "@/lib/utils";
+import { cn } from "@/lib/utils";
+import { useI18n } from "@/components/i18n/i18n-provider";
 
 export interface ReviewApplication {
   id: string;
@@ -68,6 +69,7 @@ export function ApplicationReview({
   applications: ReviewApplication[];
   petName: string;
 }) {
+  const { t, fmt } = useI18n();
   const router = useRouter();
   const toast = useToast();
 
@@ -99,7 +101,7 @@ export function ApplicationReview({
       router.refresh();
     } catch (err) {
       toast.error(
-        "That did not go through",
+        t("That did not go through"),
         err instanceof ApiError ? err.message : "Please try again.",
       );
     } finally {
@@ -111,8 +113,8 @@ export function ApplicationReview({
     return (
       <EmptyState
         icon={<Inbox className="size-5" aria-hidden />}
-        title="No applications yet"
-        description="Applications appear here as they arrive, already scored against the answers given. Nothing is auto-rejected."
+        title={t("No applications yet")}
+        description={t("Applications appear here as they arrive, already scored against the answers given. Nothing is auto-rejected.")}
       />
     );
   }
@@ -149,20 +151,20 @@ export function ApplicationReview({
                       {application.applicant.emailVerified && (
                         <BadgeCheck
                           className="size-3.5 text-[var(--success)]"
-                          aria-label="Email confirmed"
+                          aria-label={t("Email confirmed")}
                         />
                       )}
                     </div>
                     <p className="mt-0.5 text-xs text-fg-subtle">
                       {[application.applicant.city, application.applicant.country]
                         .filter(Boolean)
-                        .join(", ") || "Location not given"}{" "}
-                      · trust {application.applicant.trustScore} ·{" "}
-                      {application.applicant.petCount} pets on PetMate · member since{" "}
-                      {formatDate(application.applicant.memberSince)}
+                        .join(", ") || t("Location not given")}{" "}
+                      · {t("trust {score}", { score: application.applicant.trustScore })} ·{" "}
+                      {t.plural(application.applicant.petCount, { one: "{count} pet on PetMate", other: "{count} pets on PetMate" })} ·{" "}
+                      {t("member since {date}", { date: fmt.date(application.applicant.memberSince) })}
                     </p>
                     <p className="mt-0.5 text-xs text-fg-subtle">
-                      Applied {relativeTime(new Date(application.createdAt))}
+                      {t("Applied {when}", { when: fmt.relative(new Date(application.createdAt)) })}
                     </p>
                   </div>
                 </div>
@@ -180,7 +182,7 @@ export function ApplicationReview({
                   >
                     {application.score}
                   </p>
-                  <p className="text-xs text-fg-subtle">fit score</p>
+                  <p className="text-xs text-fg-subtle">{t("fit score")}</p>
                 </div>
               </div>
 
@@ -194,7 +196,7 @@ export function ApplicationReview({
                         ) : (
                           <ThumbsDown className="me-1 size-3" aria-hidden />
                         )}
-                        {reason.label}
+                        {t(reason.label)}
                       </Badge>
                     </li>
                   ))}
@@ -206,13 +208,13 @@ export function ApplicationReview({
                   label={
                     <span className="flex items-center gap-1.5">
                       <Home className="size-3.5" aria-hidden />
-                      Home
+                      {t("Home")}
                     </span>
                   }
                   value={
                     <>
                       {application.homeType?.toLowerCase() ?? "—"}
-                      {application.hasYard ? " · has a yard" : ""}
+                      {application.hasYard ? ` · ${t("has a yard")}` : ""}
                     </>
                   }
                 />
@@ -220,7 +222,7 @@ export function ApplicationReview({
                   label={
                     <span className="flex items-center gap-1.5">
                       <Clock className="size-3.5" aria-hidden />
-                      Alone each day
+                      {t("Alone each day")}
                     </span>
                   }
                   value={
@@ -233,7 +235,7 @@ export function ApplicationReview({
                   label={
                     <span className="flex items-center gap-1.5">
                       <PawPrint className="size-3.5" aria-hidden />
-                      Other pets
+                      {t("Other pets")}
                     </span>
                   }
                   value={application.hasOtherPets ? (application.otherPetsInfo ?? "Yes") : "None"}
@@ -242,13 +244,13 @@ export function ApplicationReview({
                   label={
                     <span className="flex items-center gap-1.5">
                       <Users className="size-3.5" aria-hidden />
-                      Children
+                      {t("Children")}
                     </span>
                   }
                   value={application.hasChildren ? (application.childrenAges ?? "Yes") : "None"}
                 />
                 <DataRow
-                  label="Experience"
+                  label={t("Experience")}
                   value={application.experienceLevel?.replaceAll("_", " ").toLowerCase() ?? "—"}
                 />
               </dl>
@@ -256,7 +258,7 @@ export function ApplicationReview({
               {application.motivation && (
                 <div className="mt-4">
                   <p className="text-xs font-semibold uppercase tracking-wider text-fg-subtle">
-                    Why they want {petName}
+                    {t("Why they want {name}", { name: petName })}
                   </p>
                   <p className="mt-1.5 whitespace-pre-wrap text-sm leading-relaxed text-fg-muted">
                     {application.motivation}
@@ -267,7 +269,7 @@ export function ApplicationReview({
               {application.previousPets && (
                 <div className="mt-3">
                   <p className="text-xs font-semibold uppercase tracking-wider text-fg-subtle">
-                    Previous pets
+                    {t("Previous pets")}
                   </p>
                   <p className="mt-1.5 whitespace-pre-wrap text-sm leading-relaxed text-fg-muted">
                     {application.previousPets}
@@ -277,7 +279,7 @@ export function ApplicationReview({
 
               {application.decisionNote && (
                 <p className="mt-4 rounded-[var(--radius-field)] bg-bg-sunken px-3.5 py-2.5 text-sm leading-relaxed text-fg-muted">
-                  <span className="font-medium text-fg">Your note: </span>
+                  <span className="font-medium text-fg">{t("Your note:")} </span>
                   {application.decisionNote}
                 </p>
               )}
@@ -290,14 +292,14 @@ export function ApplicationReview({
                     variant="outline"
                   >
                     <MessageSquare className="size-4" aria-hidden />
-                    Message
+                    {t("Message")}
                   </ButtonLink>
                 )}
 
                 {!decided && !open && (
                   <>
                     <Button size="sm" onClick={() => setDeciding(application.id)}>
-                      Decide
+                      {t("Decide")}
                     </Button>
                     {application.status === "SUBMITTED" && (
                       <Button
@@ -306,7 +308,7 @@ export function ApplicationReview({
                         loading={busy === `IN_REVIEW:${application.id}`}
                         onClick={() => decide(application.id, "IN_REVIEW")}
                       >
-                        Mark as reading
+                        {t("Mark as reading")}
                       </Button>
                     )}
                   </>
@@ -316,8 +318,8 @@ export function ApplicationReview({
               {open && (
                 <div className="mt-4 space-y-3 border-t border-[var(--border)] pt-4">
                   <Field
-                    label="Note to the applicant"
-                    hint="They see this. A real reason is worth writing — people apply to several and a template teaches them nothing."
+                    label={t("Note to the applicant")}
+                    hint={t("They see this. A real reason is worth writing — people apply to several and a template teaches them nothing.")}
                   >
                     {({ id, invalid }) => (
                       <Textarea
@@ -337,7 +339,7 @@ export function ApplicationReview({
                       loading={busy === `APPROVED:${application.id}`}
                       onClick={() => decide(application.id, "APPROVED")}
                     >
-                      Approve
+                      {t("Approve")}
                     </Button>
                     <Button
                       size="sm"
@@ -345,10 +347,10 @@ export function ApplicationReview({
                       loading={busy === `REJECTED:${application.id}`}
                       onClick={() => decide(application.id, "REJECTED")}
                     >
-                      Decline
+                      {t("Decline")}
                     </Button>
                     <Button size="sm" variant="ghost" onClick={() => setDeciding(null)}>
-                      Cancel
+                      {t("Cancel")}
                     </Button>
                   </div>
                 </div>

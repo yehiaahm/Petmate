@@ -6,17 +6,22 @@ import { listApplicationsForListing } from "@/lib/services/adoption.service";
 import { isAppError } from "@/lib/errors";
 import { ApplicationReview } from "@/components/adoption/application-review";
 import { Breadcrumbs, PageHeader } from "@/components/ui/primitives";
+import { getI18n } from "@/lib/i18n/server";
 
-export const metadata: Metadata = {
-  title: "Applications",
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return {
+  title: t("Applications"),
   robots: { index: false, follow: false },
 };
+}
 
 export default async function ListingApplicationsPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const { t } = await getI18n();
   const [{ id }, auth] = await Promise.all([params, requireAuth()]);
 
   const listing = await db.listing.findFirst({
@@ -51,8 +56,8 @@ export default async function ListingApplicationsPage({
       />
 
       <PageHeader
-        title={`Applications for ${listing.pet.name}`}
-        description="Ranked by a deterministic fit score against the answers each applicant gave. The score is a starting point — the reasons below it are the part worth reading."
+        title={t("Applications for {name}", { name: listing.pet.name })}
+        description={t("Ranked by a deterministic fit score against the answers each applicant gave. The score is a starting point — the reasons below it are the part worth reading.")}
       />
 
       <div className="mt-6">

@@ -10,9 +10,10 @@ import { Field, Input, Textarea, Checkbox, SegmentedControl } from "@/components
 import { Card, Alert, Badge } from "@/components/ui/primitives";
 import { useToast } from "@/components/ui/toast";
 import { api, ApiError } from "@/lib/api-client";
-import { formatMoney, parseMoneyToCents } from "@/lib/money";
+import { parseMoneyToCents } from "@/lib/money";
 import { cn } from "@/lib/utils";
-import { LIMITS, type ListingIntent } from "@/lib/constants";
+import { LIMITS, SPECIES_LABEL, type ListingIntent, type Species } from "@/lib/constants";
+import { useI18n } from "@/components/i18n/i18n-provider";
 
 interface PetOption {
   id: string;
@@ -56,6 +57,7 @@ export function ListingForm({
   defaultCity?: string | null;
   defaultCountry?: string | null;
 }) {
+  const { t, fmt } = useI18n();
   const router = useRouter();
   const toast = useToast();
 
@@ -92,7 +94,7 @@ export function ListingForm({
 
   async function runCheck() {
     if (!pet || description.trim().length < 20) {
-      toast.info("Write a bit more first", "The coach needs something to look at.");
+      toast.info(t("Write a bit more first"), t("The coach needs something to look at."));
       return;
     }
 
@@ -116,7 +118,7 @@ export function ListingForm({
       setFeedbackNote(result.note ?? null);
     } catch (err) {
       toast.error(
-        "Could not check the listing",
+        t("Could not check the listing"),
         err instanceof ApiError ? err.message : "Please try again.",
       );
     } finally {
@@ -179,13 +181,13 @@ export function ListingForm({
   return (
     <form onSubmit={(e) => e.preventDefault()} className="space-y-6" noValidate>
       {error && (
-        <Alert tone="danger" title="Could not create the listing">
+        <Alert tone="danger" title={t("Could not create the listing")}>
           {error}
         </Alert>
       )}
 
       <Card className="p-5">
-        <h2 className="font-display text-lg font-semibold text-fg">Which pet?</h2>
+        <h2 className="font-display text-lg font-semibold text-fg">{t("Which pet?")}</h2>
 
         <ul className="mt-4 grid gap-2 sm:grid-cols-2">
           {pets.map((option) => (
@@ -223,9 +225,9 @@ export function ListingForm({
         {pet && pet.photoCount === 0 && (
           <div className="mt-3">
             <Alert tone="warning">
-              {pet.name} has no photos. A listing cannot be published without at least one.{" "}
+              {t("{name} has no photos. A listing cannot be published without at least one.", { name: pet.name })}{" "}
               <Link href={`/dashboard/pets/${pet.id}/edit`} className="font-semibold underline">
-                Add photos
+                {t("Add photos")}
               </Link>
             </Alert>
           </div>
@@ -234,10 +236,9 @@ export function ListingForm({
         {pet && pet.healthRecordCount === 0 && pet.photoCount > 0 && (
           <div className="mt-3">
             <Alert tone="info">
-              {pet.name} has no health records. Listings with them get noticeably more genuine
-              enquiries.{" "}
+              {t("{name} has no health records. Listings with them get noticeably more genuine enquiries.", { name: pet.name })}{" "}
               <Link href={`/dashboard/pets/${pet.id}/health`} className="font-semibold underline">
-                Add records
+                {t("Add records")}
               </Link>
             </Alert>
           </div>
@@ -245,11 +246,11 @@ export function ListingForm({
       </Card>
 
       <Card className="p-5">
-        <h2 className="font-display text-lg font-semibold text-fg">What are you offering?</h2>
+        <h2 className="font-display text-lg font-semibold text-fg">{t("What are you offering?")}</h2>
 
         <div className="mt-4 space-y-4">
           <SegmentedControl
-            label="Listing type"
+            label={t("Listing type")}
             value={intent}
             onChange={(v) => setIntent(v as ListingIntent)}
             options={[
@@ -260,9 +261,9 @@ export function ListingForm({
           />
 
           <Field
-            label="Title"
+            label={t("Title")}
             required
-            hint="Say what it is plainly. Buyers scan these."
+            hint={t("Say what it is plainly. Buyers scan these.")}
             error={fieldErrors.title}
             trailing={`${title.length}/${LIMITS.titleMax}`}
           >
@@ -275,8 +276,11 @@ export function ListingForm({
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder={
                   pet
-                    ? `${pet.name} — ${pet.breedName ?? pet.species.toLowerCase()} ${pet.sex === "FEMALE" ? "girl" : "boy"}, ready now`
-                    : "A clear, specific title"
+                    ? t(pet.sex === "FEMALE" ? "{name} — {breed} girl, ready now" : "{name} — {breed} boy, ready now", {
+                        name: pet.name,
+                        breed: pet.breedName ?? t(SPECIES_LABEL[pet.species as Species] ?? pet.species).toLowerCase(),
+                      })
+                    : t("A clear, specific title")
                 }
               />
             )}
@@ -285,14 +289,14 @@ export function ListingForm({
           <div className="grid gap-4 sm:grid-cols-2">
             <Field
               label={
-                intent === "SALE" ? "Price" : intent === "ADOPTION" ? "Adoption fee" : "Stud fee"
+                intent === "SALE" ? t("Price") : intent === "ADOPTION" ? t("Adoption fee") : t("Stud fee")
               }
               required={intent === "SALE"}
               hint={
                 intent === "ADOPTION"
-                  ? "Leave blank for free to a good home."
+                  ? t("Leave blank for free to a good home.")
                   : intent === "BREEDING"
-                    ? "Leave blank if terms are negotiable."
+                    ? t("Leave blank if terms are negotiable.")
                     : undefined
               }
               error={fieldErrors.priceCents}
@@ -312,7 +316,7 @@ export function ListingForm({
 
             <div className="flex items-end pb-2.5">
               <Checkbox
-                label="Open to offers"
+                label={t("Open to offers")}
                 checked={negotiable}
                 onChange={(e) => setNegotiable(e.target.checked)}
               />
@@ -321,19 +325,19 @@ export function ListingForm({
 
           {needsReview && (
             <Alert tone="info" icon={<Info className="size-4" aria-hidden />}>
-              Listings above {formatMoney(manualReviewPriceCents, currency)} go to manual review
-              before they appear. That protects buyers at this price point, and it protects you
-              from a dispute later.
+              {t("Listings above {amount} go to manual review before they appear. That protects buyers at this price point, and it protects you from a dispute later.", {
+                amount: fmt.money(manualReviewPriceCents, currency),
+              })}
             </Alert>
           )}
 
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="City">
+            <Field label={t("City")}>
               {({ id }) => (
                 <Input id={id} maxLength={80} value={city} onChange={(e) => setCity(e.target.value)} />
               )}
             </Field>
-            <Field label="Country">
+            <Field label={t("Country")}>
               {({ id }) => (
                 <Input
                   id={id}
@@ -350,9 +354,9 @@ export function ListingForm({
       <Card className="p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h2 className="font-display text-lg font-semibold text-fg">Description</h2>
+            <h2 className="font-display text-lg font-semibold text-fg">{t("Description")}</h2>
             <p className="mt-1 text-sm text-fg-muted">
-              Temperament, routine, health, and why you are rehoming.
+              {t("Temperament, routine, health, and why you are rehoming.")}
             </p>
           </div>
           <Button
@@ -361,16 +365,16 @@ export function ListingForm({
             size="sm"
             onClick={() => void runCheck()}
             loading={checking}
-            loadingText="Checking…"
+            loadingText={t("Checking…")}
           >
             <Sparkles className="size-4" aria-hidden />
-            Check my listing
+            {t("Check my listing")}
           </Button>
         </div>
 
         <div className="mt-4">
           <Field
-            label="About this pet"
+            label={t("About this pet")}
             required
             error={fieldErrors.description}
             trailing={`${description.length}/${LIMITS.descriptionMax}`}
@@ -383,7 +387,7 @@ export function ListingForm({
                 maxLength={LIMITS.descriptionMax}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder={`${pet?.name ?? "She"} has been raised in the house with two children and a cat, is used to the vacuum and the doorbell, and is handled all over without fuss. Toilet training is well underway and she sleeps through the night in her crate.\n\nShe has had her first two vaccinations, is microchipped and wormed to date. I am rehoming because my circumstances changed, and I would like her to go somewhere with time for training.\n\nVisits welcome before you decide.`}
+                placeholder={t("{name} has been raised in the house with two children and a cat, is used to the vacuum and the doorbell, and is handled all over without fuss. Toilet training is well underway and she sleeps through the night in her crate.\n\nShe has had her first two vaccinations, is microchipped and wormed to date. I am rehoming because my circumstances changed, and I would like her to go somewhere with time for training.\n\nVisits welcome before you decide.", { name: pet?.name ?? t("She") })}
               />
             )}
           </Field>
@@ -393,12 +397,12 @@ export function ListingForm({
           <div className="mt-4 rounded-[var(--radius-card)] border border-[var(--border)] bg-bg-sunken p-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h3 className="flex items-center gap-2 text-sm font-semibold text-fg">
-                Listing quality
+                {t("Listing quality")}
                 <span className="tabular text-fg-muted">{feedback.score}/100</span>
               </h3>
               {/* Always state which engine produced this. */}
               <Badge tone={feedbackSource === "ai" ? "brand" : "neutral"} size="sm">
-                {feedbackSource === "ai" ? "AI review" : "Rule checks"}
+                {feedbackSource === "ai" ? t("AI review") : t("Rule checks")}
               </Badge>
             </div>
 
@@ -445,7 +449,7 @@ export function ListingForm({
 
             {feedback.suggestedTitle && feedback.suggestedTitle !== title && (
               <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-[var(--border)] pt-3">
-                <span className="text-xs text-fg-muted">Suggested title:</span>
+                <span className="text-xs text-fg-muted">{t("Suggested title:")}</span>
                 <span className="text-sm font-medium text-fg">{feedback.suggestedTitle}</span>
                 <Button
                   type="button"
@@ -453,7 +457,7 @@ export function ListingForm({
                   size="sm"
                   onClick={() => setTitle(feedback.suggestedTitle!)}
                 >
-                  Use it
+                  {t("Use it")}
                 </Button>
               </div>
             )}
@@ -463,10 +467,9 @@ export function ListingForm({
 
       {intent === "ADOPTION" && (
         <Card className="p-5">
-          <h2 className="font-display text-lg font-semibold text-fg">Questions for applicants</h2>
+          <h2 className="font-display text-lg font-semibold text-fg">{t("Questions for applicants")}</h2>
           <p className="mt-1 text-sm text-fg-muted">
-            Applicants already answer about their home, hours alone, other pets and experience. Add
-            anything specific to this animal.
+            {t("Applicants already answer about their home, hours alone, other pets and experience. Add anything specific to this animal.")}
           </p>
 
           <div className="mt-4 space-y-2">
@@ -478,14 +481,14 @@ export function ListingForm({
                   onChange={(e) =>
                     setQuestions((q) => q.map((v, i) => (i === index ? e.target.value : v)))
                   }
-                  placeholder="What would make you return an animal to us?"
+                  placeholder={t("What would make you return an animal to us?")}
                 />
                 <Button
                   type="button"
                   variant="ghost"
                   size="icon"
                   onClick={() => setQuestions((q) => q.filter((_, i) => i !== index))}
-                  aria-label="Remove question"
+                  aria-label={t("Remove question")}
                 >
                   ×
                 </Button>
@@ -499,7 +502,7 @@ export function ListingForm({
                 size="sm"
                 onClick={() => setQuestions((q) => [...q, ""])}
               >
-                Add a question
+                {t("Add a question")}
               </Button>
             )}
           </div>
@@ -507,7 +510,7 @@ export function ListingForm({
       )}
 
       {blockingIssues.length > 0 && (
-        <Alert tone="warning" title="Fix these before publishing">
+        <Alert tone="warning" title={t("Fix these before publishing")}>
           <ul className="mt-1 list-disc space-y-0.5 ps-4">
             {blockingIssues.map((issue, i) => (
               <li key={i}>{issue.issue.replace("[required] ", "")}</li>
@@ -523,14 +526,14 @@ export function ListingForm({
           onClick={() => void submit(false)}
           disabled={submitting || !petId || title.trim().length < 10}
         >
-          Save as draft
+          {t("Save as draft")}
         </Button>
         <Button
           type="button"
           size="lg"
           onClick={() => void submit(true)}
           loading={submitting}
-          loadingText="Publishing…"
+          loadingText={t("Publishing…")}
           disabled={
             disabled ||
             !petId ||
@@ -540,7 +543,7 @@ export function ListingForm({
             (intent === "SALE" && priceCents < 100)
           }
         >
-          {needsReview ? "Submit for review" : "Publish listing"}
+          {needsReview ? t("Submit for review") : t("Publish listing")}
         </Button>
       </div>
     </form>

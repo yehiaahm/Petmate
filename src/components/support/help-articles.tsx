@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { Search, ChevronDown } from "lucide-react";
 import { Input } from "@/components/ui/field";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/components/i18n/i18n-provider";
 
 export interface HelpArticle {
   id: string;
@@ -20,6 +21,7 @@ export interface HelpArticle {
  * substring match over a round trip.
  */
 export function HelpArticles({ articles }: { articles: HelpArticle[] }) {
+  const { t } = useI18n();
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<string | null>(null);
   const [open, setOpen] = useState<string | null>(null);
@@ -50,13 +52,13 @@ export function HelpArticles({ articles }: { articles: HelpArticle[] }) {
           type="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search help — escrow, refund, verification…"
-          aria-label="Search help articles"
+          placeholder={t("Search help — escrow, refund, verification…")}
+          aria-label={t("Search help articles")}
           className="ps-10"
         />
       </div>
 
-      <div className="mt-4 flex flex-wrap gap-2" role="group" aria-label="Filter by category">
+      <div className="mt-4 flex flex-wrap gap-2" role="group" aria-label={t("Filter by category")}>
         <button
           type="button"
           onClick={() => setCategory(null)}
@@ -68,7 +70,7 @@ export function HelpArticles({ articles }: { articles: HelpArticle[] }) {
               : "border-[var(--border)] text-fg-muted hover:border-[var(--border-strong)] hover:text-fg",
           )}
         >
-          All
+          {t("All")}
         </button>
         {categories.map((c) => (
           <button
@@ -89,13 +91,14 @@ export function HelpArticles({ articles }: { articles: HelpArticle[] }) {
       </div>
 
       <p className="mt-4 text-xs text-fg-subtle" role="status" aria-live="polite">
-        {results.length} {results.length === 1 ? "article" : "articles"}
-        {query ? ` matching “${query}”` : ""}
+        {query
+          ? t.plural(results.length, { one: "{count} article matching “{query}”", other: "{count} articles matching “{query}”" }, { query })
+          : t.plural(results.length, { one: "{count} article", other: "{count} articles" })}
       </p>
 
       {results.length === 0 ? (
         <p className="mt-4 rounded-[var(--radius-card)] border border-dashed border-[var(--border-strong)] px-5 py-10 text-center text-sm text-fg-muted">
-          Nothing matches that. Send us a message below and a person will answer.
+          {t("Nothing matches that. Send us a message below and a person will answer.")}
         </p>
       ) : (
         <ul className="mt-4 divide-y divide-[var(--border)] overflow-hidden rounded-[var(--radius-panel)] border border-[var(--border)] bg-bg-elevated">

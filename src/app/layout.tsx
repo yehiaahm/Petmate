@@ -55,14 +55,16 @@ const plexArabic = IBM_Plex_Sans_Arabic({
 
 const appUrl = clientEnv.NEXT_PUBLIC_APP_URL;
 
-export const metadata: Metadata = {
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return {
   metadataBase: new URL(appUrl),
   title: {
-    default: "PetMate — Find, care for and rehome pets with confidence",
+    default: t("PetMate — Find, care for and rehome pets with confidence"),
     template: "%s · PetMate",
   },
   description:
-    "PetMate is where pets get a verified identity. Buy, adopt and find breeding matches from people you can check, keep a lifelong health record, book your vet and shop what your pet needs — in one place.",
+    t("PetMate is where pets get a verified identity. Buy, adopt and find breeding matches from people you can check, keep a lifelong health record, book your vet and shop what your pet needs — in one place."),
   applicationName: "PetMate",
   keywords: [
     "pets for sale",
@@ -95,6 +97,7 @@ export const metadata: Metadata = {
   manifest: "/manifest.webmanifest",
   alternates: { canonical: "/" },
 };
+}
 
 export const viewport: Viewport = {
   width: "device-width",

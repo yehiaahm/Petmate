@@ -19,6 +19,7 @@ import {
   type Species,
   type ListingIntent,
 } from "@/lib/constants";
+import { getI18n } from "@/lib/i18n/server";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
@@ -60,22 +61,26 @@ export async function generateMetadata({
 }: {
   searchParams: SearchParams;
 }): Promise<Metadata> {
-  const params = readParams(await searchParams);
+    const params = readParams(await searchParams);
+  const { t } = await getI18n();
 
   // A filtered view gets its own title and description so the search result
   // describes what the page actually shows.
   const parts: string[] = [];
-  if (params.species.length === 1) parts.push(SPECIES_PLURAL[params.species[0]!]);
-  else parts.push("Pets");
-  if (params.intent) parts.push(LISTING_INTENT_LABEL[params.intent].toLowerCase());
-  if (params.city) parts.push(`in ${params.city}`);
-  if (params.q) parts.push(`matching "${params.q}"`);
+  if (params.species.length === 1) parts.push(t(SPECIES_PLURAL[params.species[0]!]));
+  else parts.push(t("Pets"));
+  if (params.intent) parts.push(t(LISTING_INTENT_LABEL[params.intent]).toLowerCase());
+  if (params.city) parts.push(t("in {city}", { city: params.city }));
+  if (params.q) parts.push(t('matching "{q}"', { q: params.q }));
 
   const title = parts.join(" ");
 
   return {
     title,
-    description: `Browse ${title.toLowerCase()} on PetMate. Every listing shows the pet's health record, who verified it, and the seller's trust score — with escrow protection on every purchase.`,
+    description: t(
+      "Browse {what} on PetMate. Every listing shows the pet's health record, who verified it, and the seller's trust score — with escrow protection on every purchase.",
+      { what: title.toLowerCase() },
+    ),
     alternates: {
       // Filtered permutations are infinite; canonicalise to the base page so
       // search engines index one strong URL instead of thousands of thin ones.
@@ -89,6 +94,7 @@ export async function generateMetadata({
 }
 
 export default async function PetsPage({ searchParams }: { searchParams: SearchParams }) {
+  const { t } = await getI18n();
   const raw = await searchParams;
   const params = readParams(raw);
   const auth = await getAuth();
@@ -120,23 +126,23 @@ export default async function PetsPage({ searchParams }: { searchParams: SearchP
   ]);
 
   const heading = params.intent
-    ? LISTING_INTENT_LABEL[params.intent]
+    ? t(LISTING_INTENT_LABEL[params.intent])
     : params.species.length === 1
-      ? SPECIES_PLURAL[params.species[0]!]
-      : "All pets";
+      ? t(SPECIES_PLURAL[params.species[0]!])
+      : t("All pets");
 
   return (
     <div className="container-page py-8 lg:py-12">
       <PageHeader
-        eyebrow="Marketplace"
+        eyebrow={t("Marketplace")}
         title={heading}
         description={
           params.q ? (
             <>
-              Showing results for <span className="font-medium text-fg">{params.q}</span>
+              {t("Showing results for")} <span className="font-medium text-fg">{params.q}</span>
             </>
           ) : (
-            "Every listing shows the animal's health record and who recorded it, so you can tell a documented pet from a claimed one."
+            t("Every listing shows the animal's health record and who recorded it, so you can tell a documented pet from a claimed one.")
           )
         }
         action={<SaveSearchButton />}
@@ -151,12 +157,12 @@ export default async function PetsPage({ searchParams }: { searchParams: SearchP
           <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
             <p className="text-sm text-fg-muted tabular">
               {results.total === 0
-                ? "No matches"
-                : `${results.total.toLocaleString()} ${results.total === 1 ? "pet" : "pets"}`}
+                ? t("No matches")
+                : t.plural(results.total, { one: "{count} pet", other: "{count} pets" })}
               {results.pages > 1 && (
                 <span className="text-fg-subtle">
                   {" "}
-                  · page {results.page} of {results.pages}
+                  · {t("page {page} of {pages}", { page: results.page, pages: results.pages })}
                 </span>
               )}
             </p>
@@ -183,12 +189,12 @@ export default async function PetsPage({ searchParams }: { searchParams: SearchP
             ) : (
               <EmptyState
                 icon={<PawPrint className="size-6" aria-hidden />}
-                title="No pets match those filters"
-                description="Try widening the distance, removing a filter, or saving this search so we can tell you the moment something matches."
+                title={t("No pets match those filters")}
+                description={t("Try widening the distance, removing a filter, or saving this search so we can tell you the moment something matches.")}
                 action={
                   <div className="flex flex-wrap justify-center gap-3">
                     <ButtonLink href="/pets" variant="outline">
-                      Clear filters
+                      {t("Clear filters")}
                     </ButtonLink>
                     <SaveSearchButton />
                   </div>
@@ -198,8 +204,8 @@ export default async function PetsPage({ searchParams }: { searchParams: SearchP
           </Suspense>
 
           {/* Real internal links, useful to a person and to a crawler. */}
-          <nav aria-label="Related searches" className="mt-14 border-t border-[var(--border)] pt-6">
-            <h2 className="text-sm font-semibold text-fg">Browse by species</h2>
+          <nav aria-label={t("Related searches")} className="mt-14 border-t border-[var(--border)] pt-6">
+            <h2 className="text-sm font-semibold text-fg">{t("Browse by species")}</h2>
             <ul className="mt-3 flex flex-wrap gap-2">
               {SPECIES.map((species) => (
                 <li key={species}>
@@ -207,7 +213,7 @@ export default async function PetsPage({ searchParams }: { searchParams: SearchP
                     href={`/pets?species=${species}${params.intent ? `&intent=${params.intent}` : ""}`}
                     className="inline-block rounded-full border border-[var(--border)] px-3 py-1.5 text-sm text-fg-muted transition-colors hover:border-[var(--border-strong)] hover:text-fg"
                   >
-                    {SPECIES_PLURAL[species]}
+                    {t(SPECIES_PLURAL[species])}
                   </Link>
                 </li>
               ))}

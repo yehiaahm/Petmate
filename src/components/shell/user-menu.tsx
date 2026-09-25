@@ -141,7 +141,7 @@ export function UserMenu({ user }: { user: SessionUser }) {
             >
               {group.label && (
                 <p className="px-4 pb-1 pt-1.5 text-[10px] font-semibold uppercase tracking-wider text-fg-subtle">
-                  {group.label}
+                  {t(group.label)}
                 </p>
               )}
               {group.items.map((item) => (
@@ -153,7 +153,7 @@ export function UserMenu({ user }: { user: SessionUser }) {
                   className="flex items-center gap-3 px-4 py-2 text-sm text-fg-muted transition-colors hover:bg-bg-sunken hover:text-fg"
                 >
                   <item.icon className="size-4 shrink-0" aria-hidden />
-                  {item.label}
+                  {t(item.label)}
                 </Link>
               ))}
             </div>

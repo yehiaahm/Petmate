@@ -20,9 +20,11 @@ import { Modal } from "@/components/ui/modal";
 import { Field, Input, Select, Textarea, Checkbox, SegmentedControl } from "@/components/ui/field";
 import { useToast } from "@/components/ui/toast";
 import { api, ApiError } from "@/lib/api-client";
-import { formatMoney, parseMoneyToCents } from "@/lib/money";
-import { formatAge, relativeTime, cn } from "@/lib/utils";
+import { parseMoneyToCents } from "@/lib/money";
+import { cn } from "@/lib/utils";
 import { BREEDING_FEE_TYPE, BREEDING_FEE_TYPE_LABEL, type BreedingFeeType } from "@/lib/constants";
+import { useI18n } from "@/components/i18n/i18n-provider";
+import { RichText } from "@/components/i18n/rich-text";
 
 interface PetSummary {
   id: string;
@@ -110,6 +112,7 @@ export function BreedingWorkspace({
   advancedMatching: boolean;
   planName: string;
 }) {
+  const { t } = useI18n();
   const [tab, setTab] = useState<"matches" | "requests">(
     requests.some((r) => r.isIncoming && r.status === "PENDING") ? "requests" : "matches",
   );
@@ -119,7 +122,7 @@ export function BreedingWorkspace({
   return (
     <div>
       <SegmentedControl
-        label="Breeding view"
+        label={t("Breeding view")}
         value={tab}
         onChange={(v) => setTab(v as "matches" | "requests")}
         className="max-w-sm"
@@ -153,6 +156,7 @@ function MatchFinder({
   advancedMatching: boolean;
   planName: string;
 }) {
+  const { t, fmt } = useI18n();
   const router = useRouter();
   const toast = useToast();
 
@@ -192,7 +196,7 @@ function MatchFinder({
   return (
     <div className="space-y-6">
       <Card className="p-5">
-        <h2 className="font-display text-lg font-semibold text-fg">Which pet?</h2>
+        <h2 className="font-display text-lg font-semibold text-fg">{t("Which pet?")}</h2>
 
         <ul className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {pets.map((option) => (
@@ -221,16 +225,16 @@ function MatchFinder({
                     {option.name}
                   </span>
                   <span className="block truncate text-xs text-fg-muted">
-                    {option.sex === "MALE" ? "Male" : "Female"} · {formatAge(option.birthDate ? new Date(option.birthDate) : null)}
+                    {option.sex === "MALE" ? t("Male") : t("Female")} · {fmt.age(option.birthDate ? new Date(option.birthDate) : null)}
                   </span>
                 </span>
                 {option.hasProfile ? (
                   <Badge tone="success" size="sm">
-                    Listed
+                    {t("Listed")}
                   </Badge>
                 ) : (
                   <Badge tone="neutral" size="sm">
-                    No profile
+                    {t("No profile")}
                   </Badge>
                 )}
               </button>
@@ -239,25 +243,25 @@ function MatchFinder({
         </ul>
 
         <div className="mt-4 flex flex-wrap gap-2">
-          <Button onClick={() => void findMatches()} loading={searching} loadingText="Scoring matches…">
+          <Button onClick={() => void findMatches()} loading={searching} loadingText={t("Scoring matches…")}>
             <Search className="size-4" aria-hidden />
-            {pet?.hasProfile ? "Find matches" : "Create breeding profile"}
+            {pet?.hasProfile ? t("Find matches") : t("Create breeding profile")}
           </Button>
           {pet?.hasProfile && (
             <Button variant="outline" onClick={() => setProfileOpen(true)}>
               <Settings2 className="size-4" aria-hidden />
-              Edit preferences
+              {t("Edit preferences")}
             </Button>
           )}
         </div>
 
         {!advancedMatching && (
           <p className="mt-3 text-xs text-fg-muted">
-            The {planName} plan searches a limited pool.{" "}
+            {t("The {plan} plan searches a limited pool.", { plan: planName })}{" "}
             <Link href="/pricing" className="font-semibold text-brand hover:underline">
-              Upgrade
+              {t("Upgrade")}
             </Link>{" "}
-            to search every eligible pet.
+            {t("to search every eligible pet.")}
           </p>
         )}
       </Card>
@@ -267,17 +271,17 @@ function MatchFinder({
       {matches !== null && (
         <section>
           <h2 className="mb-3 font-display text-lg font-semibold text-fg">
-            {matches.length} {matches.length === 1 ? "match" : "matches"}
+            {t.plural(matches.length, { one: "{count} match", other: "{count} matches" })}
           </h2>
 
           {matches.length === 0 ? (
             <EmptyState
               icon={<Dna className="size-6" aria-hidden />}
-              title="No eligible matches yet"
-              description="Nothing nearby meets the requirements for this pet. Widening the travel distance in your preferences is usually what unlocks results."
+              title={t("No eligible matches yet")}
+              description={t("Nothing nearby meets the requirements for this pet. Widening the travel distance in your preferences is usually what unlocks results.")}
               action={
                 <Button variant="outline" onClick={() => setProfileOpen(true)}>
-                  Adjust preferences
+                  {t("Adjust preferences")}
                 </Button>
               }
             />
@@ -307,12 +311,12 @@ function MatchFinder({
                             </h3>
                             <p className="text-sm text-fg-muted">
                               {match.pet.breedName ?? match.pet.sex} ·{" "}
-                              {formatAge(match.pet.birthDate ? new Date(match.pet.birthDate) : null)}
+                              {fmt.age(match.pet.birthDate ? new Date(match.pet.birthDate) : null)}
                             </p>
                             <p className="mt-1 flex items-center gap-1 text-xs text-fg-subtle">
                               <MapPin className="size-3" aria-hidden />
                               {[match.pet.city, match.pet.country].filter(Boolean).join(", ") ||
-                                "Location not set"}
+                                t("Location not set")}
                             </p>
                           </div>
 
@@ -329,7 +333,7 @@ function MatchFinder({
                             >
                               {match.compatibility.score}
                             </p>
-                            <p className="text-[11px] text-fg-subtle">compatibility</p>
+                            <p className="text-[11px] text-fg-subtle">{t("compatibility")}</p>
                           </div>
                         </div>
 
@@ -350,18 +354,18 @@ function MatchFinder({
                             {match.owner.name}
                           </Link>
                           <Badge tone="neutral" size="sm">
-                            Trust {match.owner.trustScore}
+                            {t("Trust {score}", { score: match.owner.trustScore })}
                           </Badge>
                           <Badge tone="brand" size="sm">
                             {match.fee.type === "FEE" && match.fee.cents > 0
-                              ? formatMoney(match.fee.cents, match.fee.currency)
-                              : BREEDING_FEE_TYPE_LABEL[match.fee.type as BreedingFeeType]}
+                              ? fmt.money(match.fee.cents, match.fee.currency)
+                              : t(BREEDING_FEE_TYPE_LABEL[match.fee.type as BreedingFeeType])}
                           </Badge>
                         </div>
 
                         <div className="mt-3 flex flex-wrap gap-2">
                           <Button size="sm" onClick={() => setRequestTarget(match)}>
-                            Send request
+                            {t("Send request")}
                           </Button>
                           <Button
                             size="sm"
@@ -378,7 +382,7 @@ function MatchFinder({
                               )}
                               aria-hidden
                             />
-                            Why this score
+                            {t("Why this score")}
                           </Button>
                         </div>
                       </div>
@@ -387,14 +391,16 @@ function MatchFinder({
                     {expanded === match.pet.id && (
                       <div className="border-t border-[var(--border)] bg-bg-sunken p-4">
                         <p className="mb-3 text-xs text-fg-muted">
-                          Engine: <span className="font-mono">{match.compatibility.engine}</span> —
-                          a deterministic rule set, not a learned model.
+                          <RichText
+                            text={t("Engine: {engine} — a deterministic rule set, not a learned model.")}
+                            values={{ engine: <span className="font-mono">{match.compatibility.engine}</span> }}
+                          />
                         </p>
                         <ul className="space-y-2.5">
                           {match.compatibility.factors.map((factor) => (
                             <li key={factor.key}>
                               <div className="flex items-baseline justify-between gap-3 text-sm">
-                                <span className="font-medium text-fg">{factor.label}</span>
+                                <span className="font-medium text-fg">{t(factor.label)}</span>
                                 <span className="shrink-0 tabular text-fg-muted">
                                   {factor.points} / {factor.weight}
                                 </span>
@@ -447,7 +453,7 @@ function MatchFinder({
           match={requestTarget}
           onSent={() => {
             setRequestTarget(null);
-            toast.success("Request sent", "You will be notified when they respond.");
+            toast.success(t("Request sent"), t("You will be notified when they respond."));
             router.refresh();
           }}
         />
@@ -467,6 +473,7 @@ function BreedingProfileModal({
   pet: PetSummary;
   onSaved: () => void;
 }) {
+  const { t } = useI18n();
   const toast = useToast();
 
   const [feeType, setFeeType] = useState<BreedingFeeType>(pet.feeType as BreedingFeeType);
@@ -502,7 +509,7 @@ function BreedingProfileModal({
         },
       });
 
-      toast.success("Breeding profile saved", `${pet.name} is now discoverable.`);
+      toast.success(t("Breeding profile saved"), `${pet.name} is now discoverable.`);
       onSaved();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "We could not save that profile.");
@@ -515,14 +522,14 @@ function BreedingProfileModal({
     <Modal
       open={open}
       onClose={onClose}
-      title={`Breeding preferences for ${pet.name}`}
-      description="These are matched against every candidate. Stricter requirements mean fewer but better matches."
+      title={t("Breeding preferences for {name}", { name: pet.name })}
+      description={t("These are matched against every candidate. Stricter requirements mean fewer but better matches.")}
       size="lg"
     >
       <div className="space-y-4">
         {error && <Alert tone="danger">{error}</Alert>}
 
-        <Field label="Arrangement">
+        <Field label={t("Arrangement")}>
           {({ id }) => (
             <Select
               id={id}
@@ -531,7 +538,7 @@ function BreedingProfileModal({
             >
               {BREEDING_FEE_TYPE.map((type) => (
                 <option key={type} value={type}>
-                  {BREEDING_FEE_TYPE_LABEL[type]}
+                  {t(BREEDING_FEE_TYPE_LABEL[type])}
                 </option>
               ))}
             </Select>
@@ -539,7 +546,7 @@ function BreedingProfileModal({
         </Field>
 
         {feeType === "FEE" && (
-          <Field label="Fee">
+          <Field label={t("Fee")}>
             {({ id }) => (
               <Input
                 id={id}
@@ -554,14 +561,14 @@ function BreedingProfileModal({
         )}
 
         <Field
-          label="Willing to travel"
-          hint="Matches beyond this still appear, but score lower."
+          label={t("Willing to travel")}
+          hint={t("Matches beyond this still appear, but score lower.")}
         >
           {({ id }) => (
             <Select id={id} value={travelKm} onChange={(e) => setTravelKm(e.target.value)}>
               {[25, 50, 100, 200, 500, 1000].map((km) => (
                 <option key={km} value={km}>
-                  Up to {km} km
+                  {t("Up to {km} km", { km })}
                 </option>
               ))}
             </Select>
@@ -569,32 +576,32 @@ function BreedingProfileModal({
         </Field>
 
         <fieldset className="space-y-3">
-          <legend className="mb-1 text-sm font-medium text-fg">Requirements for a partner</legend>
+          <legend className="mb-1 text-sm font-medium text-fg">{t("Requirements for a partner")}</legend>
           <Checkbox
-            label="Health testing"
-            hint="Documents on file for the relevant screening."
+            label={t("Health testing")}
+            hint={t("Documents on file for the relevant screening.")}
             checked={requiresHealthTests}
             onChange={(e) => setRequiresHealthTests(e.target.checked)}
           />
           <Checkbox
-            label="Vaccinations up to date"
+            label={t("Vaccinations up to date")}
             checked={requiresVaccination}
             onChange={(e) => setRequiresVaccination(e.target.checked)}
           />
           <Checkbox
-            label="Registered pedigree"
+            label={t("Registered pedigree")}
             checked={requiresPedigree}
             onChange={(e) => setRequiresPedigree(e.target.checked)}
           />
           <Checkbox
-            label="Open to a different breed"
-            hint="Leave off to match the same breed only."
+            label={t("Open to a different breed")}
+            hint={t("Leave off to match the same breed only.")}
             checked={allowsMixedBreed}
             onChange={(e) => setAllowsMixedBreed(e.target.checked)}
           />
         </fieldset>
 
-        <Field label="Notes for other owners" trailing={`${notes.length}/1500`}>
+        <Field label={t("Notes for other owners")} trailing={`${notes.length}/1500`}>
           {({ id }) => (
             <Textarea
               id={id}
@@ -602,17 +609,17 @@ function BreedingProfileModal({
               maxLength={1500}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="Hip score 4/3, elbows 0, eyes clear. Happy to share full records before anything is agreed."
+              placeholder={t("Hip score 4/3, elbows 0, eyes clear. Happy to share full records before anything is agreed.")}
             />
           )}
         </Field>
 
         <div className="flex justify-end gap-2 pt-1">
           <Button variant="ghost" onClick={onClose}>
-            Cancel
+            {t("Cancel")}
           </Button>
-          <Button onClick={() => void save()} loading={saving} loadingText="Saving…">
-            Save profile
+          <Button onClick={() => void save()} loading={saving} loadingText={t("Saving…")}>
+            {t("Save profile")}
           </Button>
         </div>
       </div>
@@ -633,6 +640,7 @@ function SendRequestModal({
   match: Match;
   onSent: () => void;
 }) {
+  const { t } = useI18n();
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -658,16 +666,16 @@ function SendRequestModal({
     <Modal
       open={open}
       onClose={onClose}
-      title={`Request: ${fromPet.name} × ${match.pet.name}`}
-      description={`Compatibility ${match.compatibility.score}/100. The owner sees the full breakdown too.`}
+      title={t("Request: {name} × {name2}", { name: fromPet.name, name2: match.pet.name })}
+      description={t("Compatibility {score}/100. The owner sees the full breakdown too.", { score: match.compatibility.score })}
     >
       <div className="space-y-4">
         {error && <Alert tone="danger">{error}</Alert>}
 
         <Field
-          label="Your message"
+          label={t("Your message")}
           required
-          hint="Say what you are looking for and what you can share about health testing."
+          hint={t("Say what you are looking for and what you can share about health testing.")}
           trailing={`${message.length}/4000`}
         >
           {({ id }) => (
@@ -677,27 +685,26 @@ function SendRequestModal({
               maxLength={4000}
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              placeholder={`Hello — I have ${fromPet.name}, hip scored and fully vaccinated, and I am looking for a match this season. Happy to share the full health record and to travel. Would you be open to talking?`}
+              placeholder={t("Hello — I have {name}, hip scored and fully vaccinated, and I am looking for a match this season. Happy to share the full health record and to travel. Would you be open to talking?", { name: fromPet.name })}
             />
           )}
         </Field>
 
         <Alert tone="info">
-          Nothing is committed by sending this. Terms are agreed separately and both of you have to
-          accept them before anything is scheduled.
+          {t("Nothing is committed by sending this. Terms are agreed separately and both of you have to accept them before anything is scheduled.")}
         </Alert>
 
         <div className="flex justify-end gap-2">
           <Button variant="ghost" onClick={onClose}>
-            Cancel
+            {t("Cancel")}
           </Button>
           <Button
             onClick={() => void send()}
             loading={sending}
-            loadingText="Sending…"
+            loadingText={t("Sending…")}
             disabled={message.trim().length < 20}
           >
-            Send request
+            {t("Send request")}
           </Button>
         </div>
       </div>
@@ -706,6 +713,7 @@ function SendRequestModal({
 }
 
 function RequestList({ requests }: { requests: RequestSummary[] }) {
+  const { t, fmt } = useI18n();
   const router = useRouter();
   const toast = useToast();
   const [working, setWorking] = useState<string | null>(null);
@@ -718,7 +726,7 @@ function RequestList({ requests }: { requests: RequestSummary[] }) {
       router.refresh();
     } catch (err) {
       toast.error(
-        "That did not work",
+        t("That did not work"),
         err instanceof ApiError ? err.message : "Please try again.",
       );
     } finally {
@@ -739,7 +747,7 @@ function RequestList({ requests }: { requests: RequestSummary[] }) {
       );
       router.refresh();
     } catch (err) {
-      toast.error("That did not work", err instanceof ApiError ? err.message : "Please try again.");
+      toast.error(t("That did not work"), err instanceof ApiError ? err.message : "Please try again.");
     } finally {
       setWorking(null);
     }
@@ -749,8 +757,8 @@ function RequestList({ requests }: { requests: RequestSummary[] }) {
     return (
       <EmptyState
         icon={<Dna className="size-6" aria-hidden />}
-        title="No breeding requests"
-        description="Requests you send and receive appear here, with the compatibility breakdown attached."
+        title={t("No breeding requests")}
+        description={t("Requests you send and receive appear here, with the compatibility breakdown attached.")}
       />
     );
   }
@@ -785,8 +793,8 @@ function RequestList({ requests }: { requests: RequestSummary[] }) {
                       </Link>
                     </p>
                     <p className="truncate text-xs text-fg-muted">
-                      {request.isIncoming ? "From" : "To"} {request.counterparty.name} ·{" "}
-                      {relativeTime(request.createdAt)}
+                      {request.isIncoming ? t("From {name}", { name: request.counterparty.name }) : t("To {name}", { name: request.counterparty.name })} ·{" "}
+                      {fmt.relative(request.createdAt)}
                     </p>
                   </div>
                 </div>
@@ -820,10 +828,10 @@ function RequestList({ requests }: { requests: RequestSummary[] }) {
               {["TERMS_PROPOSED", "AGREED", "SCHEDULED"].includes(request.status) && (
                 <div className="mt-3 flex flex-wrap gap-2 text-xs">
                   <Badge tone={request.iAgreed ? "success" : "neutral"} size="sm">
-                    {request.iAgreed ? "You agreed" : "You have not agreed"}
+                    {request.iAgreed ? t("You agreed") : t("You have not agreed")}
                   </Badge>
                   <Badge tone={request.theyAgreed ? "success" : "neutral"} size="sm">
-                    {request.theyAgreed ? "They agreed" : "They have not agreed"}
+                    {request.theyAgreed ? t("They agreed") : t("They have not agreed")}
                   </Badge>
                 </div>
               )}
@@ -837,7 +845,7 @@ function RequestList({ requests }: { requests: RequestSummary[] }) {
                       loading={working === request.id}
                     >
                       <Check className="size-4" aria-hidden />
-                      Accept
+                      {t("Accept")}
                     </Button>
                     <Button
                       size="sm"
@@ -846,7 +854,7 @@ function RequestList({ requests }: { requests: RequestSummary[] }) {
                       disabled={working === request.id}
                     >
                       <X className="size-4" aria-hidden />
-                      Decline
+                      {t("Decline")}
                     </Button>
                   </>
                 )}
@@ -857,12 +865,12 @@ function RequestList({ requests }: { requests: RequestSummary[] }) {
                     onClick={() => void agree(request.id)}
                     loading={working === request.id}
                   >
-                    Agree to terms
+                    {t("Agree to terms")}
                   </Button>
                 )}
 
                 <ButtonLink href={`/dashboard/breeding/requests/${request.id}`} size="sm" variant="outline">
-                  View details
+                  {t("View details")}
                 </ButtonLink>
 
                 {request.conversationId && (
@@ -872,7 +880,7 @@ function RequestList({ requests }: { requests: RequestSummary[] }) {
                     variant="ghost"
                   >
                     <MessageSquare className="size-4" aria-hidden />
-                    Open conversation
+                    {t("Open conversation")}
                   </ButtonLink>
                 )}
               </div>

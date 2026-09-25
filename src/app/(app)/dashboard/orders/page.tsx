@@ -7,13 +7,15 @@ import { db } from "@/lib/db";
 import { listPurchases, listSales } from "@/lib/services/petorder.service";
 import { PageHeader, Card, Badge, EmptyState, StatusPill } from "@/components/ui/primitives";
 import { ButtonLink } from "@/components/ui/button";
-import { formatMoney } from "@/lib/money";
-import { formatDate, relativeTime } from "@/lib/utils";
+import { getI18n } from "@/lib/i18n/server";
 
-export const metadata: Metadata = {
-  title: "Orders",
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return {
+  title: t("Orders"),
   robots: { index: false, follow: false },
 };
+}
 
 const PET_ORDER_TONE: Record<string, "info" | "warning" | "success" | "danger" | "neutral"> = {
   PENDING_PAYMENT: "warning",
@@ -49,6 +51,7 @@ const PET_ORDER_LABEL: Record<string, string> = {
 };
 
 export default async function OrdersPage() {
+  const { t, fmt } = await getI18n();
   const auth = await requireAuth();
 
   const [purchases, sales, productOrders] = await Promise.all([
@@ -76,13 +79,13 @@ export default async function OrdersPage() {
   if (nothing) {
     return (
       <div className="container-page max-w-4xl py-8 lg:py-10">
-        <PageHeader title="Orders" />
+        <PageHeader title={t("Orders")} />
         <EmptyState
           className="mt-6"
           icon={<ShoppingBag className="size-5" aria-hidden />}
-          title="Nothing here yet"
-          description="Pet purchases, sales and store orders all appear here, with their escrow state and every confirmation that has happened."
-          action={<ButtonLink href="/pets">Browse pets</ButtonLink>}
+          title={t("Nothing here yet")}
+          description={t("Pet purchases, sales and store orders all appear here, with their escrow state and every confirmation that has happened.")}
+          action={<ButtonLink href="/pets">{t("Browse pets")}</ButtonLink>}
         />
       </div>
     );
@@ -91,8 +94,8 @@ export default async function OrdersPage() {
   return (
     <div className="container-page max-w-4xl py-8 lg:py-10">
       <PageHeader
-        title="Orders"
-        description="Everything you have bought or sold, and exactly where the money is."
+        title={t("Orders")}
+        description={t("Everything you have bought or sold, and exactly where the money is.")}
       />
 
       <div className="mt-8 space-y-10">
@@ -100,7 +103,7 @@ export default async function OrdersPage() {
           <section>
             <h2 className="flex items-center gap-2 font-display text-xl font-semibold text-fg">
               <PawPrint className="size-4.5 text-brand" aria-hidden />
-              Pets you bought
+              {t("Pets you bought")}
             </h2>
             <ul className="mt-4 space-y-2">
               {purchases.map((order) => (
@@ -117,18 +120,18 @@ export default async function OrdersPage() {
                         </p>
                         <p className="mt-0.5 text-xs text-fg-subtle">
                           <span className="font-mono">{order.orderNumber}</span> ·{" "}
-                          {formatDate(order.createdAt)}
+                          {fmt.date(order.createdAt)}
                           {order.status === "IN_ESCROW" && order.autoReleaseAt
-                            ? ` · auto-releases ${relativeTime(order.autoReleaseAt)}`
+                            ? ` · ${t("auto-releases {when}", { when: fmt.relative(order.autoReleaseAt) })}`
                             : ""}
                         </p>
                       </div>
                       <div className="shrink-0 text-end">
                         <p className="text-sm font-semibold tabular text-fg">
-                          {formatMoney(order.amountCents, order.currency)}
+                          {fmt.money(order.amountCents, order.currency)}
                         </p>
                         <Badge tone={PET_ORDER_TONE[order.status] ?? "neutral"} size="sm">
-                          {PET_ORDER_LABEL[order.status] ?? order.status}
+                          {t(PET_ORDER_LABEL[order.status] ?? order.status)}
                         </Badge>
                       </div>
                     </Card>
@@ -143,7 +146,7 @@ export default async function OrdersPage() {
           <section>
             <h2 className="flex items-center gap-2 font-display text-xl font-semibold text-fg">
               <PawPrint className="size-4.5 text-accent" aria-hidden />
-              Pets you sold
+              {t("Pets you sold")}
             </h2>
             <ul className="mt-4 space-y-2">
               {sales.map((order) => (
@@ -160,18 +163,18 @@ export default async function OrdersPage() {
                         </p>
                         <p className="mt-0.5 text-xs text-fg-subtle">
                           <span className="font-mono">{order.orderNumber}</span> ·{" "}
-                          {formatDate(order.createdAt)}
+                          {fmt.date(order.createdAt)}
                         </p>
                       </div>
                       <div className="shrink-0 text-end">
                         <p className="text-sm font-semibold tabular text-fg">
-                          {formatMoney(order.sellerPayoutCents, order.currency)}
+                          {fmt.money(order.sellerPayoutCents, order.currency)}
                         </p>
                         <p className="text-xs text-fg-subtle tabular">
-                          of {formatMoney(order.amountCents, order.currency)}
+                          {t("of {total}", { total: fmt.money(order.amountCents, order.currency) })}
                         </p>
                         <Badge tone={PET_ORDER_TONE[order.status] ?? "neutral"} size="sm">
-                          {PET_ORDER_LABEL[order.status] ?? order.status}
+                          {t(PET_ORDER_LABEL[order.status] ?? order.status)}
                         </Badge>
                       </div>
                     </Card>
@@ -186,7 +189,7 @@ export default async function OrdersPage() {
           <section>
             <h2 className="flex items-center gap-2 font-display text-xl font-semibold text-fg">
               <Package className="size-4.5 text-brand" aria-hidden />
-              Store orders
+              {t("Store orders")}
             </h2>
             <ul className="mt-4 space-y-2">
               {productOrders.map((order) => (
@@ -199,13 +202,13 @@ export default async function OrdersPage() {
                     <div className="min-w-0 flex-1">
                       <p className="font-mono text-sm text-fg">{order.orderNumber}</p>
                       <p className="mt-0.5 text-xs text-fg-subtle">
-                        {order._count.items} {order._count.items === 1 ? "item" : "items"} ·{" "}
-                        {formatDate(order.createdAt)}
+                        {t.plural(order._count.items, { one: "{count} item", other: "{count} items" })} ·{" "}
+                        {fmt.date(order.createdAt)}
                       </p>
                     </div>
                     <div className="shrink-0 text-end">
                       <p className="text-sm font-semibold tabular text-fg">
-                        {formatMoney(order.totalCents, order.currency)}
+                        {fmt.money(order.totalCents, order.currency)}
                       </p>
                       <StatusPill tone={ORDER_TONE[order.status] ?? "neutral"}>
                         {order.status.toLowerCase().replaceAll("_", " ")}

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input, Select, Checkbox } from "@/components/ui/field";
 import { Badge } from "@/components/ui/primitives";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/components/i18n/i18n-provider";
 
 interface Category {
   id: string;
@@ -23,6 +24,7 @@ export function StoreFilters({
   categories: Category[];
   resultCount: number;
 }) {
+  const { t } = useI18n();
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
@@ -50,7 +52,7 @@ export function StoreFilters({
   const content = (
     <div className="space-y-5">
       <fieldset>
-        <legend className="mb-2 text-sm font-semibold text-fg">Category</legend>
+        <legend className="mb-2 text-sm font-semibold text-fg">{t("Category")}</legend>
         <ul className="space-y-1">
           <li>
             <button
@@ -61,7 +63,7 @@ export function StoreFilters({
                 !activeCategory ? "bg-brand-soft font-medium text-brand-soft-fg" : "text-fg-muted hover:bg-bg-sunken hover:text-fg",
               )}
             >
-              All categories
+              {t("All categories")}
             </button>
           </li>
           {parents.map((parent) => {
@@ -78,7 +80,7 @@ export function StoreFilters({
                       : "text-fg-muted hover:bg-bg-sunken hover:text-fg",
                   )}
                 >
-                  <span className="truncate">{parent.name}</span>
+                  <span className="truncate">{t(parent.name)}</span>
                   {parent._count.products > 0 && (
                     <span className="shrink-0 text-xs tabular text-fg-subtle">
                       {parent._count.products}
@@ -100,7 +102,7 @@ export function StoreFilters({
                               : "text-fg-muted hover:text-fg",
                           )}
                         >
-                          {child.name}
+                                                    {t(child.name)}
                         </button>
                       </li>
                     ))}
@@ -113,14 +115,14 @@ export function StoreFilters({
       </fieldset>
 
       <fieldset>
-        <legend className="mb-2 text-sm font-semibold text-fg">Price</legend>
+        <legend className="mb-2 text-sm font-semibold text-fg">{t("Price")}</legend>
         <div className="flex items-center gap-2">
           <Input
             type="number"
             inputMode="numeric"
             min={0}
-            placeholder="Min"
-            aria-label="Minimum price"
+            placeholder={t("Min")}
+            aria-label={t("Minimum price")}
             value={minPrice}
             onChange={(e) => setMinPrice(e.target.value)}
             onBlur={() => update({ minPrice: minPrice || null })}
@@ -133,8 +135,8 @@ export function StoreFilters({
             type="number"
             inputMode="numeric"
             min={0}
-            placeholder="Max"
-            aria-label="Maximum price"
+            placeholder={t("Max")}
+            aria-label={t("Maximum price")}
             value={maxPrice}
             onChange={(e) => setMaxPrice(e.target.value)}
             onBlur={() => update({ maxPrice: maxPrice || null })}
@@ -144,29 +146,29 @@ export function StoreFilters({
       </fieldset>
 
       <Checkbox
-        label="In stock only"
+        label={t("In stock only")}
         checked={params.get("inStock") === "true"}
         onChange={(e) => update({ inStock: e.target.checked ? "true" : null })}
       />
 
       <fieldset>
-        <legend className="mb-2 text-sm font-semibold text-fg">Sort by</legend>
+        <legend className="mb-2 text-sm font-semibold text-fg">{t("Sort by")}</legend>
         <Select
           value={params.get("sort") ?? "popular"}
           onChange={(e) => update({ sort: e.target.value })}
-          aria-label="Sort products"
+          aria-label={t("Sort products")}
         >
-          <option value="popular">Most popular</option>
-          <option value="newest">Newest</option>
-          <option value="price_asc">Price: low to high</option>
-          <option value="price_desc">Price: high to low</option>
-          <option value="rating">Highest rated</option>
+          <option value="popular">{t("Most popular")}</option>
+          <option value="newest">{t("Newest")}</option>
+          <option value="price_asc">{t("Price: low to high")}</option>
+          <option value="price_desc">{t("Price: high to low")}</option>
+          <option value="rating">{t("Highest rated")}</option>
         </Select>
       </fieldset>
 
       {activeCount > 0 && (
         <Button variant="ghost" fullWidth onClick={() => startTransition(() => router.push(pathname))}>
-          Clear all filters
+          {t("Clear all filters")}
         </Button>
       )}
     </div>
@@ -177,7 +179,7 @@ export function StoreFilters({
       <div className="lg:hidden">
         <Button variant="outline" fullWidth onClick={() => setMobileOpen(true)}>
           <SlidersHorizontal className="size-4" aria-hidden />
-          Filters
+          {t("Filters")}
           {activeCount > 0 && (
             <Badge tone="brand" size="sm">
               {activeCount}
@@ -195,16 +197,16 @@ export function StoreFilters({
             <div
               role="dialog"
               aria-modal="true"
-              aria-label="Product filters"
+              aria-label={t("Product filters")}
               className="absolute inset-x-0 bottom-0 max-h-[85dvh] overflow-y-auto rounded-t-[var(--radius-panel)] bg-bg pb-[env(safe-area-inset-bottom)]"
             >
               <div className="sticky top-0 flex items-center justify-between border-b border-[var(--border)] bg-bg px-4 py-3">
-                <h2 className="font-display text-lg font-semibold">Filters</h2>
+                <h2 className="font-display text-lg font-semibold">{t("Filters")}</h2>
                 <button
                   type="button"
                   onClick={() => setMobileOpen(false)}
                   className="rounded-full p-1.5 text-fg-muted hover:bg-bg-sunken"
-                  aria-label="Close filters"
+                  aria-label={t("Close filters")}
                 >
                   <X className="size-5" aria-hidden />
                 </button>
@@ -212,7 +214,7 @@ export function StoreFilters({
               <div className="p-4">{content}</div>
               <div className="sticky bottom-0 border-t border-[var(--border)] bg-bg p-4">
                 <Button fullWidth onClick={() => setMobileOpen(false)}>
-                  Show {resultCount} {resultCount === 1 ? "product" : "products"}
+                  {t.plural(resultCount, { one: "Show {count} product", other: "Show {count} products" })}
                 </Button>
               </div>
             </div>

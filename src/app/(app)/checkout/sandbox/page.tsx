@@ -4,15 +4,18 @@ import { FlaskConical } from "lucide-react";
 import { db } from "@/lib/db";
 import { requireAuth } from "@/lib/auth/rbac";
 import { isSandboxPayments } from "@/lib/payments/provider";
-import { formatMoney } from "@/lib/money";
 import { safeRedirect } from "@/lib/validation/common";
 import { Card, Alert, DataRow } from "@/components/ui/primitives";
 import { SandboxConfirm } from "@/components/checkout/sandbox-confirm";
+import { getI18n } from "@/lib/i18n/server";
 
-export const metadata: Metadata = {
-  title: "Sandbox payment",
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return {
+  title: t("Sandbox payment"),
   robots: { index: false, follow: false },
 };
+}
 
 const PURPOSE_LABEL: Record<string, string> = {
   PET_PURCHASE: "Pet purchase (held in escrow)",
@@ -40,6 +43,7 @@ export default async function SandboxCheckoutPage({
 }: {
   searchParams: Promise<{ ref?: string; return?: string }>;
 }) {
+  const { t, fmt } = await getI18n();
   if (!isSandboxPayments()) notFound();
 
   const { ref, return: returnTo } = await searchParams;
@@ -76,41 +80,37 @@ export default async function SandboxCheckoutPage({
             <FlaskConical className="size-5" aria-hidden />
           </span>
           <div>
-            <h1 className="font-display text-xl font-semibold text-fg">Sandbox payment</h1>
-            <p className="text-sm text-fg-muted">No real money is involved.</p>
+            <h1 className="font-display text-xl font-semibold text-fg">{t("Sandbox payment")}</h1>
+            <p className="text-sm text-fg-muted">{t("No real money is involved.")}</p>
           </div>
         </div>
 
         <div className="mt-5">
-          <Alert tone="warning" title="This deployment has no payment gateway configured">
-            PetMate is running on its internal ledger provider. Confirming below records a real
-            transaction in the double-entry ledger and runs the real escrow, commission and payout
-            logic — but no card is charged and no money moves.
+          <Alert tone="warning" title={t("This deployment has no payment gateway configured")}>
+            {t("PetMate is running on its internal ledger provider. Confirming below records a real transaction in the double-entry ledger and runs the real escrow, commission and payout logic — but no card is charged and no money moves.")}
           </Alert>
         </div>
 
         <dl className="mt-5 divide-y divide-[var(--border)] border-y border-[var(--border)]">
           <DataRow
-            label="For"
-            value={PURPOSE_LABEL[intent.purpose] ?? intent.purpose.replace("_", " ").toLowerCase()}
+            label={t("For")}
+            value={t(PURPOSE_LABEL[intent.purpose] ?? intent.purpose.replace("_", " ").toLowerCase())}
           />
           <DataRow
-            label="Amount"
+            label={t("Amount")}
             value={
               <span className="font-display text-lg font-semibold">
-                {formatMoney(intent.amountCents, intent.currency)}
+                {fmt.money(intent.amountCents, intent.currency)}
               </span>
             }
           />
-          <DataRow label="Reference" value={<span className="font-mono text-xs">{intent.providerRef}</span>} />
+          <DataRow label={t("Reference")} value={<span className="font-mono text-xs">{intent.providerRef}</span>} />
         </dl>
 
         {intent.purpose === "PET_PURCHASE" && (
           <div className="mt-5">
-            <Alert tone="info" title="What happens next">
-              The payment is held in escrow. The seller is only paid once you have met the animal
-              and you both confirm the handover — or automatically after the escrow window if
-              nobody disputes.
+            <Alert tone="info" title={t("What happens next")}>
+              {t("The payment is held in escrow. The seller is only paid once you have met the animal and you both confirm the handover — or automatically after the escrow window if nobody disputes.")}
             </Alert>
           </div>
         )}
@@ -118,14 +118,14 @@ export default async function SandboxCheckoutPage({
         <div className="mt-6">
           <SandboxConfirm
             providerRef={intent.providerRef!}
-            amount={formatMoney(intent.amountCents, intent.currency)}
+            amount={fmt.money(intent.amountCents, intent.currency)}
             returnTo={destination}
           />
         </div>
       </Card>
 
       <p className="mt-4 text-center text-xs text-fg-subtle">
-        To take real payments, set PAYMENT_PROVIDER=paymob with your Paymob keys. See docs/PAYMENTS.md.
+        {t("To take real payments, set PAYMENT_PROVIDER=paymob with your Paymob keys. See docs/PAYMENTS.md.")}
       </p>
     </div>
   );

@@ -9,8 +9,8 @@ import { Card, Badge, EmptyState } from "@/components/ui/primitives";
 import { Field, Select } from "@/components/ui/field";
 import { useToast } from "@/components/ui/toast";
 import { api, ApiError } from "@/lib/api-client";
-import { formatMoney } from "@/lib/money";
-import { formatDate, cn } from "@/lib/utils";
+import { cn } from "@/lib/utils";
+import { useI18n } from "@/components/i18n/i18n-provider";
 
 export interface FulfilmentItem {
   id: string;
@@ -63,6 +63,7 @@ export function FulfilmentQueue({
   activeShopId: string;
   activeStatus: string;
 }) {
+  const { t, fmt } = useI18n();
   const router = useRouter();
   const toast = useToast();
   const [busy, setBusy] = useState<string | null>(null);
@@ -82,7 +83,7 @@ export function FulfilmentQueue({
       router.refresh();
     } catch (err) {
       toast.error(
-        "That did not go through",
+        t("That did not go through"),
         err instanceof ApiError ? err.message : "Please try again.",
       );
     } finally {
@@ -95,7 +96,7 @@ export function FulfilmentQueue({
       <div className="flex flex-wrap items-end gap-3">
         {shops.length > 1 && (
           <div className="w-56">
-            <Field label="Shop">
+            <Field label={t("Shop")}>
               {({ id }) => (
                 <Select
                   id={id}
@@ -114,18 +115,18 @@ export function FulfilmentQueue({
         )}
 
         <div className="w-48">
-          <Field label="Status">
+          <Field label={t("Status")}>
             {({ id }) => (
               <Select
                 id={id}
                 value={activeStatus}
                 onChange={(e) => navigate(activeShopId, e.target.value)}
               >
-                <option value="ALL">All</option>
-                <option value="PENDING">To pack</option>
-                <option value="PACKED">To ship</option>
-                <option value="SHIPPED">In transit</option>
-                <option value="DELIVERED">Delivered</option>
+                <option value="ALL">{t("All")}</option>
+                <option value="PENDING">{t("To pack")}</option>
+                <option value="PACKED">{t("To ship")}</option>
+                <option value="SHIPPED">{t("In transit")}</option>
+                <option value="DELIVERED">{t("Delivered")}</option>
               </Select>
             )}
           </Field>
@@ -136,8 +137,8 @@ export function FulfilmentQueue({
         {items.length === 0 ? (
           <EmptyState
             icon={<Package className="size-5" aria-hidden />}
-            title="Nothing to fulfil"
-            description="Paid orders appear here. Nothing arrives before payment clears, so you never pack for an order that fell through."
+            title={t("Nothing to fulfil")}
+            description={t("Paid orders appear here. Nothing arrives before payment clears, so you never pack for an order that fell through.")}
           />
         ) : (
           <ul className="space-y-2">
@@ -179,7 +180,7 @@ export function FulfilmentQueue({
                           </Badge>
                           {item.paymentMethod === "COD" && (
                             <Badge tone="accent" size="sm">
-                              Cash on delivery
+                              {t("Cash on delivery")}
                             </Badge>
                           )}
                         </div>
@@ -187,14 +188,19 @@ export function FulfilmentQueue({
                         <p className="mt-0.5 text-xs text-fg-subtle">
                           <span className="font-mono">{item.orderNumber}</span> ·{" "}
                           {item.quantity} ×{" "}
-                          {formatMoney(item.unitPriceCents, item.currency)}
-                          {item.placedAt ? ` · ${formatDate(item.placedAt)}` : ""}
+                          {fmt.money(item.unitPriceCents, item.currency)}
+                          {item.placedAt ? ` · ${fmt.date(item.placedAt)}` : ""}
                         </p>
                         {item.discountCents > 0 && (
                           <p className="mt-0.5 text-xs text-fg-muted">
                             {item.paymentMethod === "COD"
-                              ? `Collect ${formatMoney(item.totalCents - item.discountCents, item.currency)} for this item: the buyer's ${formatMoney(item.discountCents, item.currency)} coupon is credited to your balance by PetMate.`
-                              : `The buyer used a ${formatMoney(item.discountCents, item.currency)} coupon; PetMate pays it, your earnings are unchanged.`}
+                              ? t("Collect {collect} for this item: the buyer's {discount} coupon is credited to your balance by PetMate.", {
+                                  collect: fmt.money(item.totalCents - item.discountCents, item.currency),
+                                  discount: fmt.money(item.discountCents, item.currency),
+                                })
+                              : t("The buyer used a {discount} coupon; PetMate pays it, your earnings are unchanged.", {
+                                  discount: fmt.money(item.discountCents, item.currency),
+                                })}
                           </p>
                         )}
 
@@ -207,11 +213,11 @@ export function FulfilmentQueue({
 
                         <div className="mt-2 flex flex-wrap items-center gap-3">
                           <span className="text-sm font-semibold tabular text-fg">
-                            {formatMoney(item.sellerEarningsCents, item.currency)}
+                            {fmt.money(item.sellerEarningsCents, item.currency)}
                           </span>
                           <span className="text-xs text-fg-subtle tabular">
-                            of {formatMoney(item.totalCents, item.currency)} ·{" "}
-                            {formatMoney(item.commissionCents, item.currency)} commission
+                            {t("of {total}", { total: fmt.money(item.totalCents, item.currency) })} ·{" "}
+                            {t("{amount} commission", { amount: fmt.money(item.commissionCents, item.currency) })}
                           </span>
                         </div>
 
@@ -233,7 +239,7 @@ export function FulfilmentQueue({
                                 {step.value === "DELIVERED" && (
                                   <CheckCircle2 className="size-4" aria-hidden />
                                 )}
-                                {step.label}
+                                {t(step.label)}
                               </Button>
                             ))}
                             <Button
@@ -243,7 +249,7 @@ export function FulfilmentQueue({
                               onClick={() => fulfil(item.id, "CANCELLED")}
                             >
                               <XCircle className="size-4" aria-hidden />
-                              Cannot fulfil
+                              {t("Cannot fulfil")}
                             </Button>
                           </div>
                         )}

@@ -3,13 +3,14 @@ import Link from "next/link";
 import Image from "next/image";
 import { ShoppingBag, Star, BadgeCheck } from "lucide-react";
 import { searchProducts, listCategories } from "@/lib/services/commerce.service";
-import { formatMoney, formatRating } from "@/lib/money";
+import { formatRating } from "@/lib/money";
 import { Card, Badge, EmptyState, PageHeader } from "@/components/ui/primitives";
 import { ButtonLink } from "@/components/ui/button";
 import { Pagination } from "@/components/ui/pagination";
 import { StoreFilters } from "@/components/store/store-filters";
 import { AddToCartButton } from "@/components/store/add-to-cart-button";
 import { getAuth } from "@/lib/auth/session";
+import { getI18n } from "@/lib/i18n/server";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
@@ -30,6 +31,7 @@ export async function generateMetadata({
 }
 
 export default async function StorePage({ searchParams }: { searchParams: SearchParams }) {
+  const { t, fmt } = await getI18n();
   const raw = await searchParams;
   const auth = await getAuth();
 
@@ -66,9 +68,9 @@ export default async function StorePage({ searchParams }: { searchParams: Search
   return (
     <div className="container-page py-8 lg:py-12">
       <PageHeader
-        eyebrow="Store"
-        title="Everything your pet needs"
-        description="Independent shops, honest reviews. A review can only be left by someone whose order was actually delivered."
+        eyebrow={t("Store")}
+        title={t("Everything your pet needs")}
+        description={t("Independent shops, honest reviews. A review can only be left by someone whose order was actually delivered.")}
       />
 
       <div className="mt-8 grid gap-8 lg:grid-cols-[15rem_1fr]">
@@ -79,18 +81,18 @@ export default async function StorePage({ searchParams }: { searchParams: Search
         <div className="min-w-0">
           <p className="mb-4 text-sm text-fg-muted tabular">
             {results.total === 0
-              ? "No products found"
-              : `${results.total} ${results.total === 1 ? "product" : "products"}`}
+              ? t("No products found")
+              : t.plural(results.total, { one: "{count} product", other: "{count} products" })}
           </p>
 
           {results.items.length === 0 ? (
             <EmptyState
               icon={<ShoppingBag className="size-6" aria-hidden />}
-              title="Nothing matches those filters"
-              description="Try clearing a filter, or browse a different category."
+              title={t("Nothing matches those filters")}
+              description={t("Try clearing a filter, or browse a different category.")}
               action={
                 <ButtonLink href="/store" variant="outline">
-                  Clear filters
+                  {t("Clear filters")}
                 </ButtonLink>
               }
             />
@@ -128,17 +130,13 @@ export default async function StorePage({ searchParams }: { searchParams: Search
                           {discounted && (
                             <span className="absolute start-2 top-2">
                               <Badge tone="accent" size="sm">
-                                Save{" "}
-                                {formatMoney(
-                                  product.compareAtCents! - product.priceCents,
-                                  product.currency,
-                                )}
+                                {t("Save {amount}", { amount: fmt.money(product.compareAtCents! - product.priceCents, product.currency) })}
                               </Badge>
                             </span>
                           )}
                           {outOfStock && (
                             <span className="absolute inset-0 flex items-center justify-center bg-[var(--overlay)]">
-                              <Badge tone="neutral">Out of stock</Badge>
+                              <Badge tone="neutral">{t("Out of stock")}</Badge>
                             </span>
                           )}
                         </Link>
@@ -168,11 +166,11 @@ export default async function StorePage({ searchParams }: { searchParams: Search
                           <div className="mt-auto pt-3">
                             <p className="flex items-baseline gap-1.5">
                               <span className="font-display text-base font-semibold tabular text-fg">
-                                {formatMoney(product.priceCents, product.currency)}
+                                {fmt.money(product.priceCents, product.currency)}
                               </span>
                               {discounted && (
                                 <span className="text-xs text-fg-subtle line-through tabular">
-                                  {formatMoney(product.compareAtCents!, product.currency)}
+                                  {fmt.money(product.compareAtCents!, product.currency)}
                                 </span>
                               )}
                             </p>

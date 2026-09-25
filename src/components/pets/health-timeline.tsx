@@ -23,9 +23,9 @@ import { Modal } from "@/components/ui/modal";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { useToast } from "@/components/ui/toast";
 import { api, ApiError } from "@/lib/api-client";
-import { formatDate } from "@/lib/utils";
 import { HEALTH_RECORD_TYPE, HEALTH_RECORD_LABEL, type HealthRecordType } from "@/lib/constants";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/components/i18n/i18n-provider";
 
 interface HealthRecordEntry {
   id: string;
@@ -94,6 +94,7 @@ export function HealthTimeline({
   reminders: Reminder[];
   vaccines: Vaccine[];
 }) {
+  const { t, fmt } = useI18n();
   const router = useRouter();
   const toast = useToast();
 
@@ -107,7 +108,7 @@ export function HealthTimeline({
       router.refresh();
     } catch (err) {
       toast.error(
-        "Could not update that reminder",
+        t("Could not update that reminder"),
         err instanceof ApiError ? err.message : "Please try again.",
       );
     }
@@ -117,7 +118,7 @@ export function HealthTimeline({
     <div className="space-y-8">
       {reminders.length > 0 && (
         <section>
-          <h2 className="mb-3 font-display text-lg font-semibold text-fg">Reminders</h2>
+          <h2 className="mb-3 font-display text-lg font-semibold text-fg">{t("Reminders")}</h2>
           <Card>
             <ul className="divide-y divide-[var(--border)]">
               {reminders.map((reminder) => {
@@ -143,8 +144,7 @@ export function HealthTimeline({
                           overdue ? "text-[var(--danger)]" : "text-fg-muted",
                         )}
                       >
-                        {overdue ? "Overdue since " : "Due "}
-                        {formatDate(reminder.dueAt, "long")}
+                        {overdue ? t("Overdue since {date}", { date: fmt.date(reminder.dueAt, "long") }) : t("Due {date}", { date: fmt.date(reminder.dueAt, "long") })}
                       </p>
                     </div>
 
@@ -153,7 +153,7 @@ export function HealthTimeline({
                         type="button"
                         onClick={() => void resolveReminder(reminder.id, "complete")}
                         className="inline-flex size-8 items-center justify-center rounded-[var(--radius-field)] text-fg-muted transition-colors hover:bg-[var(--success-soft)] hover:text-[var(--success)]"
-                        aria-label={`Mark "${reminder.title}" as done`}
+                        aria-label={t("Mark \"{title}\" as done", { title: reminder.title })}
                       >
                         <Check className="size-4" aria-hidden />
                       </button>
@@ -161,7 +161,7 @@ export function HealthTimeline({
                         type="button"
                         onClick={() => void resolveReminder(reminder.id, "dismiss")}
                         className="inline-flex size-8 items-center justify-center rounded-[var(--radius-field)] text-fg-muted transition-colors hover:bg-bg-sunken hover:text-fg"
-                        aria-label={`Dismiss "${reminder.title}"`}
+                        aria-label={t("Dismiss \"{title}\"", { title: reminder.title })}
                       >
                         <X className="size-4" aria-hidden />
                       </button>
@@ -176,15 +176,15 @@ export function HealthTimeline({
 
       <section>
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-          <h2 className="font-display text-lg font-semibold text-fg">Timeline</h2>
+          <h2 className="font-display text-lg font-semibold text-fg">{t("Timeline")}</h2>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={() => setReminderOpen(true)}>
               <CalendarClock className="size-4" aria-hidden />
-              Add reminder
+              {t("Add reminder")}
             </Button>
             <Button size="sm" onClick={() => setAddOpen(true)}>
               <Plus className="size-4" aria-hidden />
-              Add record
+              {t("Add record")}
             </Button>
           </div>
         </div>
@@ -192,12 +192,12 @@ export function HealthTimeline({
         {records.length === 0 ? (
           <EmptyState
             icon={<Syringe className="size-6" aria-hidden />}
-            title="No records yet"
-            description={`Add ${petName}'s vaccinations, check-ups and treatments. A documented animal is worth more and finds a home faster.`}
+            title={t("No records yet")}
+            description={t("Add {petName}'s vaccinations, check-ups and treatments. A documented animal is worth more and finds a home faster.", { petName })}
             action={
               <Button onClick={() => setAddOpen(true)}>
                 <Plus className="size-4" aria-hidden />
-                Add the first record
+                {t("Add the first record")}
               </Button>
             }
           />
@@ -226,8 +226,8 @@ export function HealthTimeline({
                       <div className="min-w-0">
                         <h3 className="text-sm font-semibold text-fg">{record.title}</h3>
                         <p className="mt-0.5 text-xs text-fg-muted">
-                          {HEALTH_RECORD_LABEL[record.type as HealthRecordType] ?? record.type} ·{" "}
-                          {formatDate(record.occurredAt, "long")}
+                          {t(HEALTH_RECORD_LABEL[record.type as HealthRecordType] ?? record.type)} ·{" "}
+                          {fmt.date(record.occurredAt, "long")}
                         </p>
                       </div>
 
@@ -237,11 +237,11 @@ export function HealthTimeline({
                           size="sm"
                           icon={<BadgeCheck className="size-3" aria-hidden />}
                         >
-                          {record.clinic?.name ?? "Clinic verified"}
+                          {record.clinic?.name ?? t("Clinic verified")}
                         </Badge>
                       ) : (
                         <Badge tone="neutral" size="sm">
-                          Self-reported
+                          {t("Self-reported")}
                         </Badge>
                       )}
                     </div>
@@ -255,19 +255,19 @@ export function HealthTimeline({
                     <dl className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-xs text-fg-muted">
                       {record.vaccine && (
                         <div className="flex gap-1.5">
-                          <dt className="text-fg-subtle">Vaccine</dt>
+                          <dt className="text-fg-subtle">{t("Vaccine")}</dt>
                           <dd>{record.vaccine.name}</dd>
                         </div>
                       )}
                       {record.batchNumber && (
                         <div className="flex gap-1.5">
-                          <dt className="text-fg-subtle">Batch</dt>
+                          <dt className="text-fg-subtle">{t("Batch")}</dt>
                           <dd className="font-mono">{record.batchNumber}</dd>
                         </div>
                       )}
                       {record.medication && (
                         <div className="flex gap-1.5">
-                          <dt className="text-fg-subtle">Medication</dt>
+                          <dt className="text-fg-subtle">{t("Medication")}</dt>
                           <dd>
                             {record.medication}
                             {record.dosage ? ` · ${record.dosage}` : ""}
@@ -276,7 +276,7 @@ export function HealthTimeline({
                       )}
                       {record.resultValue != null && (
                         <div className="flex gap-1.5">
-                          <dt className="text-fg-subtle">Result</dt>
+                          <dt className="text-fg-subtle">{t("Result")}</dt>
                           <dd className="tabular">
                             {record.resultValue}
                             {record.resultUnit ? ` ${record.resultUnit}` : ""}
@@ -285,7 +285,7 @@ export function HealthTimeline({
                       )}
                       {record.nextDueAt && (
                         <div className="flex gap-1.5">
-                          <dt className="text-fg-subtle">Next due</dt>
+                          <dt className="text-fg-subtle">{t("Next due")}</dt>
                           <dd
                             className={
                               new Date(record.nextDueAt) < new Date()
@@ -293,7 +293,7 @@ export function HealthTimeline({
                                 : undefined
                             }
                           >
-                            {formatDate(record.nextDueAt)}
+                            {fmt.date(record.nextDueAt)}
                           </dd>
                         </div>
                       )}
@@ -336,6 +336,7 @@ function AddRecordModal({
   petName: string;
   vaccines: Vaccine[];
 }) {
+  const { t } = useI18n();
   const router = useRouter();
   const toast = useToast();
 
@@ -391,7 +392,7 @@ function AddRecordModal({
         },
       });
 
-      toast.success("Record added", `${petName}'s timeline is up to date.`);
+      toast.success(t("Record added"), `${petName}'s timeline is up to date.`);
       reset();
       onClose();
       router.refresh();
@@ -423,15 +424,15 @@ function AddRecordModal({
     <Modal
       open={open}
       onClose={onClose}
-      title={`Add a record for ${petName}`}
-      description="Records you add are marked self-reported. Records written by a clinic through their own account carry a verified mark."
+      title={t("Add a record for {petName}", { petName })}
+      description={t("Records you add are marked self-reported. Records written by a clinic through their own account carry a verified mark.")}
       size="lg"
     >
       <div className="space-y-4">
         {error && <Alert tone="danger">{error}</Alert>}
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Type" required>
+          <Field label={t("Type")} required>
             {({ id }) => (
               <Select
                 id={id}
@@ -440,14 +441,14 @@ function AddRecordModal({
               >
                 {HEALTH_RECORD_TYPE.map((value) => (
                   <option key={value} value={value}>
-                    {HEALTH_RECORD_LABEL[value]}
+                    {t(HEALTH_RECORD_LABEL[value])}
                   </option>
                 ))}
               </Select>
             )}
           </Field>
 
-          <Field label="Date" required error={fieldErrors.occurredAt}>
+          <Field label={t("Date")} required error={fieldErrors.occurredAt}>
             {({ id, invalid }) => (
               <Input
                 id={id}
@@ -463,16 +464,16 @@ function AddRecordModal({
 
         {type === "VACCINATION" && vaccines.length > 0 && (
           <Field
-            label="Vaccine"
-            hint="Choosing one from the catalogue schedules the booster automatically."
+            label={t("Vaccine")}
+            hint={t("Choosing one from the catalogue schedules the booster automatically.")}
           >
             {({ id }) => (
               <Select id={id} value={vaccineId} onChange={(e) => setVaccineId(e.target.value)}>
-                <option value="">Not listed</option>
+                <option value="">{t("Not listed")}</option>
                 {vaccines.map((vaccine) => (
                   <option key={vaccine.id} value={vaccine.id}>
                     {vaccine.name}
-                    {vaccine.coreVaccine ? " (core)" : ""}
+                    {vaccine.coreVaccine ? ` (${t("core")})` : ""}
                   </option>
                 ))}
               </Select>
@@ -481,8 +482,8 @@ function AddRecordModal({
         )}
 
         <Field
-          label="Title"
-          hint={`Leave blank to use "${defaultTitle()}".`}
+          label={t("Title")}
+          hint={t("Leave blank to use \"{value}\".", { value: defaultTitle() })}
           error={fieldErrors.title}
         >
           {({ id, invalid }) => (
@@ -499,7 +500,7 @@ function AddRecordModal({
 
         {type === "MEDICATION" && (
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Medication" required error={fieldErrors.medication}>
+            <Field label={t("Medication")} required error={fieldErrors.medication}>
               {({ id, invalid }) => (
                 <Input
                   id={id}
@@ -510,14 +511,14 @@ function AddRecordModal({
                 />
               )}
             </Field>
-            <Field label="Dosage">
+            <Field label={t("Dosage")}>
               {({ id }) => (
                 <Input
                   id={id}
                   maxLength={60}
                   value={dosage}
                   onChange={(e) => setDosage(e.target.value)}
-                  placeholder="1 tablet twice daily"
+                  placeholder={t("1 tablet twice daily")}
                 />
               )}
             </Field>
@@ -527,7 +528,7 @@ function AddRecordModal({
         {(type === "WEIGHT" || type === "TEST") && (
           <div className="grid gap-4 sm:grid-cols-2">
             <Field
-              label={type === "WEIGHT" ? "Weight" : "Result"}
+              label={type === "WEIGHT" ? t("Weight") : t("Result")}
               required
               error={fieldErrors.resultValue}
             >
@@ -542,7 +543,7 @@ function AddRecordModal({
                 />
               )}
             </Field>
-            <Field label="Unit">
+            <Field label={t("Unit")}>
               {({ id }) => (
                 <Input
                   id={id}
@@ -556,7 +557,7 @@ function AddRecordModal({
         )}
 
         {type === "VACCINATION" && (
-          <Field label="Batch number" hint="From the vaccination card, if you have it.">
+          <Field label={t("Batch number")} hint={t("From the vaccination card, if you have it.")}>
             {({ id }) => (
               <Input
                 id={id}
@@ -569,8 +570,8 @@ function AddRecordModal({
         )}
 
         <Field
-          label="Next due"
-          hint="Leave blank and we will work it out from the vaccine schedule where we can."
+          label={t("Next due")}
+          hint={t("Leave blank and we will work it out from the vaccine schedule where we can.")}
         >
           {({ id }) => (
             <Input
@@ -582,7 +583,7 @@ function AddRecordModal({
           )}
         </Field>
 
-        <Field label="Notes" trailing={`${description.length}/2000`}>
+        <Field label={t("Notes")} trailing={`${description.length}/2000`}>
           {({ id }) => (
             <Textarea
               id={id}
@@ -596,10 +597,10 @@ function AddRecordModal({
 
         <div className="flex justify-end gap-2 pt-1">
           <Button variant="ghost" onClick={onClose}>
-            Cancel
+            {t("Cancel")}
           </Button>
-          <Button onClick={() => void save()} loading={saving} loadingText="Saving…">
-            Add record
+          <Button onClick={() => void save()} loading={saving} loadingText={t("Saving…")}>
+            {t("Add record")}
           </Button>
         </div>
       </div>
@@ -616,6 +617,7 @@ function AddReminderModal({
   onClose: () => void;
   petId: string;
 }) {
+  const { t } = useI18n();
   const router = useRouter();
   const toast = useToast();
 
@@ -636,7 +638,7 @@ function AddReminderModal({
         dueAt: new Date(`${dueAt}T09:00:00`).toISOString(),
       });
 
-      toast.success("Reminder set", "We will tell you when it is due.");
+      toast.success(t("Reminder set"), t("We will tell you when it is due."));
       setTitle("");
       setDueAt("");
       onClose();
@@ -659,26 +661,26 @@ function AddReminderModal({
     <Modal
       open={open}
       onClose={onClose}
-      title="Add a reminder"
-      description="We will notify you, and email you if you have those switched on."
+      title={t("Add a reminder")}
+      description={t("We will notify you, and email you if you have those switched on.")}
     >
       <div className="space-y-4">
         {error && <Alert tone="danger">{error}</Alert>}
 
-        <Field label="What is it?" required>
+        <Field label={t("What is it?")} required>
           {({ id }) => (
             <Input
               id={id}
               maxLength={120}
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="Annual booster"
+              placeholder={t("Annual booster")}
               autoFocus
             />
           )}
         </Field>
 
-        <Field label="When" required>
+        <Field label={t("When")} required>
           {({ id }) => (
             <Input
               id={id}
@@ -692,15 +694,15 @@ function AddReminderModal({
 
         <div className="flex justify-end gap-2">
           <Button variant="ghost" onClick={onClose}>
-            Cancel
+            {t("Cancel")}
           </Button>
           <Button
             onClick={() => void save()}
             loading={saving}
-            loadingText="Saving…"
+            loadingText={t("Saving…")}
             disabled={!title.trim() || !dueAt}
           >
-            Set reminder
+            {t("Set reminder")}
           </Button>
         </div>
       </div>

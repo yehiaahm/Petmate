@@ -5,16 +5,20 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, ShieldAlert } from "lucide-react";
 import { requireAuth } from "@/lib/auth/rbac";
 import { getConversation, listMessages, markConversationRead } from "@/lib/services/chat.service";
-import { formatMoney } from "@/lib/money";
 import { Avatar, Badge, Alert } from "@/components/ui/primitives";
 import { MessageThread } from "@/components/messages/message-thread";
+import { getI18n } from "@/lib/i18n/server";
 
-export const metadata: Metadata = {
-  title: "Conversation",
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return {
+  title: t("Conversation"),
   robots: { index: false, follow: false },
 };
+}
 
 export default async function ConversationPage({ params }: { params: Promise<{ id: string }> }) {
+  const { t, fmt } = await getI18n();
   const { id } = await params;
   const auth = await requireAuth();
 
@@ -38,7 +42,7 @@ export default async function ConversationPage({ params }: { params: Promise<{ i
         className="mb-4 inline-flex items-center gap-1.5 text-sm text-fg-muted transition-colors hover:text-fg"
       >
         <ArrowLeft className="rtl:-scale-x-100 size-4" aria-hidden />
-        All messages
+        {t("All messages")}
       </Link>
 
       <div className="surface overflow-hidden">
@@ -54,11 +58,11 @@ export default async function ConversationPage({ params }: { params: Promise<{ i
                   {counterparty.name}
                 </Link>
               ) : (
-                <span className="font-display text-base font-semibold text-fg">PetMate</span>
+                <span className="font-display text-base font-semibold text-fg">{t("PetMate")}</span>
               )}
               {counterparty && (
                 <Badge tone={counterparty.trustScore >= 50 ? "success" : "neutral"} size="sm">
-                  Trust {counterparty.trustScore}
+                  {t("Trust {score}", { score: counterparty.trustScore })}
                 </Badge>
               )}
             </div>
@@ -88,10 +92,10 @@ export default async function ConversationPage({ params }: { params: Promise<{ i
               <p className="truncate text-sm font-medium text-fg">{conversation.listing.title}</p>
               <p className="text-xs text-fg-muted">
                 {conversation.listing.priceCents > 0
-                  ? formatMoney(conversation.listing.priceCents, conversation.listing.currency)
+                  ? fmt.money(conversation.listing.priceCents, conversation.listing.currency)
                   : conversation.listing.intent === "ADOPTION"
-                    ? "For adoption"
-                    : "Breeding"}
+                    ? t("For adoption")
+                    : t("Breeding")}
                 {conversation.listing.status !== "ACTIVE" && (
                   <span className="text-fg-subtle">
                     {" · "}
@@ -105,9 +109,8 @@ export default async function ConversationPage({ params }: { params: Promise<{ i
 
         {conversation.isBlocked && (
           <div className="p-4">
-            <Alert tone="warning" title="You have blocked this member">
-              They cannot see your messages and you will not receive theirs. Unblock from their
-              profile to continue.
+            <Alert tone="warning" title={t("You have blocked this member")}>
+              {t("They cannot see your messages and you will not receive theirs. Unblock from their profile to continue.")}
             </Alert>
           </div>
         )}
@@ -127,14 +130,13 @@ export default async function ConversationPage({ params }: { params: Promise<{ i
             flagReason: m.flagReason,
           }))}
           disabled={conversation.isBlocked}
-          counterpartyName={counterparty?.name ?? "PetMate"}
+          counterpartyName={counterparty?.name ?? t("PetMate")}
         />
       </div>
 
       <div className="mt-4">
         <Alert tone="info" icon={<ShieldAlert className="size-4" aria-hidden />}>
-          Never pay by bank transfer, gift card or crypto, and never send a deposit before you have
-          seen the animal. Paying through PetMate is what makes escrow and disputes possible.
+          {t("Never pay by bank transfer, gift card or crypto, and never send a deposit before you have seen the animal. Paying through PetMate is what makes escrow and disputes possible.")}
         </Alert>
       </div>
     </div>

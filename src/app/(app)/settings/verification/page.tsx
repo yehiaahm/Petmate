@@ -6,12 +6,15 @@ import { getTrustBreakdown } from "@/lib/services/trust.service";
 import { VerificationSubmit } from "@/components/settings/verification-submit";
 import { PageHeader, Card, CardHeader, Badge, Alert } from "@/components/ui/primitives";
 import { TrustMeter } from "@/components/dashboard/trust-meter";
-import { formatDate } from "@/lib/utils";
+import { getI18n } from "@/lib/i18n/server";
 
-export const metadata: Metadata = {
-  title: "Verification",
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return {
+  title: t("Verification"),
   robots: { index: false, follow: false },
 };
+}
 
 /** Only the types an individual submits for themselves belong on this page. */
 const SELF_SERVE = [
@@ -44,6 +47,7 @@ const STATUS: Record<string, { label: string; tone: "info" | "success" | "danger
 };
 
 export default async function VerificationSettingsPage() {
+  const { t, fmt } = await getI18n();
   const auth = await requireAuth();
 
   const [verifications, trust, user] = await Promise.all([
@@ -74,26 +78,26 @@ export default async function VerificationSettingsPage() {
   return (
     <>
       <PageHeader
-        title="Verification"
-        description="Verification is how a stranger decides whether to trust you with several hundred pounds and a living animal. Every badge here is checked by a person."
+        title={t("Verification")}
+        description={t("Verification is how a stranger decides whether to trust you with several hundred pounds and a living animal. Every badge here is checked by a person.")}
       />
 
       <div className="mt-6 space-y-5">
         <TrustMeter trust={trust} />
 
         <Card>
-          <CardHeader title="Already confirmed" />
+          <CardHeader title={t("Already confirmed")} />
           <div className="flex flex-wrap gap-2 p-5">
             {user.emailVerifiedAt ? (
               <Badge tone="success" icon={<BadgeCheck className="size-3.5" aria-hidden />}>
-                Email confirmed {formatDate(user.emailVerifiedAt)}
+                {t("Email confirmed {date}", { date: fmt.date(user.emailVerifiedAt) })}
               </Badge>
             ) : (
-              <Badge tone="warning">Email not confirmed</Badge>
+              <Badge tone="warning">{t("Email not confirmed")}</Badge>
             )}
             {user.phoneVerifiedAt && (
               <Badge tone="success" icon={<BadgeCheck className="size-3.5" aria-hidden />}>
-                Phone confirmed
+                {t("Phone confirmed")}
               </Badge>
             )}
           </div>
@@ -108,8 +112,8 @@ export default async function VerificationSettingsPage() {
           return (
             <Card key={item.type}>
               <CardHeader
-                title={item.title}
-                description={item.body}
+                title={t(item.title)}
+                description={t(item.body)}
                 action={
                   status ? (
                     <Badge tone={status.tone}>
@@ -120,33 +124,33 @@ export default async function VerificationSettingsPage() {
                       ) : (
                         <Clock className="me-1 size-3.5" aria-hidden />
                       )}
-                      {status.label}
+                      {t(status.label)}
                     </Badge>
                   ) : undefined
                 }
               />
               <div className="p-5">
                 {latest?.status === "REJECTED" && latest.rejectionReason && (
-                  <Alert tone="danger" className="mb-4" title="Why it was not approved">
+                  <Alert tone="danger" className="mb-4" title={t("Why it was not approved")}>
                     <p className="mt-1">{latest.rejectionReason}</p>
                   </Alert>
                 )}
 
                 {latest?.status === "APPROVED" ? (
                   <p className="text-sm text-fg-muted">
-                    Verified on {formatDate(latest.reviewedAt)}
-                    {latest.expiresAt ? `, valid until ${formatDate(latest.expiresAt)}` : ""}.
+                    {latest.expiresAt
+                      ? t("Verified on {date}, valid until {until}.", { date: fmt.date(latest.reviewedAt), until: fmt.date(latest.expiresAt) })
+                      : t("Verified on {date}.", { date: fmt.date(latest.reviewedAt) })}
                   </p>
                 ) : canSubmit ? (
                   <VerificationSubmit
                     type={item.type}
                     subjectId={auth.user.id}
-                    documentsHint={item.documents}
+                    documentsHint={t(item.documents)}
                   />
                 ) : (
                   <p className="text-sm text-fg-muted">
-                    Submitted {formatDate(latest.createdAt)}. We review these in order and will
-                    email you either way — there is nothing else for you to do.
+                    {t("Submitted {date}. We review these in order and will email you either way — there is nothing else for you to do.", { date: fmt.date(latest.createdAt) })}
                   </p>
                 )}
               </div>
@@ -154,11 +158,9 @@ export default async function VerificationSettingsPage() {
           );
         })}
 
-        <Alert tone="info" title="What happens to your documents">
+        <Alert tone="info" title={t("What happens to your documents")}>
           <p className="mt-1 leading-relaxed">
-            They are visible only to the reviewers who process them, never to other members, and
-            they are not used for anything except this check. Verification is optional — you can
-            use PetMate without it, with lower listing limits.
+            {t("They are visible only to the reviewers who process them, never to other members, and they are not used for anything except this check. Verification is optional — you can use PetMate without it, with lower listing limits.")}
           </p>
         </Alert>
       </div>

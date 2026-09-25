@@ -9,14 +9,17 @@ import { getSettings } from "@/lib/settings";
 import { isSandboxPayments } from "@/lib/payments/provider";
 import { PayoutRequest } from "@/components/wallet/payout-request";
 import { PageHeader, Card, CardHeader, Stat, Badge, Alert, EmptyState } from "@/components/ui/primitives";
-import { formatMoney } from "@/lib/money";
-import { formatDate, formatDateTime, cn } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import { PLATFORM_CURRENCY } from "@/lib/currency";
+import { getI18n } from "@/lib/i18n/server";
 
-export const metadata: Metadata = {
-  title: "Wallet",
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return {
+  title: t("Wallet"),
   robots: { index: false, follow: false },
 };
+}
 
 const PAYOUT_TONE: Record<string, "info" | "warning" | "success" | "danger" | "neutral"> = {
   REQUESTED: "warning",
@@ -27,6 +30,7 @@ const PAYOUT_TONE: Record<string, "info" | "warning" | "success" | "danger" | "n
 };
 
 export default async function WalletPage() {
+  const { t, fmt } = await getI18n();
   const auth = await requireAuth();
   const currency = PLATFORM_CURRENCY;
 
@@ -50,35 +54,34 @@ export default async function WalletPage() {
   return (
     <div className="container-page max-w-4xl py-8 lg:py-10">
       <PageHeader
-        title="Wallet"
-        description="Money PetMate holds for you. Every figure here is derived from the ledger, not stored on your account — so it always adds up."
+        title={t("Wallet")}
+        description={t("Money PetMate holds for you. Every figure here is derived from the ledger, not stored on your account — so it always adds up.")}
       />
 
       {isSandboxPayments() && (
-        <Alert tone="warning" className="mt-6" title="Sandbox payments are active">
+        <Alert tone="warning" className="mt-6" title={t("Sandbox payments are active")}>
           <p className="mt-1 leading-relaxed">
-            No real money is involved. The ledger, escrow, commission and payout logic below is
-            the real implementation; only the card gateway is simulated.
+            {t("No real money is involved. The ledger, escrow, commission and payout logic below is the real implementation; only the card gateway is simulated.")}
           </p>
         </Alert>
       )}
 
       <div className="mt-6 grid gap-3 sm:grid-cols-3">
         <Stat
-          label="Available"
-          value={formatMoney(earnings.availableCents, earnings.currency)}
-          hint="Yours to withdraw"
+          label={t("Available")}
+          value={fmt.money(earnings.availableCents, earnings.currency)}
+          hint={t("Yours to withdraw")}
           icon={<Wallet className="size-4" aria-hidden />}
         />
         <Stat
-          label="Pending"
-          value={formatMoney(earnings.pendingCents, earnings.currency)}
-          hint={`Held for ${settings.payoutHoldDays} days or until a dispute window closes`}
+          label={t("Pending")}
+          value={fmt.money(earnings.pendingCents, earnings.currency)}
+          hint={t("Held for {payoutHoldDays} days or until a dispute window closes", { payoutHoldDays: settings.payoutHoldDays })}
           icon={<Clock className="size-4" aria-hidden />}
         />
         <Stat
-          label="Lifetime earned"
-          value={formatMoney(earnings.lifetimeCents, earnings.currency)}
+          label={t("Lifetime earned")}
+          value={fmt.money(earnings.lifetimeCents, earnings.currency)}
           icon={<ArrowDownLeft className="size-4" aria-hidden />}
         />
       </div>
@@ -86,16 +89,16 @@ export default async function WalletPage() {
       <div className="mt-6 grid gap-5 lg:grid-cols-[1fr_320px] lg:items-start">
         <Card>
           <CardHeader
-            title="Activity"
-            description="Every posting against your accounts, newest first."
+            title={t("Activity")}
+            description={t("Every posting against your accounts, newest first.")}
           />
           <div className="p-5">
             {entries.length === 0 ? (
               <EmptyState
                 className="border-0 py-8"
                 icon={<Wallet className="size-5" aria-hidden />}
-                title="Nothing yet"
-                description="Sales, bookings and refunds all show up here the moment they settle."
+                title={t("Nothing yet")}
+                description={t("Sales, bookings and refunds all show up here the moment they settle.")}
               />
             ) : (
               <ul className="divide-y divide-[var(--border)]">
@@ -120,12 +123,12 @@ export default async function WalletPage() {
                       <div className="min-w-0 flex-1">
                         <p className="text-sm text-fg">{entry.transaction.description}</p>
                         <p className="mt-0.5 text-xs text-fg-subtle">
-                          {formatDateTime(entry.createdAt)} ·{" "}
+                          {fmt.dateTime(entry.createdAt)} ·{" "}
                           {entry.accountKind === "PENDING"
-                            ? "pending"
+                            ? t("pending")
                             : entry.accountKind === "PAYABLE"
-                              ? "withdrawal"
-                              : "available"}
+                              ? t("withdrawal")
+                              : t("available")}
                         </p>
                       </div>
                       <span
@@ -135,7 +138,7 @@ export default async function WalletPage() {
                         )}
                       >
                         {credit ? "+" : "−"}
-                        {formatMoney(Math.abs(entry.amountCents), entry.currency)}
+                        {fmt.money(Math.abs(entry.amountCents), entry.currency)}
                       </span>
                     </li>
                   );
@@ -147,7 +150,7 @@ export default async function WalletPage() {
 
         <aside className="space-y-5">
           <Card>
-            <CardHeader title="Withdraw" />
+            <CardHeader title={t("Withdraw")} />
             <div className="p-5">
               {canRequest ? (
                 <PayoutRequest
@@ -170,31 +173,30 @@ export default async function WalletPage() {
                 />
               ) : (
                 <p className="text-sm leading-relaxed text-fg-muted">
-                  The smallest payout is{" "}
-                  {formatMoney(settings.minPayoutCents, earnings.currency)}. You have{" "}
-                  {formatMoney(earnings.availableCents, earnings.currency)} available.
+                  {t("The smallest payout is {min}. You have {available} available.", {
+                    min: fmt.money(settings.minPayoutCents, earnings.currency),
+                    available: fmt.money(earnings.availableCents, earnings.currency),
+                  })}
                 </p>
               )}
               <p className="mt-4 text-xs leading-relaxed text-fg-subtle">
-                Requesting a payout moves the money out of your available balance immediately, so
-                the same funds cannot be requested twice. If a request is declined it goes straight
-                back.
+                {t("Requesting a payout moves the money out of your available balance immediately, so the same funds cannot be requested twice. If a request is declined it goes straight back.")}
               </p>
             </div>
           </Card>
 
           <Card>
-            <CardHeader title="Payout history" />
+            <CardHeader title={t("Payout history")} />
             <div className="p-5">
               {payouts.length === 0 ? (
-                <p className="text-sm text-fg-muted">No payouts yet.</p>
+                <p className="text-sm text-fg-muted">{t("No payouts yet.")}</p>
               ) : (
                 <ul className="divide-y divide-[var(--border)]">
                   {payouts.map((payout) => (
                     <li key={payout.id} className="py-2.5">
                       <div className="flex items-baseline justify-between gap-3">
                         <span className="text-sm font-semibold tabular text-fg">
-                          {formatMoney(payout.amountCents, payout.currency)}
+                          {fmt.money(payout.amountCents, payout.currency)}
                         </span>
                         <Badge tone={PAYOUT_TONE[payout.status] ?? "neutral"} size="sm">
                           {payout.status.toLowerCase()}
@@ -202,8 +204,8 @@ export default async function WalletPage() {
                       </div>
                       <p className="mt-0.5 flex items-center gap-1.5 text-xs text-fg-subtle">
                         <Landmark className="size-3" aria-hidden />
-                        {payout.destination ?? "Bank transfer"} ·{" "}
-                        {formatDate(payout.paidAt ?? payout.requestedAt)}
+                        {payout.destination ?? t("Bank transfer")} ·{" "}
+                        {fmt.date(payout.paidAt ?? payout.requestedAt)}
                       </p>
                     </li>
                   ))}
@@ -213,11 +215,11 @@ export default async function WalletPage() {
           </Card>
 
           <p className="text-xs leading-relaxed text-fg-subtle">
-            What you pay PetMate — subscriptions and invoices — is in{" "}
+            {t("What you pay PetMate — subscriptions and invoices — is in")}{" "}
             <Link href="/settings/billing" className="font-medium text-brand hover:underline">
-              billing
+              {t("billing")}
             </Link>
-            , not here.
+            {t(", not here.")}
           </p>
         </aside>
       </div>

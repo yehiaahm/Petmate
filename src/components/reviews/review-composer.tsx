@@ -9,6 +9,7 @@ import { Alert } from "@/components/ui/primitives";
 import { useToast } from "@/components/ui/toast";
 import { api, ApiError } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/components/i18n/i18n-provider";
 
 /**
  * Writing a review.
@@ -31,6 +32,7 @@ export function ReviewComposer({
   refId: string;
   label: string;
 }) {
+  const { t } = useI18n();
   const router = useRouter();
   const toast = useToast();
 
@@ -65,7 +67,7 @@ export function ReviewComposer({
           [refKey]: refId,
         },
       });
-      toast.success("Review posted", `Thanks — this helps the next person choose.`);
+      toast.success(t("Review posted"), `Thanks — this helps the next person choose.`);
       setOpen(false);
       router.refresh();
     } catch (err) {
@@ -79,7 +81,7 @@ export function ReviewComposer({
     return (
       <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
         <Star className="size-4" aria-hidden />
-        Write a review
+        {t("Write a review")}
       </Button>
     );
   }
@@ -92,7 +94,7 @@ export function ReviewComposer({
 
       <fieldset>
         <legend className="text-sm font-medium text-fg">
-          How was {label}?<span className="ms-0.5 text-[var(--danger)]" aria-hidden>*</span>
+          {t("How was {aspect}?", { aspect: label })}<span className="ms-0.5 text-[var(--danger)]" aria-hidden>*</span>
         </legend>
         <div className="mt-2 flex gap-1" onMouseLeave={() => setHovered(0)}>
           {[1, 2, 3, 4, 5].map((star) => (
@@ -101,7 +103,7 @@ export function ReviewComposer({
               type="button"
               onClick={() => setRating(star)}
               onMouseEnter={() => setHovered(star)}
-              aria-label={`${star} ${star === 1 ? "star" : "stars"}`}
+              aria-label={t.plural(star, { one: "{count} star", other: "{count} stars" })}
               aria-pressed={rating === star}
               className="rounded p-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ring)]"
             >
@@ -119,7 +121,7 @@ export function ReviewComposer({
         </div>
       </fieldset>
 
-      <Field label="Headline" hint="Optional.">
+      <Field label={t("Headline")} hint={t("Optional.")}>
         {({ id, invalid }) => (
           <Input
             id={id}
@@ -127,15 +129,15 @@ export function ReviewComposer({
             maxLength={120}
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="Honest about the puppy's health from the start"
+            placeholder={t("Honest about the puppy's health from the start")}
           />
         )}
       </Field>
 
       <Field
-        label="What happened?"
+        label={t("What happened?")}
         required
-        hint="What was accurate, what was not, and how the handover went. At least 20 characters."
+        hint={t("What was accurate, what was not, and how the handover went. At least 20 characters.")}
         trailing={`${body.length}/2000`}
       >
         {({ id, invalid }) => (
@@ -152,16 +154,16 @@ export function ReviewComposer({
 
       <div className="flex justify-end gap-3">
         <Button variant="outline" size="sm" onClick={() => setOpen(false)}>
-          Not now
+          {t("Not now")}
         </Button>
         <Button
           type="submit"
           size="sm"
           loading={submitting}
-          loadingText="Posting…"
+          loadingText={t("Posting…")}
           disabled={rating === 0 || body.trim().length < 20}
         >
-          Post review
+          {t("Post review")}
         </Button>
       </div>
     </form>

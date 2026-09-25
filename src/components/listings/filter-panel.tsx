@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/primitives";
 import { useToast } from "@/components/ui/toast";
 import { SPECIES, SPECIES_LABEL, LISTING_INTENT, LISTING_INTENT_LABEL, type Species } from "@/lib/constants";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/components/i18n/i18n-provider";
 
 /**
  * Marketplace filters.
@@ -31,6 +32,7 @@ export function FilterPanel({
   facets: Facets | null;
   resultCount: number;
 }) {
+  const { t } = useI18n();
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
@@ -86,7 +88,7 @@ export function FilterPanel({
 
   function useMyLocation() {
     if (!navigator.geolocation) {
-      toast.error("Location is not available", "Your browser does not support it.");
+      toast.error(t("Location is not available"), t("Your browser does not support it."));
       return;
     }
 
@@ -104,8 +106,8 @@ export function FilterPanel({
       () => {
         setLocating(false);
         toast.info(
-          "We could not get your location",
-          "Allow location access, or type a city instead.",
+          t("We could not get your location"),
+          t("Allow location access, or type a city instead."),
         );
       },
       { timeout: 8000, maximumAge: 300_000 },
@@ -121,7 +123,7 @@ export function FilterPanel({
   const content = (
     <div className="space-y-6">
       <fieldset>
-        <legend className="mb-2.5 text-sm font-semibold text-fg">Looking to</legend>
+        <legend className="mb-2.5 text-sm font-semibold text-fg">{t("Looking to")}</legend>
         <div className="flex flex-wrap gap-2">
           {LISTING_INTENT.map((intent) => {
             const active = params.get("intent") === intent;
@@ -138,7 +140,7 @@ export function FilterPanel({
                     : "border-[var(--border-strong)] text-fg-muted hover:border-brand hover:text-fg",
                 )}
               >
-                {LISTING_INTENT_LABEL[intent]}
+                {t(LISTING_INTENT_LABEL[intent])}
               </button>
             );
           })}
@@ -146,7 +148,7 @@ export function FilterPanel({
       </fieldset>
 
       <fieldset>
-        <legend className="mb-2.5 text-sm font-semibold text-fg">Species</legend>
+        <legend className="mb-2.5 text-sm font-semibold text-fg">{t("Species")}</legend>
         <div className="flex flex-wrap gap-2">
           {SPECIES.map((species) => {
             const active = selectedSpecies.includes(species);
@@ -165,7 +167,7 @@ export function FilterPanel({
                     : "border-[var(--border)] text-fg-muted hover:border-[var(--border-strong)] hover:text-fg",
                 )}
               >
-                {SPECIES_LABEL[species]}
+                {t(SPECIES_LABEL[species])}
                 {count != null && count > 0 && (
                   <span className="tabular text-[11px] text-fg-subtle">{count}</span>
                 )}
@@ -176,18 +178,18 @@ export function FilterPanel({
       </fieldset>
 
       <fieldset>
-        <legend className="mb-2.5 text-sm font-semibold text-fg">Price</legend>
+        <legend className="mb-2.5 text-sm font-semibold text-fg">{t("Price")}</legend>
         <div className="flex items-center gap-2">
           <Input
             type="number"
             inputMode="numeric"
             min={0}
-            placeholder="Min"
+            placeholder={t("Min")}
             value={minPrice}
             onChange={(e) => setMinPrice(e.target.value)}
             onBlur={() => update({ minPrice: minPrice || null })}
             onKeyDown={(e) => e.key === "Enter" && update({ minPrice: minPrice || null })}
-            aria-label="Minimum price"
+            aria-label={t("Minimum price")}
           />
           <span className="text-fg-subtle" aria-hidden>
             –
@@ -196,24 +198,27 @@ export function FilterPanel({
             type="number"
             inputMode="numeric"
             min={0}
-            placeholder="Max"
+            placeholder={t("Max")}
             value={maxPrice}
             onChange={(e) => setMaxPrice(e.target.value)}
             onBlur={() => update({ maxPrice: maxPrice || null })}
             onKeyDown={(e) => e.key === "Enter" && update({ maxPrice: maxPrice || null })}
-            aria-label="Maximum price"
+            aria-label={t("Maximum price")}
           />
         </div>
         {facets && facets.price.max > 0 && (
           <p className="mt-2 text-xs text-fg-subtle tabular">
-            Listings range {Math.round(facets.price.min / 100)} – {Math.round(facets.price.max / 100)},
-            average {Math.round(facets.price.avg / 100)}
+            {t("Listings range {min} – {max}, average {avg}", {
+              min: Math.round(facets.price.min / 100),
+              max: Math.round(facets.price.max / 100),
+              avg: Math.round(facets.price.avg / 100),
+            })}
           </p>
         )}
       </fieldset>
 
       <fieldset>
-        <legend className="mb-2.5 text-sm font-semibold text-fg">Age</legend>
+        <legend className="mb-2.5 text-sm font-semibold text-fg">{t("Age")}</legend>
         <Select
           value={params.get("maxAge") ?? params.get("minAge") ?? ""}
           onChange={(e) => {
@@ -224,18 +229,18 @@ export function FilterPanel({
             if (value === "adult") return update({ minAge: "36", maxAge: "84" });
             return update({ minAge: "84", maxAge: null });
           }}
-          aria-label="Age range"
+          aria-label={t("Age range")}
         >
-          <option value="">Any age</option>
-          <option value="baby">Under 1 year</option>
-          <option value="young">1 – 3 years</option>
-          <option value="adult">3 – 7 years</option>
-          <option value="senior">7 years and over</option>
+          <option value="">{t("Any age")}</option>
+          <option value="baby">{t("Under 1 year")}</option>
+          <option value="young">{t("1 – 3 years")}</option>
+          <option value="adult">{t("3 – 7 years")}</option>
+          <option value="senior">{t("7 years and over")}</option>
         </Select>
       </fieldset>
 
       <fieldset>
-        <legend className="mb-2.5 text-sm font-semibold text-fg">Sex</legend>
+        <legend className="mb-2.5 text-sm font-semibold text-fg">{t("Sex")}</legend>
         <div className="flex gap-2">
           {(["MALE", "FEMALE"] as const).map((sex) => {
             const active = params.get("sex") === sex;
@@ -252,7 +257,7 @@ export function FilterPanel({
                     : "border-[var(--border-strong)] text-fg-muted hover:text-fg",
                 )}
               >
-                {sex === "MALE" ? "Male" : "Female"}
+                {sex === "MALE" ? t("Male") : t("Female")}
               </button>
             );
           })}
@@ -260,19 +265,19 @@ export function FilterPanel({
       </fieldset>
 
       <fieldset>
-        <legend className="mb-2.5 text-sm font-semibold text-fg">Location</legend>
+        <legend className="mb-2.5 text-sm font-semibold text-fg">{t("Location")}</legend>
 
         {params.get("lat") ? (
           <div className="flex items-center justify-between rounded-[var(--radius-field)] border border-brand bg-brand-soft px-3 py-2">
             <span className="flex items-center gap-2 text-sm font-medium text-brand-soft-fg">
               <MapPin className="size-4" aria-hidden />
-              Within {params.get("radius") ?? 50} km of you
+              {t("Within {km} km of you", { km: params.get("radius") ?? 50 })}
             </span>
             <button
               type="button"
               onClick={() => update({ lat: null, lng: null, radius: null })}
               className="rounded p-1 text-brand-soft-fg hover:opacity-70"
-              aria-label="Clear location filter"
+              aria-label={t("Clear location filter")}
             >
               <X className="size-4" aria-hidden />
             </button>
@@ -282,9 +287,9 @@ export function FilterPanel({
             <Select
               value={params.get("city") ?? ""}
               onChange={(e) => update({ city: e.target.value || null })}
-              aria-label="City"
+              aria-label={t("City")}
             >
-              <option value="">Anywhere</option>
+              <option value="">{t("Anywhere")}</option>
               {facets?.cities.map((city) => (
                 <option key={city.value} value={city.value}>
                   {city.value} ({city.count})
@@ -298,10 +303,10 @@ export function FilterPanel({
               fullWidth
               onClick={useMyLocation}
               loading={locating}
-              loadingText="Finding you…"
+              loadingText={t("Finding you…")}
             >
               <MapPin className="size-4" aria-hidden />
-              Use my location
+              {t("Use my location")}
             </Button>
           </div>
         )}
@@ -311,11 +316,11 @@ export function FilterPanel({
             className="mt-2"
             value={params.get("radius") ?? "50"}
             onChange={(e) => update({ radius: e.target.value })}
-            aria-label="Search radius"
+            aria-label={t("Search radius")}
           >
             {[10, 25, 50, 100, 250, 500].map((km) => (
               <option key={km} value={km}>
-                Within {km} km
+                {t("Within {km} km", { km })}
               </option>
             ))}
           </Select>
@@ -323,22 +328,22 @@ export function FilterPanel({
       </fieldset>
 
       <fieldset className="space-y-3">
-        <legend className="mb-2.5 text-sm font-semibold text-fg">Trust filters</legend>
+        <legend className="mb-2.5 text-sm font-semibold text-fg">{t("Trust filters")}</legend>
         <Checkbox
-          label="Documented or vet-verified only"
-          hint="Pets with paperwork on file"
+          label={t("Documented or vet-verified only")}
+          hint={t("Pets with paperwork on file")}
           checked={params.get("verified") === "true"}
           onChange={(e) => update({ verified: e.target.checked ? "true" : null })}
         />
         <Checkbox
-          label="Vaccinations up to date"
-          hint="Nothing overdue on the record"
+          label={t("Vaccinations up to date")}
+          hint={t("Nothing overdue on the record")}
           checked={params.get("vaccinated") === "true"}
           onChange={(e) => update({ vaccinated: e.target.checked ? "true" : null })}
         />
         <Checkbox
-          label="Well-documented health record"
-          hint="Health score of 60 or above"
+          label={t("Well-documented health record")}
+          hint={t("Health score of 60 or above")}
           checked={params.get("minHealth") === "60"}
           onChange={(e) => update({ minHealth: e.target.checked ? "60" : null })}
         />
@@ -350,7 +355,7 @@ export function FilterPanel({
           fullWidth
           onClick={() => startTransition(() => router.push(pathname))}
         >
-          Clear all filters
+          {t("Clear all filters")}
         </Button>
       )}
     </div>
@@ -363,7 +368,7 @@ export function FilterPanel({
       <div className="lg:hidden">
         <Button variant="outline" onClick={() => setMobileOpen(true)} fullWidth>
           <SlidersHorizontal className="size-4" aria-hidden />
-          Filters
+          {t("Filters")}
           {activeCount > 0 && (
             <Badge tone="brand" size="sm">
               {activeCount}
@@ -381,16 +386,16 @@ export function FilterPanel({
             <div
               role="dialog"
               aria-modal="true"
-              aria-label="Filters"
+              aria-label={t("Filters")}
               className="absolute inset-x-0 bottom-0 max-h-[85dvh] overflow-y-auto rounded-t-[var(--radius-panel)] bg-bg pb-[env(safe-area-inset-bottom)]"
             >
               <div className="sticky top-0 z-10 flex items-center justify-between border-b border-[var(--border)] bg-bg px-4 py-3">
-                <h2 className="font-display text-lg font-semibold">Filters</h2>
+                <h2 className="font-display text-lg font-semibold">{t("Filters")}</h2>
                 <button
                   type="button"
                   onClick={() => setMobileOpen(false)}
                   className="rounded-full p-1.5 text-fg-muted hover:bg-bg-sunken"
-                  aria-label="Close filters"
+                  aria-label={t("Close filters")}
                 >
                   <X className="size-5" aria-hidden />
                 </button>
@@ -400,10 +405,10 @@ export function FilterPanel({
                 <Button fullWidth onClick={() => setMobileOpen(false)}>
                   {pending ? (
                     <>
-                      <Loader2 className="size-4 animate-spin" aria-hidden /> Updating…
+                      <Loader2 className="size-4 animate-spin" aria-hidden /> {t("Updating…")}
                     </>
                   ) : (
-                    `Show ${resultCount} ${resultCount === 1 ? "result" : "results"}`
+                    t.plural(resultCount, { one: "Show {count} result", other: "Show {count} results" })
                   )}
                 </Button>
               </div>

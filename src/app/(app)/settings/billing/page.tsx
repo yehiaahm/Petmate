@@ -9,16 +9,19 @@ import { getUsage } from "@/lib/billing/entitlements";
 import { SubscriptionPanel } from "@/components/settings/subscription-panel";
 import { PageHeader, Card, CardHeader, EmptyState } from "@/components/ui/primitives";
 import { ButtonLink } from "@/components/ui/button";
-import { formatMoney } from "@/lib/money";
-import { formatDate } from "@/lib/utils";
 import { Receipt } from "lucide-react";
+import { getI18n } from "@/lib/i18n/server";
 
-export const metadata: Metadata = {
-  title: "Plan & billing",
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return {
+  title: t("Plan & billing"),
   robots: { index: false, follow: false },
 };
+}
 
 export default async function BillingSettingsPage() {
+  const { t, fmt } = await getI18n();
   const auth = await requireAuth();
 
   const [subscription, usageData, invoices] = await Promise.all([
@@ -30,9 +33,9 @@ export default async function BillingSettingsPage() {
   return (
     <>
       <PageHeader
-        title="Plan & billing"
-        description="What you are on, what you are using, and every invoice we have issued you."
-        action={<ButtonLink href="/pricing" variant="outline">Compare plans</ButtonLink>}
+        title={t("Plan & billing")}
+        description={t("What you are on, what you are using, and every invoice we have issued you.")}
+        action={<ButtonLink href="/pricing" variant="outline">{t("Compare plans")}</ButtonLink>}
       />
 
       <div className="mt-6 space-y-5">
@@ -64,15 +67,15 @@ export default async function BillingSettingsPage() {
 
         <Card>
           <CardHeader
-            title="Invoices"
-            description="Every charge, including refunds against it. Kept as long as tax law requires."
+            title={t("Invoices")}
+            description={t("Every charge, including refunds against it. Kept as long as tax law requires.")}
           />
           <div className="p-5">
             {invoices.length === 0 ? (
               <EmptyState
                 icon={<Receipt className="size-5" aria-hidden />}
-                title="No invoices yet"
-                description="Subscription charges and platform fees appear here as soon as one is issued."
+                title={t("No invoices yet")}
+                description={t("Subscription charges and platform fees appear here as soon as one is issued.")}
                 className="border-0 py-8"
               />
             ) : (
@@ -87,7 +90,7 @@ export default async function BillingSettingsPage() {
                       <div className="min-w-0">
                         <p className="font-mono text-sm text-fg">{invoice.number}</p>
                         <p className="mt-0.5 text-xs text-fg-subtle">
-                          {formatDate(invoice.issuedAt)}
+                          {fmt.date(invoice.issuedAt)}
                           {invoice.paymentIntent?.purpose
                             ? ` · ${invoice.paymentIntent.purpose.replaceAll("_", " ").toLowerCase()}`
                             : ""}
@@ -95,11 +98,11 @@ export default async function BillingSettingsPage() {
                       </div>
                       <div className="text-end">
                         <p className="text-sm font-semibold tabular text-fg">
-                          {formatMoney(invoice.totalCents, invoice.currency)}
+                          {fmt.money(invoice.totalCents, invoice.currency)}
                         </p>
                         {refunded > 0 && (
                           <p className="mt-0.5 text-xs text-[var(--warning)] tabular">
-                            {formatMoney(refunded, invoice.currency)} refunded
+                            {t("{amount} refunded", { amount: fmt.money(refunded, invoice.currency) })}
                           </p>
                         )}
                       </div>
@@ -112,11 +115,11 @@ export default async function BillingSettingsPage() {
         </Card>
 
         <p className="text-xs leading-relaxed text-fg-subtle">
-          Money you earn from sales, bookings or payouts is not shown here — that lives in{" "}
+          {t("Money you earn from sales, bookings or payouts is not shown here — that lives in")}{" "}
           <Link href="/dashboard/wallet" className="font-medium text-brand hover:underline">
-            your wallet
+            {t("your wallet")}
           </Link>
-          . This page is only what you pay PetMate.
+          {t(". This page is only what you pay PetMate.")}
         </p>
       </div>
     </>

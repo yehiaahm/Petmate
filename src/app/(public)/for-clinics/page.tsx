@@ -15,17 +15,22 @@ import { getAuth } from "@/lib/auth/session";
 import { Card, Badge, Alert } from "@/components/ui/primitives";
 import { ButtonLink } from "@/components/ui/button";
 import { compactNumber } from "@/lib/utils";
+import { getI18n } from "@/lib/i18n/server";
 
-export const metadata: Metadata = {
-  title: "PetMate for clinics",
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return {
+  title: t("PetMate for clinics"),
   description:
-    "Take bookings, write health records that carry a verified badge, and get paid without chasing. What a veterinary clinic gets from PetMate, and what it costs.",
+    t("Take bookings, write health records that carry a verified badge, and get paid without chasing. What a veterinary clinic gets from PetMate, and what it costs."),
   alternates: { canonical: "/for-clinics" },
 };
+}
 
 export const revalidate = 3600;
 
 export default async function ForClinicsPage() {
+  const { t } = await getI18n();
   const [settings, auth, clinics, appointments, records] = await Promise.all([
     getSettings(),
     getAuth(),
@@ -39,21 +44,19 @@ export default async function ForClinicsPage() {
   return (
     <div className="container-page py-12 lg:py-16">
       <div className="mx-auto max-w-2xl text-center">
-        <Badge tone="brand">For veterinary clinics</Badge>
+        <Badge tone="brand">{t("For veterinary clinics")}</Badge>
         <h1 className="mt-4 font-display text-4xl font-semibold tracking-tight text-fg sm:text-5xl">
-          Your notes become the animal&rsquo;s record
+          {t("Your notes become the animal’s record")}
         </h1>
         <p className="mt-4 text-lg leading-relaxed text-fg-muted">
-          A clinic on PetMate gets a bookable calendar, a patient record that follows the animal to
-          its next owner, and payment settled before the consultation ends. No per-seat licence, no
-          setup fee.
+          {t("A clinic on PetMate gets a bookable calendar, a patient record that follows the animal to its next owner, and payment settled before the consultation ends. No per-seat licence, no setup fee.")}
         </p>
         <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
           <ButtonLink href={auth ? "/clinic/new" : "/register?next=/clinic/new"} size="lg">
-            Register your clinic
+            {t("Register your clinic")}
           </ButtonLink>
           <ButtonLink href="/clinics" variant="outline" size="lg">
-            See clinics already listed
+            {t("See clinics already listed")}
           </ButtonLink>
         </div>
       </div>
@@ -68,14 +71,14 @@ export default async function ForClinicsPage() {
             <dd className="font-display text-2xl font-semibold tabular text-fg">
               {compactNumber(stat.value)}
             </dd>
-            <dt className="mt-0.5 text-xs text-fg-muted">{stat.label}</dt>
+            <dt className="mt-0.5 text-xs text-fg-muted">{t(stat.label)}</dt>
           </div>
         ))}
       </dl>
 
       <section className="mx-auto mt-16 max-w-4xl">
         <h2 className="font-display text-2xl font-semibold tracking-tight text-fg">
-          What you actually get
+          {t("What you actually get")}
         </h2>
         <div className="mt-6 grid gap-4 sm:grid-cols-2">
           {[
@@ -114,8 +117,8 @@ export default async function ForClinicsPage() {
               <span className="flex size-9 items-center justify-center rounded-xl bg-brand-soft text-brand-soft-fg">
                 <item.icon className="size-4.5" aria-hidden />
               </span>
-              <h3 className="mt-3 font-display text-lg font-semibold text-fg">{item.title}</h3>
-              <p className="mt-1.5 text-sm leading-relaxed text-fg-muted">{item.body}</p>
+              <h3 className="mt-3 font-display text-lg font-semibold text-fg">{t(item.title)}</h3>
+              <p className="mt-1.5 text-sm leading-relaxed text-fg-muted">{t(item.body)}</p>
             </Card>
           ))}
         </div>
@@ -123,12 +126,12 @@ export default async function ForClinicsPage() {
 
       <section className="mx-auto mt-16 max-w-3xl">
         <h2 className="font-display text-2xl font-semibold tracking-tight text-fg">
-          What it costs
+          {t("What it costs")}
         </h2>
         <Card className="mt-5 p-6">
           <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
             <span className="font-display text-4xl font-semibold text-fg">{commission}</span>
-            <span className="text-fg-muted">of each completed booking</span>
+            <span className="text-fg-muted">{t("of each completed booking")}</span>
           </div>
           <ul className="mt-5 space-y-2 text-[15px] text-fg-muted">
             {[
@@ -139,7 +142,7 @@ export default async function ForClinicsPage() {
             ].map((line) => (
               <li key={line} className="flex items-start gap-2.5">
                 <ArrowRight className="rtl:-scale-x-100 mt-1 size-3.5 shrink-0 text-brand" aria-hidden />
-                {line}
+                {t(line)}
               </li>
             ))}
           </ul>
@@ -148,7 +151,7 @@ export default async function ForClinicsPage() {
 
       <section className="mx-auto mt-16 max-w-3xl">
         <h2 className="font-display text-2xl font-semibold tracking-tight text-fg">
-          Getting listed
+          {t("Getting listed")}
         </h2>
         <ol className="mt-5 space-y-3">
           {[
@@ -175,8 +178,8 @@ export default async function ForClinicsPage() {
                   {i + 1}
                 </span>
                 <div className="min-w-0">
-                  <h3 className="text-[15px] font-semibold text-fg">{step.title}</h3>
-                  <p className="mt-1 text-sm leading-relaxed text-fg-muted">{step.body}</p>
+                  <h3 className="text-[15px] font-semibold text-fg">{t(step.title)}</h3>
+                  <p className="mt-1 text-sm leading-relaxed text-fg-muted">{t(step.body)}</p>
                 </div>
               </Card>
             </li>
@@ -185,27 +188,24 @@ export default async function ForClinicsPage() {
       </section>
 
       <section className="mx-auto mt-16 max-w-3xl">
-        <Alert tone="info" title="What PetMate is not">
+        <Alert tone="info" title={t("What PetMate is not")}>
           <p className="mt-1 leading-relaxed">
-            It is not a practice management system. It does not do stock, payroll, rostering,
-            in-house lab results or clinical charting, and it will not replace the software you run
-            the surgery on. It handles the part that faces the animal&rsquo;s owner: being found,
-            being booked, being paid, and leaving behind a record the next vet can read.
+            {t("It is not a practice management system. It does not do stock, payroll, rostering, in-house lab results or clinical charting, and it will not replace the software you run the surgery on. It handles the part that faces the animal’s owner: being found, being booked, being paid, and leaving behind a record the next vet can read.")}
           </p>
         </Alert>
       </section>
 
       <section className="mx-auto mt-16 max-w-2xl text-center">
         <h2 className="font-display text-2xl font-semibold tracking-tight text-fg">
-          Questions before you commit?
+          {t("Questions before you commit?")}
         </h2>
         <p className="mt-2 text-[15px] text-fg-muted">
-          Ask us anything about verification, payouts or how records are scoped. A person answers.
+          {t("Ask us anything about verification, payouts or how records are scoped. A person answers.")}
         </p>
         <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
-          <ButtonLink href="/support?topic=CLINIC">Talk to us</ButtonLink>
+          <ButtonLink href="/support?topic=CLINIC">{t("Talk to us")}</ButtonLink>
           <ButtonLink href={auth ? "/clinic/new" : "/register?next=/clinic/new"} variant="outline">
-            Register your clinic
+            {t("Register your clinic")}
           </ButtonLink>
         </div>
       </section>

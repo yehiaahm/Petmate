@@ -3,11 +3,15 @@ import type { Metadata } from "next";
 import { Search, Home } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
 import { ButtonLink } from "@/components/ui/button";
+import { getI18n } from "@/lib/i18n/server";
 
-export const metadata: Metadata = {
-  title: "Page not found",
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return {
+  title: t("Page not found"),
   robots: { index: false, follow: true },
 };
+}
 
 /**
  * 404.
@@ -15,11 +19,12 @@ export const metadata: Metadata = {
  * A dead end is where people leave, so this one offers the three things they
  * were most likely looking for rather than only apologising.
  */
-export default function NotFound() {
+export default async function NotFound() {
+  const { t } = await getI18n();
   return (
     <div className="flex min-h-dvh flex-col">
       <header className="container-page py-6">
-        <Link href="/" aria-label="PetMate home">
+        <Link href="/" aria-label={t("PetMate home")}>
           <Logo size="sm" />
         </Link>
       </header>
@@ -29,28 +34,27 @@ export default function NotFound() {
           <p className="font-display text-6xl font-semibold text-brand">404</p>
 
           <h1 className="mt-4 font-display text-2xl font-semibold tracking-tight text-fg">
-            We could not find that page
+            {t("We could not find that page")}
           </h1>
 
           <p className="mt-3 text-[15px] leading-relaxed text-fg-muted">
-            It may have been removed, or the link might be wrong. If you were looking at a listing,
-            it may have found a home.
+            {t("It may have been removed, or the link might be wrong. If you were looking at a listing, it may have found a home.")}
           </p>
 
           <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
             <ButtonLink href="/pets">
               <Search className="size-4" aria-hidden />
-              Browse pets
+              {t("Browse pets")}
             </ButtonLink>
             <ButtonLink href="/" variant="outline">
               <Home className="size-4" aria-hidden />
-              Go home
+              {t("Go home")}
             </ButtonLink>
           </div>
 
-          <nav aria-label="Popular pages" className="mt-10 border-t border-[var(--border)] pt-6">
+          <nav aria-label={t("Popular pages")} className="mt-10 border-t border-[var(--border)] pt-6">
             <p className="text-xs font-semibold uppercase tracking-wider text-fg-subtle">
-              Popular
+              {t("Popular")}
             </p>
             <ul className="mt-3 flex flex-wrap justify-center gap-x-5 gap-y-2 text-sm">
               {[
@@ -61,7 +65,7 @@ export default function NotFound() {
               ].map((link) => (
                 <li key={link.href}>
                   <Link href={link.href} className="text-fg-muted hover:text-fg hover:underline">
-                    {link.label}
+                    {t(link.label)}
                   </Link>
                 </li>
               ))}

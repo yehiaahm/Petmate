@@ -7,8 +7,10 @@ import { Field, Input } from "@/components/ui/field";
 import { Alert } from "@/components/ui/primitives";
 import { Modal } from "@/components/ui/modal";
 import { api, ApiError } from "@/lib/api-client";
+import { useI18n } from "@/components/i18n/i18n-provider";
 
 export function DeleteAccount() {
+  const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [confirm, setConfirm] = useState("");
   const [working, setWorking] = useState(false);
@@ -34,23 +36,22 @@ export function DeleteAccount() {
     <>
       <Button variant="danger" onClick={() => setOpen(true)}>
         <Trash2 className="size-4" aria-hidden />
-        Close my account
+        {t("Close my account")}
       </Button>
 
-      <Modal open={open} onClose={() => setOpen(false)} title="Close your account permanently?">
+      <Modal open={open} onClose={() => setOpen(false)} title={t("Close your account permanently?")}>
         <div className="space-y-4">
           {error && <Alert tone="danger">{error}</Alert>}
 
           <Alert tone="danger">
             <p>
-              This cannot be undone. You will not be able to sign in, recover your listings, or
-              reclaim your handle.
+              {t("This cannot be undone. You will not be able to sign in, recover your listings, or reclaim your handle.")}
             </p>
           </Alert>
 
           <Field
-            label="Type DELETE to confirm"
-            hint="Case-sensitive, so this cannot happen by accident."
+            label={t("Type DELETE to confirm")}
+            hint={t("Case-sensitive, so this cannot happen by accident.")}
           >
             {({ id, invalid }) => (
               <Input
@@ -66,16 +67,16 @@ export function DeleteAccount() {
 
           <div className="flex justify-end gap-3">
             <Button variant="outline" onClick={() => setOpen(false)}>
-              Keep my account
+              {t("Keep my account")}
             </Button>
             <Button
               variant="danger"
               onClick={destroy}
               disabled={confirm !== "DELETE"}
               loading={working}
-              loadingText="Closing…"
+              loadingText={t("Closing…")}
             >
-              Close account
+              {t("Close account")}
             </Button>
           </div>
         </div>

@@ -5,13 +5,15 @@ import { requireAuth } from "@/lib/auth/rbac";
 import { listMyAppointments } from "@/lib/services/vet.service";
 import { PageHeader, Card, Badge, EmptyState } from "@/components/ui/primitives";
 import { ButtonLink } from "@/components/ui/button";
-import { formatMoney } from "@/lib/money";
-import { formatDateTime, relativeTime } from "@/lib/utils";
+import { getI18n } from "@/lib/i18n/server";
 
-export const metadata: Metadata = {
-  title: "Appointments",
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return {
+  title: t("Appointments"),
   robots: { index: false, follow: false },
 };
+}
 
 const TONE: Record<string, "info" | "warning" | "success" | "danger" | "neutral"> = {
   PENDING_PAYMENT: "warning",
@@ -32,6 +34,7 @@ const LABEL: Record<string, string> = {
 };
 
 export default async function AppointmentsPage() {
+  const { t } = await getI18n();
   const auth = await requireAuth();
   const appointments = await listMyAppointments(auth);
 
@@ -44,18 +47,18 @@ export default async function AppointmentsPage() {
   return (
     <div className="container-page max-w-3xl py-8 lg:py-10">
       <PageHeader
-        title="Appointments"
-        description="Vet visits you have booked. Anything a clinic writes during one lands on your pet's record automatically."
-        action={<ButtonLink href="/clinics">Book a vet</ButtonLink>}
+        title={t("Appointments")}
+        description={t("Vet visits you have booked. Anything a clinic writes during one lands on your pet's record automatically.")}
+        action={<ButtonLink href="/clinics">{t("Book a vet")}</ButtonLink>}
       />
 
       {appointments.length === 0 ? (
         <EmptyState
           className="mt-6"
           icon={<Stethoscope className="size-5" aria-hidden />}
-          title="No appointments yet"
-          description="Booking through PetMate means the clinic's notes become part of your pet's permanent record, with a verified badge an owner cannot fake."
-          action={<ButtonLink href="/clinics">Find a clinic</ButtonLink>}
+          title={t("No appointments yet")}
+          description={t("Booking through PetMate means the clinic's notes become part of your pet's permanent record, with a verified badge an owner cannot fake.")}
+          action={<ButtonLink href="/clinics">{t("Find a clinic")}</ButtonLink>}
         />
       ) : (
         <div className="mt-8 space-y-10">
@@ -63,7 +66,7 @@ export default async function AppointmentsPage() {
             <section>
               <h2 className="flex items-center gap-2 font-display text-xl font-semibold text-fg">
                 <CalendarDays className="size-4.5 text-brand" aria-hidden />
-                Upcoming
+                {t("Upcoming")}
               </h2>
               <ul className="mt-4 space-y-2">
                 {upcoming.map((appointment) => (
@@ -75,7 +78,7 @@ export default async function AppointmentsPage() {
 
           {past.length > 0 && (
             <section>
-              <h2 className="font-display text-xl font-semibold text-fg">Past</h2>
+              <h2 className="font-display text-xl font-semibold text-fg">{t("Past")}</h2>
               <ul className="mt-4 space-y-2">
                 {past.map((appointment) => (
                   <AppointmentRow key={appointment.id} appointment={appointment} />
@@ -91,13 +94,14 @@ export default async function AppointmentsPage() {
 
 type Appointment = Awaited<ReturnType<typeof listMyAppointments>>[number];
 
-function AppointmentRow({
+async function AppointmentRow({
   appointment,
   highlight = false,
 }: {
   appointment: Appointment;
-  highlight?: boolean;
+    highlight?: boolean;
 }) {
+  const { t, fmt } = await getI18n();
   return (
     <li>
       <Link href={`/dashboard/appointments/${appointment.id}`} className="block">
@@ -112,17 +116,17 @@ function AppointmentRow({
               </p>
               <p className="mt-0.5 text-sm text-fg-muted">{appointment.clinic.name}</p>
               <p className="mt-0.5 text-xs text-fg-subtle">
-                {formatDateTime(appointment.startAt)}
-                {highlight ? ` · ${relativeTime(appointment.startAt)}` : ""}
+                {fmt.dateTime(appointment.startAt)}
+                {highlight ? ` · ${fmt.relative(appointment.startAt)}` : ""}
                 {appointment.vet?.user.name ? ` · ${appointment.vet.user.name}` : ""}
               </p>
             </div>
             <div className="text-end">
               <p className="text-sm font-semibold tabular text-fg">
-                {formatMoney(appointment.priceCents, appointment.currency)}
+                {fmt.money(appointment.priceCents, appointment.currency)}
               </p>
               <Badge tone={TONE[appointment.status] ?? "neutral"} size="sm">
-                {LABEL[appointment.status] ?? appointment.status}
+                {t(LABEL[appointment.status] ?? appointment.status)}
               </Badge>
             </div>
           </div>

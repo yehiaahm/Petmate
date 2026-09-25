@@ -16,12 +16,12 @@ import { db } from "@/lib/db";
 import { requireAuth, assertOwnsPet } from "@/lib/auth/rbac";
 import { getPetDetail, getLineage } from "@/lib/services/pet.service";
 import { healthScoreLabel } from "@/lib/services/health.service";
-import { formatAge, formatDate } from "@/lib/utils";
 import { Card, Badge, StatusPill, DataRow, Breadcrumbs } from "@/components/ui/primitives";
 import { ButtonLink } from "@/components/ui/button";
 import { LineageTree } from "@/components/pets/lineage-tree";
 import { PetActions } from "@/components/pets/pet-actions";
 import { SPECIES_LABEL, VERIFICATION_LEVEL_LABEL, type Species, type VerificationLevel } from "@/lib/constants";
+import { getI18n } from "@/lib/i18n/server";
 
 type Params = Promise<{ id: string }>;
 
@@ -35,6 +35,7 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
 }
 
 export default async function PetDetailPage({ params }: { params: Params }) {
+  const { t, fmt } = await getI18n();
   const { id } = await params;
   const auth = await requireAuth();
 
@@ -113,20 +114,20 @@ export default async function PetDetailPage({ params }: { params: Params }) {
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
                 <Badge tone="neutral" size="sm">
-                  {SPECIES_LABEL[pet.species as Species]}
+                  {t(SPECIES_LABEL[pet.species as Species])}
                 </Badge>
                 {pet.verificationLevel !== "NONE" && (
                   <Badge tone="success" size="sm" icon={<ShieldCheck className="size-3" aria-hidden />}>
-                    {VERIFICATION_LEVEL_LABEL[pet.verificationLevel as VerificationLevel]}
+                    {t(VERIFICATION_LEVEL_LABEL[pet.verificationLevel as VerificationLevel])}
                   </Badge>
                 )}
                 {pet.availability !== "NOT_AVAILABLE" && (
                   <Badge tone="brand" size="sm">
                     {pet.availability === "FOR_SALE"
-                      ? "For sale"
+                      ? t("For sale")
                       : pet.availability === "FOR_ADOPTION"
-                        ? "For adoption"
-                        : "For breeding"}
+                        ? t("For adoption")
+                        : t("For breeding")}
                   </Badge>
                 )}
               </div>
@@ -136,28 +137,28 @@ export default async function PetDetailPage({ params }: { params: Params }) {
               </h1>
 
               <p className="mt-1 text-[15px] text-fg-muted">
-                {pet.breed?.name ?? pet.breedText ?? "Breed not recorded"} ·{" "}
-                {pet.sex === "MALE" ? "Male" : pet.sex === "FEMALE" ? "Female" : "Sex unknown"} ·{" "}
-                {formatAge(pet.birthDate)}
+                {pet.breed?.name ?? pet.breedText ?? t("Breed not recorded")} ·{" "}
+                {pet.sex === "MALE" ? t("Male") : pet.sex === "FEMALE" ? t("Female") : t("Sex unknown")} ·{" "}
+                {fmt.age(pet.birthDate)}
               </p>
 
               <p className="mt-2 font-mono text-xs text-fg-subtle">
-                Passport {pet.passportNo}
+                {t("Passport")} {pet.passportNo}
               </p>
 
               <div className="mt-4 flex flex-wrap gap-2">
                 <ButtonLink href={`/dashboard/pets/${id}/health`} size="sm">
                   <Stethoscope className="size-4" aria-hidden />
-                  Health record
+                  {t("Health record")}
                 </ButtonLink>
                 <ButtonLink href={`/dashboard/pets/${id}/edit`} variant="outline" size="sm">
                   <Pencil className="size-4" aria-hidden />
-                  Edit
+                  {t("Edit")}
                 </ButtonLink>
                 {!openListing && (
                   <ButtonLink href={`/dashboard/listings/new?petId=${id}`} variant="outline" size="sm">
                     <TrendingUp className="size-4" aria-hidden />
-                    List {pet.name}
+                    {t("List {name}", { name: pet.name })}
                   </ButtonLink>
                 )}
               </div>
@@ -176,7 +177,7 @@ export default async function PetDetailPage({ params }: { params: Params }) {
 
           {pet.description && (
             <section className="mt-8">
-              <h2 className="font-display text-lg font-semibold text-fg">About {pet.name}</h2>
+              <h2 className="font-display text-lg font-semibold text-fg">{t("About {name}", { name: pet.name })}</h2>
               <p className="mt-2 whitespace-pre-wrap text-[15px] leading-relaxed text-fg-muted">
                 {pet.description}
               </p>
@@ -185,11 +186,11 @@ export default async function PetDetailPage({ params }: { params: Params }) {
 
           {pet.temperamentTags.length > 0 && (
             <section className="mt-6">
-              <h2 className="text-sm font-semibold text-fg">Temperament</h2>
+              <h2 className="text-sm font-semibold text-fg">{t("Temperament")}</h2>
               <ul className="mt-2 flex flex-wrap gap-2">
                 {pet.temperamentTags.map((tag) => (
                   <li key={tag}>
-                    <Badge tone="neutral">{tag}</Badge>
+                    <Badge tone="neutral">{t(tag)}</Badge>
                   </li>
                 ))}
               </ul>
@@ -198,25 +199,25 @@ export default async function PetDetailPage({ params }: { params: Params }) {
 
           <section className="mt-8">
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="font-display text-lg font-semibold text-fg">Recent health record</h2>
+              <h2 className="font-display text-lg font-semibold text-fg">{t("Recent health record")}</h2>
               <Link
                 href={`/dashboard/pets/${id}/health`}
                 className="text-sm font-semibold text-brand hover:underline"
               >
-                See all
+                {t("See all")}
               </Link>
             </div>
 
             {records.length === 0 ? (
               <Card className="p-6 text-center">
                 <Syringe className="mx-auto size-6 text-fg-subtle" aria-hidden />
-                <p className="mt-2 text-sm font-medium text-fg">No records yet</p>
+                <p className="mt-2 text-sm font-medium text-fg">{t("No records yet")}</p>
                 <p className="mt-1 text-sm text-fg-muted">
-                  Adding vaccinations and check-ups is what turns this profile into proof.
+                  {t("Adding vaccinations and check-ups is what turns this profile into proof.")}
                 </p>
                 <div className="mt-4">
                   <ButtonLink href={`/dashboard/pets/${id}/health`} size="sm">
-                    Add a record
+                    {t("Add a record")}
                   </ButtonLink>
                 </div>
               </Card>
@@ -230,10 +231,10 @@ export default async function PetDetailPage({ params }: { params: Params }) {
                       </span>
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-medium text-fg">{record.title}</p>
-                        <p className="text-xs text-fg-muted">{formatDate(record.occurredAt, "long")}</p>
+                        <p className="text-xs text-fg-muted">{fmt.date(record.occurredAt, "long")}</p>
                       </div>
                       <Badge tone={record.source === "CLINIC" ? "success" : "neutral"} size="sm">
-                        {record.source === "CLINIC" ? "Clinic" : "Self-reported"}
+                        {record.source === "CLINIC" ? t("Clinic") : t("Self-reported")}
                       </Badge>
                     </li>
                   ))}
@@ -246,7 +247,7 @@ export default async function PetDetailPage({ params }: { params: Params }) {
             <section className="mt-8">
               <h2 className="flex items-center gap-2 font-display text-lg font-semibold text-fg">
                 <Dna className="size-4 text-brand" aria-hidden />
-                Lineage
+                {t("Lineage")}
               </h2>
               <div className="mt-3">
                 <LineageTree node={lineage} />
@@ -257,13 +258,13 @@ export default async function PetDetailPage({ params }: { params: Params }) {
 
         <aside className="space-y-5">
           <Card className="p-5">
-            <h2 className="font-display text-base font-semibold text-fg">Health documentation</h2>
+            <h2 className="font-display text-base font-semibold text-fg">{t("Health documentation")}</h2>
             <div className="mt-3">
               <div className="flex items-baseline justify-between">
                 <span className="font-display text-2xl font-semibold tabular text-fg">
                   {pet.healthScore}
                 </span>
-                <StatusPill tone={health.tone}>{health.label}</StatusPill>
+                <StatusPill tone={health.tone}>{t(health.label)}</StatusPill>
               </div>
               <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-bg-inset">
                 <div
@@ -278,21 +279,20 @@ export default async function PetDetailPage({ params }: { params: Params }) {
                 />
               </div>
               <p className="mt-2 text-xs leading-relaxed text-fg-muted">
-                This measures how well documented {pet.name} is, not their medical condition. It is
-                what buyers and clinics see.
+                {t("This measures how well documented {name} is, not their medical condition. It is what buyers and clinics see.", { name: pet.name })}
               </p>
             </div>
 
             <dl className="mt-4 divide-y divide-[var(--border)] border-t border-[var(--border)]">
-              <DataRow label="Records" value={records.length} />
-              <DataRow label="Documents" value={documents} />
-              <DataRow label="Reminders" value={reminders.length} />
+              <DataRow label={t("Records")} value={records.length} />
+              <DataRow label={t("Documents")} value={documents} />
+              <DataRow label={t("Reminders")} value={reminders.length} />
             </dl>
           </Card>
 
           {reminders.length > 0 && (
             <Card className="p-5">
-              <h2 className="font-display text-base font-semibold text-fg">Due soon</h2>
+              <h2 className="font-display text-base font-semibold text-fg">{t("Due soon")}</h2>
               <ul className="mt-3 space-y-2.5">
                 {reminders.map((reminder) => {
                   const overdue = reminder.dueAt < new Date();
@@ -305,8 +305,7 @@ export default async function PetDetailPage({ params }: { params: Params }) {
                       <span className="min-w-0">
                         <span className="block truncate font-medium text-fg">{reminder.title}</span>
                         <span className={`block text-xs ${overdue ? "text-[var(--danger)]" : "text-fg-muted"}`}>
-                          {overdue ? "Overdue since " : "Due "}
-                          {formatDate(reminder.dueAt)}
+                          {overdue ? t("Overdue since {date}", { date: fmt.date(reminder.dueAt) }) : t("Due {date}", { date: fmt.date(reminder.dueAt) })}
                         </span>
                       </span>
                     </li>
@@ -318,7 +317,7 @@ export default async function PetDetailPage({ params }: { params: Params }) {
 
           {appointments.length > 0 && (
             <Card className="p-5">
-              <h2 className="font-display text-base font-semibold text-fg">Upcoming visits</h2>
+              <h2 className="font-display text-base font-semibold text-fg">{t("Upcoming visits")}</h2>
               <ul className="mt-3 space-y-2.5">
                 {appointments.map((appointment) => (
                   <li key={appointment.id} className="text-sm">
@@ -329,7 +328,7 @@ export default async function PetDetailPage({ params }: { params: Params }) {
                       {appointment.service.name}
                     </Link>
                     <p className="text-xs text-fg-muted">
-                      {appointment.clinic.name} · {formatDate(appointment.startAt, "long")}
+                      {appointment.clinic.name} · {fmt.date(appointment.startAt, "long")}
                     </p>
                   </li>
                 ))}
@@ -339,7 +338,7 @@ export default async function PetDetailPage({ params }: { params: Params }) {
 
           {listings.length > 0 && (
             <Card className="p-5">
-              <h2 className="font-display text-base font-semibold text-fg">Listings</h2>
+              <h2 className="font-display text-base font-semibold text-fg">{t("Listings")}</h2>
               <ul className="mt-3 space-y-2.5">
                 {listings.map((listing) => (
                   <li key={listing.id} className="text-sm">

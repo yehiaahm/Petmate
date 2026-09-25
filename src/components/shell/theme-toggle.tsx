@@ -3,6 +3,7 @@
 import { useState, useSyncExternalStore } from "react";
 import { Moon, Sun } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/components/i18n/i18n-provider";
 
 /** Nothing ever changes, so the subscribe callback has nothing to do. */
 const subscribeNever = () => () => {};
@@ -14,6 +15,7 @@ const subscribeNever = () => () => {};
  * re-deriving from storage, so the button and the page can never disagree.
  */
 export function ThemeToggle({ className }: { className?: string }) {
+  const { t } = useI18n();
   // Lazy initialisers, not an effect. The blocking head script has already set
   // the attribute by the time this mounts, so there is nothing to synchronise
   // afterwards — and a setState inside an effect would render twice to reach
@@ -53,7 +55,7 @@ export function ThemeToggle({ className }: { className?: string }) {
         "inline-flex size-9 items-center justify-center rounded-[var(--radius-field)] text-fg-muted transition-colors hover:bg-bg-sunken hover:text-fg",
         className,
       )}
-      aria-label={mounted ? `Switch to ${theme === "dark" ? "light" : "dark"} mode` : "Switch theme"}
+      aria-label={mounted ? (theme === "dark" ? t("Switch to light mode") : t("Switch to dark mode")) : t("Switch theme")}
     >
       {/* Both icons render; CSS decides. Avoids a hydration mismatch. */}
       <Sun className="size-[18px] dark:hidden" aria-hidden />

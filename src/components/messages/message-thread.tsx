@@ -5,8 +5,9 @@ import { Send, AlertTriangle, Loader2 } from "lucide-react";
 import { Avatar } from "@/components/ui/primitives";
 import { api, ApiError } from "@/lib/api-client";
 import { useToast } from "@/components/ui/toast";
-import { relativeTime, cn } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import { LIMITS } from "@/lib/constants";
+import { useI18n } from "@/components/i18n/i18n-provider";
 
 interface ThreadMessage {
   id: string;
@@ -43,6 +44,7 @@ export function MessageThread({
   disabled?: boolean;
   counterpartyName: string;
 }) {
+  const { t, fmt } = useI18n();
   const toast = useToast();
 
   const [messages, setMessages] = useState<ThreadMessage[]>(initialMessages);
@@ -153,7 +155,7 @@ export function MessageThread({
       setBody("");
     } catch (err) {
       toast.error(
-        "Message not sent",
+        t("Message not sent"),
         err instanceof ApiError ? err.message : "Please try again.",
       );
     } finally {
@@ -167,11 +169,11 @@ export function MessageThread({
         className="max-h-[60dvh] min-h-64 overflow-y-auto p-4"
         role="log"
         aria-live="polite"
-        aria-label="Conversation"
+        aria-label={t("Conversation")}
       >
         {messages.length === 0 ? (
           <p className="py-10 text-center text-sm text-fg-muted">
-            No messages yet. Say hello to {counterpartyName}.
+            {t("No messages yet. Say hello to {name}.", { name: counterpartyName })}
           </p>
         ) : (
           <ul className="space-y-3">
@@ -220,14 +222,13 @@ export function MessageThread({
                         mine && "text-end",
                       )}
                     >
-                      {relativeTime(message.createdAt)}
+                      {fmt.relative(message.createdAt)}
                     </p>
 
                     {message.flagged && (
                       <p className="mt-1 flex items-start gap-1.5 rounded-[var(--radius-field)] bg-[var(--warning-soft)] px-2.5 py-1.5 text-[11px] text-[var(--warning)]">
                         <AlertTriangle className="mt-px size-3 shrink-0" aria-hidden />
-                        This message mentions paying outside PetMate. Escrow and dispute cover only
-                        work for payments made here.
+                        {t("This message mentions paying outside PetMate. Escrow and dispute cover only work for payments made here.")}
                       </p>
                     )}
                   </div>
@@ -242,7 +243,7 @@ export function MessageThread({
       <form onSubmit={send} className="border-t border-[var(--border)] p-3">
         <div className="flex items-end gap-2">
           <label htmlFor="message-body" className="sr-only">
-            Message
+            {t("Message")}
           </label>
           <textarea
             id="message-body"
@@ -258,14 +259,14 @@ export function MessageThread({
             rows={1}
             maxLength={LIMITS.messageMax}
             disabled={disabled || sending}
-            placeholder={disabled ? "You have blocked this member" : "Write a message…"}
+            placeholder={disabled ? t("You have blocked this member") : t("Write a message…")}
             className="max-h-32 min-h-11 flex-1 resize-none rounded-[var(--radius-field)] border border-[var(--border-strong)] bg-bg-elevated px-3.5 py-2.5 text-[15px] text-fg placeholder:text-fg-subtle focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[var(--ring)] disabled:opacity-60"
           />
           <button
             type="submit"
             disabled={disabled || sending || !body.trim()}
             className="inline-flex size-11 shrink-0 items-center justify-center rounded-[var(--radius-field)] bg-brand text-brand-fg transition-colors hover:bg-brand-hover disabled:opacity-40"
-            aria-label="Send message"
+            aria-label={t("Send message")}
           >
             {sending ? (
               <Loader2 className="size-4 animate-spin" aria-hidden />
@@ -276,7 +277,7 @@ export function MessageThread({
         </div>
 
         <p className="mt-1.5 px-1 text-[11px] text-fg-subtle">
-          {live ? "Live" : "Reconnecting…"} · Enter to send, Shift+Enter for a new line
+          {live ? t("Live") : t("Reconnecting…")} · {t("Enter to send, Shift+Enter for a new line")}
         </p>
       </form>
     </>

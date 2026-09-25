@@ -8,13 +8,18 @@ import { PageHeader, EmptyState, Alert } from "@/components/ui/primitives";
 import { ButtonLink } from "@/components/ui/button";
 import { BreedingWorkspace } from "@/components/breeding/breeding-workspace";
 import { PLATFORM_CURRENCY } from "@/lib/currency";
+import { getI18n } from "@/lib/i18n/server";
 
-export const metadata: Metadata = {
-  title: "Breeding",
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return {
+  title: t("Breeding"),
   robots: { index: false, follow: false },
 };
+}
 
 export default async function BreedingPage() {
+  const { t } = await getI18n();
   const auth = await requireAuth();
 
   const [pets, requests, entitlements] = await Promise.all([
@@ -63,18 +68,14 @@ export default async function BreedingPage() {
   return (
     <div className="container-page py-8">
       <PageHeader
-        eyebrow="Breeding network"
-        title="Breeding"
-        description="Compatibility is scored from age, health records, relatedness, distance and each owner's stated requirements. Every score shows its working."
+        eyebrow={t("Breeding network")}
+        title={t("Breeding")}
+        description={t("Compatibility is scored from age, health records, relatedness, distance and each owner's stated requirements. Every score shows its working.")}
       />
 
       <div className="mt-6">
         <Alert tone="info" icon={<Info className="size-4" aria-hidden />}>
-          <strong className="font-semibold">How the matching works.</strong> PetMate uses a
-          deterministic rule engine, not a machine-learning model. Identical inputs always produce
-          an identical score, and you can see every factor that contributed. Pairings that would be
-          irresponsible — too young, neutered, or closely related — are blocked outright rather
-          than scored low.
+          <strong className="font-semibold">{t("How the matching works.")}</strong> {t("PetMate uses a deterministic rule engine, not a machine-learning model. Identical inputs always produce an identical score, and you can see every factor that contributed. Pairings that would be irresponsible — too young, neutered, or closely related — are blocked outright rather than scored low.")}
         </Alert>
       </div>
 
@@ -82,13 +83,13 @@ export default async function BreedingPage() {
         <div className="mt-8">
           <EmptyState
             icon={<Dna className="size-6" aria-hidden />}
-            title="No pets eligible for breeding"
-            description="A pet needs a recorded sex and must not be neutered. Add a pet, or update an existing profile."
+            title={t("No pets eligible for breeding")}
+            description={t("A pet needs a recorded sex and must not be neutered. Add a pet, or update an existing profile.")}
             action={
               <div className="flex flex-wrap justify-center gap-3">
-                <ButtonLink href="/dashboard/pets">My pets</ButtonLink>
+                <ButtonLink href="/dashboard/pets">{t("My pets")}</ButtonLink>
                 <ButtonLink href="/dashboard/pets/new" variant="outline">
-                  Add a pet
+                  {t("Add a pet")}
                 </ButtonLink>
               </div>
             }

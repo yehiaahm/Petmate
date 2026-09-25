@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Search, Loader2, ArrowRight, Sparkles } from "lucide-react";
 import { api, qs } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/components/i18n/i18n-provider";
 
 interface Suggestion {
   type: "breed" | "listing" | "clinic";
@@ -25,7 +26,7 @@ const EMPTY_SUGGESTIONS: Suggestion[] = [];
 
 export function SearchBar({
   className,
-  placeholder = "Search pets, breeds, clinics…",
+    placeholder,
   autoFocus,
   onNavigate,
 }: {
@@ -34,6 +35,7 @@ export function SearchBar({
   autoFocus?: boolean;
   onNavigate?: () => void;
 }) {
+  const { t } = useI18n();
   const router = useRouter();
   const [value, setValue] = useState("");
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
@@ -161,8 +163,8 @@ export function SearchBar({
           }}
           onFocus={() => setOpen(true)}
           onKeyDown={onKeyDown}
-          placeholder={placeholder}
-          aria-label="Search PetMate"
+                    placeholder={placeholder ?? t("Search pets, breeds, clinics…")}
+          aria-label={t("Search PetMate")}
           aria-expanded={open && visibleSuggestions.length > 0}
           aria-autocomplete="list"
           role="combobox"
@@ -173,7 +175,7 @@ export function SearchBar({
           type="button"
           onClick={() => void runSearch()}
           disabled={!value.trim() || interpreting}
-          aria-label="Search"
+          aria-label={t("Search")}
           className="absolute end-1.5 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-full bg-brand text-brand-fg transition-colors hover:bg-brand-hover disabled:opacity-40"
         >
           {interpreting ? (
@@ -209,7 +211,7 @@ export function SearchBar({
             >
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm font-medium text-fg">{suggestion.label}</span>
-                <span className="block truncate text-xs text-fg-muted">{suggestion.sublabel}</span>
+                <span className="block truncate text-xs text-fg-muted">{t(suggestion.sublabel)}</span>
               </span>
               <span className="shrink-0 rounded-full bg-bg-sunken px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-fg-subtle">
                 {suggestion.type}
@@ -225,7 +227,7 @@ export function SearchBar({
             >
               <Sparkles className="size-4 shrink-0 text-brand" aria-hidden />
               <span className="min-w-0 flex-1 truncate">
-                Search for <span className="font-medium text-fg">{value.trim()}</span>
+                {t("Search for")} <span className="font-medium text-fg">{value.trim()}</span>
               </span>
               <kbd className="hidden shrink-0 rounded border border-[var(--border)] px-1.5 py-0.5 font-mono text-[10px] text-fg-subtle sm:block">
                 Enter

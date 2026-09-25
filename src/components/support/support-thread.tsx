@@ -7,7 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Field, Input, Textarea } from "@/components/ui/field";
 import { Alert, Badge, Card } from "@/components/ui/primitives";
 import { api, ApiError } from "@/lib/api-client";
-import { cn, relativeTime } from "@/lib/utils";
+import { cn } from "@/lib/utils";
+import { useI18n } from "@/components/i18n/i18n-provider";
+import { RichText } from "@/components/i18n/rich-text";
 
 export interface ThreadTicket {
   id: string;
@@ -60,6 +62,7 @@ export function SupportThread({
   signedIn: boolean;
   isStaff?: boolean;
 }) {
+  const { t, fmt } = useI18n();
   const [ticket, setTicket] = useState<ThreadTicket | null>(initialTicket);
   // Held in memory only, for the reply call. Never persisted, never in the URL.
   const [email, setEmail] = useState("");
@@ -124,16 +127,18 @@ export function SupportThread({
       <Card className="mx-auto max-w-md p-6">
         <div className="flex items-center gap-2.5">
           <Lock className="size-5 text-brand" aria-hidden />
-          <h2 className="font-display text-lg font-semibold text-fg">Confirm it is you</h2>
+          <h2 className="font-display text-lg font-semibold text-fg">{t("Confirm it is you")}</h2>
         </div>
         <p className="mt-2 text-sm leading-relaxed text-fg-muted">
-          Request <span className="font-mono font-medium text-fg">{reference}</span>. Enter the
-          email address it was opened with and we will show the thread.
+          <RichText
+            text={t("Request {reference}. Enter the email address it was opened with and we will show the thread.")}
+            values={{ reference: <span className="font-mono font-medium text-fg">{reference}</span> }}
+          />
         </p>
 
         <form onSubmit={unlock} className="mt-5 space-y-4" noValidate>
           {gateError && <Alert tone="danger">{gateError}</Alert>}
-          <Field label="Email address" required>
+          <Field label={t("Email address")} required>
             {({ id, invalid }) => (
               <Input
                 id={id}
@@ -148,13 +153,13 @@ export function SupportThread({
               />
             )}
           </Field>
-          <Button type="submit" fullWidth loading={unlocking} loadingText="Checking…">
-            Show my request
+          <Button type="submit" fullWidth loading={unlocking} loadingText={t("Checking…")}>
+            {t("Show my request")}
           </Button>
         </form>
 
         <p className="mt-4 text-xs leading-relaxed text-fg-subtle">
-          Signing in shows all of your requests without this step.
+          {t("Signing in shows all of your requests without this step.")}
         </p>
       </Card>
     );
@@ -166,15 +171,15 @@ export function SupportThread({
     <div>
       <div className="flex flex-wrap items-center gap-2">
         <Badge tone={STATUS_TONE[ticket.status] ?? "neutral"}>
-          {STATUS_LABEL[ticket.status] ?? ticket.status}
+          {t(STATUS_LABEL[ticket.status] ?? ticket.status)}
         </Badge>
         {ticket.priority === "HIGH" || ticket.priority === "URGENT" ? (
           <Badge tone="warning" size="sm">
-            Priority
+            {t("Priority")}
           </Badge>
         ) : null}
         <span className="text-xs text-fg-subtle">
-          Opened {relativeTime(new Date(ticket.createdAt))}
+          {t("Opened {when}", { when: fmt.relative(new Date(ticket.createdAt)) })}
         </span>
       </div>
 
@@ -193,7 +198,7 @@ export function SupportThread({
                 )}
                 <span className="text-sm font-semibold text-fg">{message.authorName}</span>
                 <span className="text-xs text-fg-subtle">
-                  {relativeTime(new Date(message.createdAt))}
+                  {fmt.relative(new Date(message.createdAt))}
                 </span>
               </div>
               <p className="mt-2 whitespace-pre-wrap text-[15px] leading-relaxed text-fg-muted">
@@ -207,17 +212,17 @@ export function SupportThread({
       {closed ? (
         <Alert tone="info" className="mt-5">
           <p className="text-sm">
-            This request is closed. If it comes back,{" "}
+            {t("This request is closed. If it comes back,")}{" "}
             <Link href="/support#contact" className="font-medium text-brand hover:underline">
-              open a new one
+              {t("open a new one")}
             </Link>{" "}
-            and quote {ticket.reference}.
+            {t("and quote {reference}.", { reference: ticket.reference })}
           </p>
         </Alert>
       ) : (
         <form onSubmit={send} className="mt-6 space-y-3">
           {replyError && <Alert tone="danger">{replyError}</Alert>}
-          <Field label="Add to this request" trailing={`${reply.length}/4000`}>
+          <Field label={t("Add to this request")} trailing={`${reply.length}/4000`}>
             {({ id, invalid }) => (
               <Textarea
                 id={id}
@@ -227,13 +232,13 @@ export function SupportThread({
                 value={reply}
                 onChange={(e) => setReply(e.target.value)}
                 placeholder={
-                  isStaff ? "Reply to the member…" : "Anything else that would help us?"
+                  isStaff ? t("Reply to the member…") : t("Anything else that would help us?")
                 }
               />
             )}
           </Field>
-          <Button type="submit" loading={sending} loadingText="Sending…" disabled={!reply.trim()}>
-            {isStaff ? "Send reply" : "Send"}
+          <Button type="submit" loading={sending} loadingText={t("Sending…")} disabled={!reply.trim()}>
+            {isStaff ? t("Send reply") : t("Send")}
           </Button>
         </form>
       )}

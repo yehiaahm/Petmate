@@ -6,12 +6,11 @@ import { Eye, Heart, MessageSquare, FileText, Sparkles, ExternalLink } from "luc
 import { db } from "@/lib/db";
 import { requireAuth, assertOwnsListing } from "@/lib/auth/rbac";
 import { getSettings } from "@/lib/settings";
-import { formatMoney } from "@/lib/money";
-import { formatDate } from "@/lib/utils";
 import { Breadcrumbs, Card, PageHeader, Alert, DataRow } from "@/components/ui/primitives";
 import { ButtonLink } from "@/components/ui/button";
 import { ListingControls } from "@/components/listings/listing-controls";
 import { LISTING_INTENT_LABEL, type ListingIntent } from "@/lib/constants";
+import { getI18n } from "@/lib/i18n/server";
 
 type Params = Promise<{ id: string }>;
 
@@ -25,6 +24,7 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
 }
 
 export default async function ManageListingPage({ params }: { params: Params }) {
+  const { t, fmt } = await getI18n();
   // The clock is read once, here, rather than inside the JSX: a render must be
   // a pure function of its inputs, and two reads can straddle a boundary.
   // A server component renders once per request, so this is the request's
@@ -87,13 +87,13 @@ export default async function ManageListingPage({ params }: { params: Params }) 
 
   const price =
     listing.intent === "SALE"
-      ? formatMoney(listing.priceCents, listing.currency)
+      ? fmt.money(listing.priceCents, listing.currency)
       : listing.intent === "ADOPTION"
         ? listing.adoptionFeeCents > 0
-          ? formatMoney(listing.adoptionFeeCents, listing.currency)
+          ? fmt.money(listing.adoptionFeeCents, listing.currency)
           : "Free to a good home"
         : listing.studFeeCents > 0
-          ? formatMoney(listing.studFeeCents, listing.currency)
+          ? fmt.money(listing.studFeeCents, listing.currency)
           : "Negotiable";
 
   // Conversion is the number a seller actually needs: how many of the people
@@ -113,14 +113,14 @@ export default async function ManageListingPage({ params }: { params: Params }) 
       />
 
       <PageHeader
-        eyebrow={LISTING_INTENT_LABEL[listing.intent as ListingIntent]}
+        eyebrow={t(LISTING_INTENT_LABEL[listing.intent as ListingIntent])}
         title={listing.title}
-        description={`${listing.pet.name} · ${price}${listing.negotiable ? " · open to offers" : ""}`}
+        description={`${listing.pet.name} · ${price}${listing.negotiable ? ` · ${t("open to offers")}` : ""}`}
         action={
           live && (
             <ButtonLink href={`/pets/${listing.slug}`} variant="outline">
               <ExternalLink className="size-4" aria-hidden />
-              View public page
+              {t("View public page")}
             </ButtonLink>
           )
         }
@@ -128,17 +128,16 @@ export default async function ManageListingPage({ params }: { params: Params }) 
 
       {listing.status === "PENDING_REVIEW" && (
         <div className="mt-6">
-          <Alert tone="warning" title="Waiting for review">
-            We check listings before they go live. This usually takes a few hours, and you will get
-            a notification either way.
+          <Alert tone="warning" title={t("Waiting for review")}>
+            {t("We check listings before they go live. This usually takes a few hours, and you will get a notification either way.")}
           </Alert>
         </div>
       )}
 
       {listing.status === "REJECTED" && (
         <div className="mt-6">
-          <Alert tone="danger" title="Not approved">
-            {listing.moderationNote ?? "This listing did not meet our rules."}
+          <Alert tone="danger" title={t("Not approved")}>
+            {listing.moderationNote ?? t("This listing did not meet our rules.")}
           </Alert>
         </div>
       )}
@@ -146,7 +145,7 @@ export default async function ManageListingPage({ params }: { params: Params }) 
       <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_20rem]">
         <div className="min-w-0 space-y-6">
           <section>
-            <h2 className="mb-3 font-display text-lg font-semibold text-fg">Performance</h2>
+            <h2 className="mb-3 font-display text-lg font-semibold text-fg">{t("Performance")}</h2>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               {[
                 { label: "Views", value: listing.viewCount, icon: Eye },
@@ -161,7 +160,7 @@ export default async function ManageListingPage({ params }: { params: Params }) 
                   <p className="mt-2 font-display text-xl font-semibold tabular text-fg">
                     {stat.value}
                   </p>
-                  <p className="text-xs text-fg-muted">{stat.label}</p>
+                  <p className="text-xs text-fg-muted">{t(stat.label)}</p>
                 </Card>
               ))}
             </div>
@@ -169,15 +168,14 @@ export default async function ManageListingPage({ params }: { params: Params }) 
             {live && listing.viewCount > 30 && conversion < 2 && (
               <div className="mt-3">
                 <Alert tone="info">
-                  Plenty of views but few enquiries. That usually means the price, the photos or
-                  the description is putting people off rather than the animal.
+                  {t("Plenty of views but few enquiries. That usually means the price, the photos or the description is putting people off rather than the animal.")}
                 </Alert>
               </div>
             )}
           </section>
 
           <section>
-            <h2 className="mb-3 font-display text-lg font-semibold text-fg">Listing</h2>
+            <h2 className="mb-3 font-display text-lg font-semibold text-fg">{t("Listing")}</h2>
             <Card className="p-5">
               <div className="flex gap-4">
                 <div className="relative size-20 shrink-0 overflow-hidden rounded-[var(--radius-field)] bg-bg-sunken">
@@ -199,13 +197,13 @@ export default async function ManageListingPage({ params }: { params: Params }) 
                     {listing.pet.name}
                   </Link>
                   <p className="mt-0.5 text-sm text-fg-muted">
-                    Health documentation {listing.pet.healthScore}/100
+                    {t("Health documentation {score}/100", { score: listing.pet.healthScore })}
                   </p>
                   <Link
                     href={`/dashboard/pets/${listing.pet.id}/health`}
                     className="mt-1 inline-block text-xs font-semibold text-brand hover:underline"
                   >
-                    Improve the record
+                    {t("Improve the record")}
                   </Link>
                 </div>
               </div>
@@ -215,14 +213,14 @@ export default async function ManageListingPage({ params }: { params: Params }) 
               </p>
 
               <dl className="mt-4 divide-y divide-[var(--border)] border-t border-[var(--border)]">
-                <DataRow label="Location" value={[listing.city, listing.country].filter(Boolean).join(", ") || "Not set"} />
-                <DataRow label="Created" value={formatDate(listing.createdAt, "long")} />
+                <DataRow label={t("Location")} value={[listing.city, listing.country].filter(Boolean).join(", ") || "Not set"} />
+                <DataRow label={t("Created")} value={fmt.date(listing.createdAt, "long")} />
                 {listing.publishedAt && (
-                  <DataRow label="Published" value={formatDate(listing.publishedAt, "long")} />
+                  <DataRow label={t("Published")} value={fmt.date(listing.publishedAt, "long")} />
                 )}
                 {listing.expiresAt && (
                   <DataRow
-                    label="Expires"
+                    label={t("Expires")}
                     value={
                       <span
                         className={
@@ -231,7 +229,7 @@ export default async function ManageListingPage({ params }: { params: Params }) 
                             : undefined
                         }
                       >
-                        {formatDate(listing.expiresAt, "long")}
+                        {fmt.date(listing.expiresAt, "long")}
                       </span>
                     }
                   />
@@ -243,23 +241,24 @@ export default async function ManageListingPage({ params }: { params: Params }) 
           {listing.intent === "ADOPTION" && (
             <section>
               <div className="mb-3 flex items-center justify-between">
-                <h2 className="font-display text-lg font-semibold text-fg">Applications</h2>
+                <h2 className="font-display text-lg font-semibold text-fg">{t("Applications")}</h2>
                 {applications > 0 && (
                   <ButtonLink href={`/dashboard/listings/${id}/applications`} size="sm">
-                    Review {applications}
+                    {t("Review {count}", { count: applications })}
                   </ButtonLink>
                 )}
               </div>
               {applications === 0 ? (
                 <Card className="p-5 text-sm text-fg-muted">
-                  No applications waiting. Applicants answer structured questions about their home,
-                  hours alone and experience, so you can compare them side by side.
+                  {t("No applications waiting. Applicants answer structured questions about their home, hours alone and experience, so you can compare them side by side.")}
                 </Card>
               ) : (
                 <Card className="p-5">
                   <p className="text-sm text-fg-muted">
-                    {applications} {applications === 1 ? "application is" : "applications are"}{" "}
-                    waiting for a decision.
+                    {t.plural(applications, {
+                      one: "{count} application is waiting for a decision.",
+                      other: "{count} applications are waiting for a decision.",
+                    })}
                   </p>
                 </Card>
               )}

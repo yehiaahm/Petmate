@@ -24,7 +24,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, EmptyState } from "@/components/ui/primitives";
 import { api } from "@/lib/api-client";
-import { cn, relativeTime } from "@/lib/utils";
+import { cn } from "@/lib/utils";
+import { useI18n } from "@/components/i18n/i18n-provider";
 
 export interface FeedNotification {
   id: string;
@@ -61,6 +62,7 @@ export function NotificationFeed({
   initial: FeedNotification[];
   initialUnread: number;
 }) {
+  const { t, tm, fmt } = useI18n();
   const router = useRouter();
   const [items, setItems] = useState(initial);
   const [unread, setUnread] = useState(initialUnread);
@@ -105,11 +107,11 @@ export function NotificationFeed({
     return (
       <EmptyState
         icon={<BellOff className="size-5" aria-hidden />}
-        title="Nothing here yet"
-        description="Messages, orders, appointments and health reminders land here. You control which ones also email you."
+        title={t("Nothing here yet")}
+        description={t("Messages, orders, appointments and health reminders land here. You control which ones also email you.")}
         action={
           <Button variant="outline" onClick={() => router.push("/settings/notifications")}>
-            Notification settings
+            {t("Notification settings")}
           </Button>
         }
       />
@@ -120,7 +122,7 @@ export function NotificationFeed({
     <div>
       <div className="flex items-center justify-between gap-3">
         <p className="text-sm text-fg-muted tabular" role="status" aria-live="polite">
-          {unread} unread
+          {t("{count} unread", { count: unread })}
         </p>
         <div className="flex gap-2">
           <Button
@@ -130,10 +132,10 @@ export function NotificationFeed({
             disabled={unread === 0 || pending}
           >
             <CheckCheck className="size-4" aria-hidden />
-            Mark all read
+            {t("Mark all read")}
           </Button>
           <Button variant="outline" size="sm" onClick={() => router.push("/settings/notifications")}>
-            Settings
+            {t("Settings")}
           </Button>
         </div>
       </div>
@@ -178,23 +180,23 @@ export function NotificationFeed({
                       isUnread ? "font-semibold text-fg" : "font-medium text-fg-muted",
                     )}
                   >
-                    {n.title}
+                    {tm(n.title)}
                   </p>
                   <time
                     dateTime={n.createdAt}
                     className="shrink-0 text-xs text-fg-subtle"
                     title={new Date(n.createdAt).toLocaleString()}
                   >
-                    {relativeTime(new Date(n.createdAt))}
+                    {fmt.relative(new Date(n.createdAt))}
                   </time>
                 </div>
                 {n.body && (
                   <p className="mt-1 line-clamp-2 text-sm leading-relaxed text-fg-muted">
-                    {n.body}
+                    {tm(n.body)}
                   </p>
                 )}
                 {isUnread && (
-                  <span className="sr-only">Unread</span>
+                  <span className="sr-only">{t("Unread")}</span>
                 )}
               </div>
             </Card>
@@ -230,8 +232,8 @@ export function NotificationFeed({
 
       {!exhausted && (
         <div className="mt-5 text-center">
-          <Button variant="outline" onClick={loadMore} loading={loadingMore} loadingText="Loading…">
-            Load older
+          <Button variant="outline" onClick={loadMore} loading={loadingMore} loadingText={t("Loading…")}>
+            {t("Load older")}
           </Button>
         </div>
       )}

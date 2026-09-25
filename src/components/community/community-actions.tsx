@@ -264,7 +264,7 @@ export function PostComposer({ groupId }: { groupId: string }) {
         <Select aria-label={t("Post type")} value={type} onChange={(e) => setType(e.target.value)}>
           {types.map((o) => (
             <option key={o.value} value={o.value}>
-              {o.label}
+              {t(o.label)}
             </option>
           ))}
         </Select>

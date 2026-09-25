@@ -13,6 +13,7 @@ import { AdoptionApplicationForm } from "./adoption-application-form";
 import { goToPayment } from "@/lib/payment-redirect";
 import { api, ApiError } from "@/lib/api-client";
 import { uuid } from "@/lib/api-idempotency";
+import { useI18n } from "@/components/i18n/i18n-provider";
 
 interface ListingSummary {
   id: string;
@@ -45,6 +46,7 @@ export function ContactSellerCard({
   viewer: { id: string; emailVerified: boolean; name: string } | null;
   favorited: boolean;
 }) {
+  const { t } = useI18n();
   const router = useRouter();
 
   const [messageOpen, setMessageOpen] = useState(false);
@@ -119,16 +121,16 @@ export function ContactSellerCard({
           <div className="min-w-0">
             <p className="text-xs font-medium uppercase tracking-wider text-fg-subtle">
               {listing.intent === "SALE"
-                ? "Price"
+                ? t("Price")
                 : listing.intent === "ADOPTION"
-                  ? "Adoption fee"
-                  : "Stud fee"}
+                  ? t("Adoption fee")
+                  : t("Stud fee")}
             </p>
             <p className="mt-1 font-display text-3xl font-semibold tabular text-fg">
               {listing.priceLabel}
             </p>
             {listing.negotiable && (
-              <p className="mt-1 text-xs text-fg-muted">Open to offers</p>
+              <p className="mt-1 text-xs text-fg-muted">{t("Open to offers")}</p>
             )}
           </div>
           <FavoriteButton listingId={listing.id} initial={favorited} />
@@ -136,28 +138,28 @@ export function ContactSellerCard({
 
         {isOwner ? (
           <div className="mt-5 space-y-2">
-            <Alert tone="info">This is your listing.</Alert>
+            <Alert tone="info">{t("This is your listing.")}</Alert>
             <ButtonLink href={`/dashboard/listings/${listing.id}`} fullWidth variant="outline">
-              Manage listing
+              {t("Manage listing")}
             </ButtonLink>
           </div>
         ) : !available ? (
           <div className="mt-5 space-y-3">
-            <Alert tone="warning" title="No longer available">
+            <Alert tone="warning" title={t("No longer available")}>
               {listing.status === "RESERVED"
-                ? `${listing.petName} is reserved while a purchase completes.`
-                : "This listing has closed."}
+                ? t("{name} is reserved while a purchase completes.", { name: listing.petName })
+                : t("This listing has closed.")}
             </Alert>
             <ButtonLink href="/pets" variant="outline" fullWidth>
-              Browse similar pets
+              {t("Browse similar pets")}
             </ButtonLink>
           </div>
         ) : (
           <div className="mt-5 space-y-2.5">
             {listing.intent === "SALE" && (
-              <Button fullWidth size="lg" onClick={() => void startPurchase()} loading={buying} loadingText="Starting…">
+              <Button fullWidth size="lg" onClick={() => void startPurchase()} loading={buying} loadingText={t("Starting…")}>
                 <Lock className="size-4" aria-hidden />
-                Buy with escrow protection
+                {t("Buy with escrow protection")}
               </Button>
             )}
 
@@ -171,13 +173,13 @@ export function ContactSellerCard({
                 }}
               >
                 <FileText className="size-4" aria-hidden />
-                Apply to adopt
+                {t("Apply to adopt")}
               </Button>
             )}
 
             {listing.intent === "BREEDING" && (
               <ButtonLink href="/dashboard/breeding" fullWidth size="lg">
-                Check compatibility
+                {t("Check compatibility")}
               </ButtonLink>
             )}
 
@@ -190,7 +192,7 @@ export function ContactSellerCard({
               }}
             >
               <MessageSquare className="size-4" aria-hidden />
-              Message {listing.sellerName.split(" ")[0]}
+              {t("Message {name}", { name: listing.sellerName.split(" ")[0] })}
             </Button>
           </div>
         )}
@@ -205,22 +207,20 @@ export function ContactSellerCard({
           <div className="mt-5 space-y-2.5 border-t border-[var(--border)] pt-4">
             <p className="flex items-start gap-2 text-xs leading-relaxed text-fg-muted">
               <Lock className="mt-0.5 size-3.5 shrink-0 text-[var(--success)]" aria-hidden />
-              Your payment is held by PetMate. The seller is only paid once you have met{" "}
-              {listing.petName} and you both confirm the handover.
+              {t("Your payment is held by PetMate. The seller is only paid once you have met {name} and you both confirm the handover.", { name: listing.petName })}
             </p>
             <p className="flex items-start gap-2 text-xs leading-relaxed text-fg-muted">
               <ShieldCheck className="mt-0.5 size-3.5 shrink-0 text-[var(--success)]" aria-hidden />
-              If the animal is not as described, open a dispute and the money stays put until a
-              human reviews it.
+              {t("If the animal is not as described, open a dispute and the money stays put until a human reviews it.")}
             </p>
           </div>
         )}
 
         {viewer && !viewer.emailVerified && (
           <Alert tone="warning" className="mt-4">
-            Confirm your email address to message sellers and make purchases.{" "}
+            {t("Confirm your email address to message sellers and make purchases.")}{" "}
             <Link href="/settings" className="font-semibold underline">
-              Resend the link
+              {t("Resend the link")}
             </Link>
           </Alert>
         )}
@@ -229,13 +229,13 @@ export function ContactSellerCard({
       <Modal
         open={messageOpen}
         onClose={() => setMessageOpen(false)}
-        title={`Message ${listing.sellerName}`}
-        description={`About ${listing.petName}. Keep the conversation here — it is what lets us help if something goes wrong.`}
+        title={t("Message {sellerName}", { sellerName: listing.sellerName })}
+        description={t("About {petName}. Keep the conversation here — it is what lets us help if something goes wrong.", { petName: listing.petName })}
       >
         <div className="space-y-4">
           <Field
-            label="Your message"
-            hint="Ask about temperament, health history, or arranging a visit."
+            label={t("Your message")}
+            hint={t("Ask about temperament, health history, or arranging a visit.")}
             error={error}
             trailing={`${message.length}/2000`}
           >
@@ -248,26 +248,26 @@ export function ContactSellerCard({
                 maxLength={2000}
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
-                placeholder={`Hi, I am interested in ${listing.petName}. Could you tell me more about how they are with other animals, and whether I could visit this week?`}
+                placeholder={t("Hi, I am interested in {petName}. Could you tell me more about how they are with other animals, and whether I could visit this week?", { petName: listing.petName })}
               />
             )}
           </Field>
 
           <p className="text-xs text-fg-subtle">
-            Never share your phone number, address or payment details in a first message.
+            {t("Never share your phone number, address or payment details in a first message.")}
           </p>
 
           <div className="flex justify-end gap-2">
             <Button variant="ghost" onClick={() => setMessageOpen(false)}>
-              Cancel
+              {t("Cancel")}
             </Button>
             <Button
               onClick={() => void sendMessage()}
               loading={sending}
-              loadingText="Sending…"
+              loadingText={t("Sending…")}
               disabled={message.trim().length < 10}
             >
-              Send message
+              {t("Send message")}
             </Button>
           </div>
         </div>

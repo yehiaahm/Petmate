@@ -10,9 +10,9 @@ import { useToast } from "@/components/ui/toast";
 import { goToPayment } from "@/lib/payment-redirect";
 import { api, ApiError } from "@/lib/api-client";
 import { uuid } from "@/lib/api-idempotency";
-import { formatMoney } from "@/lib/money";
 import { cn } from "@/lib/utils";
 import { PLAN_AUDIENCE, type PlanAudience } from "@/lib/constants";
+import { useI18n } from "@/components/i18n/i18n-provider";
 
 interface Plan {
   id: string;
@@ -42,6 +42,7 @@ export function PlanGrid({
   currentPlanCode: string;
   signedIn: boolean;
 }) {
+  const { t, fmt } = useI18n();
   const router = useRouter();
   const toast = useToast();
 
@@ -79,7 +80,7 @@ export function PlanGrid({
     } catch (err) {
       const message = err instanceof ApiError ? err.message : "We could not start that upgrade.";
       setError(message);
-      toast.error("Upgrade failed", message);
+      toast.error(t("Upgrade failed"), message);
       setWorking(null);
     }
   }
@@ -88,16 +89,16 @@ export function PlanGrid({
     <div>
       <div className="flex flex-col items-center gap-4">
         <SegmentedControl
-          label="Plan audience"
+          label={t("Plan audience")}
           value={audience}
           onChange={(v) => setAudience(v as PlanAudience)}
           className="max-w-xl"
-          options={PLAN_AUDIENCE.map((value) => ({ value, label: AUDIENCE_LABEL[value]! }))}
+          options={PLAN_AUDIENCE.map((value) => ({ value, label: t(AUDIENCE_LABEL[value]!) }))}
         />
 
         <div className="flex items-center gap-3">
           <SegmentedControl
-            label="Billing interval"
+            label={t("Billing interval")}
             value={interval}
             onChange={(v) => setInterval(v as "MONTH" | "YEAR")}
             className="w-56"
@@ -108,7 +109,7 @@ export function PlanGrid({
           />
           {interval === "YEAR" && (
             <Badge tone="accent" size="sm">
-              2 months free
+              {t("2 months free")}
             </Badge>
           )}
         </div>
@@ -142,22 +143,22 @@ export function PlanGrid({
               >
                 {highlight && (
                   <Badge tone="brand" className="mb-3 self-start">
-                    Most capable
+                    {t("Most capable")}
                   </Badge>
                 )}
 
-                <h3 className="font-display text-xl font-semibold text-fg">{plan.name}</h3>
+                <h3 className="font-display text-xl font-semibold text-fg">{t(plan.name)}</h3>
                 {plan.tagline && (
                   <p className="mt-1 text-sm text-fg-muted">{plan.tagline}</p>
                 )}
 
                 <div className="mt-5 flex items-baseline gap-1.5">
                   <span className="font-display text-4xl font-semibold tabular text-fg">
-                    {price === 0 ? "Free" : formatMoney(price, plan.currency)}
+                    {price === 0 ? t("Free") : fmt.money(price, plan.currency)}
                   </span>
                   {price > 0 && (
                     <span className="text-sm text-fg-muted">
-                      /{interval === "YEAR" ? "year" : "month"}
+                      /{interval === "YEAR" ? t("year") : t("month")}
                     </span>
                   )}
                 </div>
@@ -177,11 +178,11 @@ export function PlanGrid({
                 <div className="mt-6">
                   {isCurrent ? (
                     <Button variant="secondary" fullWidth disabled>
-                      Your current plan
+                      {t("Your current plan")}
                     </Button>
                   ) : isFree ? (
                     <Button variant="outline" fullWidth disabled>
-                      Included with every account
+                      {t("Included with every account")}
                     </Button>
                   ) : (
                     <Button
@@ -189,9 +190,9 @@ export function PlanGrid({
                       variant={highlight ? "primary" : "outline"}
                       onClick={() => void subscribe(plan)}
                       loading={working === plan.code}
-                      loadingText="Starting…"
+                      loadingText={t("Starting…")}
                     >
-                      {signedIn ? `Upgrade to ${plan.name}` : "Get started"}
+                      {signedIn ? t("Upgrade to {plan}", { plan: plan.name }) : t("Get started")}
                     </Button>
                   )}
                 </div>

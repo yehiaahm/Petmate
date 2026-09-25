@@ -6,8 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/field";
 import { Alert } from "@/components/ui/primitives";
 import { api, ApiError } from "@/lib/api-client";
+import { useI18n } from "@/components/i18n/i18n-provider";
+import { RichText } from "@/components/i18n/rich-text";
 
 export function ForgotPasswordForm() {
+  const { t } = useI18n();
   const [email, setEmail] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [sent, setSent] = useState(false);
@@ -38,13 +41,15 @@ export function ForgotPasswordForm() {
         <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-[var(--success-soft)] text-[var(--success)]">
           <MailCheck className="size-6" aria-hidden />
         </div>
-        <h2 className="font-display text-lg font-semibold text-fg">Check your inbox</h2>
+        <h2 className="font-display text-lg font-semibold text-fg">{t("Check your inbox")}</h2>
         <p className="text-sm leading-relaxed text-fg-muted">
-          If <span className="font-medium text-fg">{email}</span> has a PetMate account, a reset
-          link is on its way. It expires in one hour and can only be used once.
+          <RichText
+            text={t("If {email} has a PetMate account, a reset link is on its way. It expires in one hour and can only be used once.")}
+            values={{ email: <span className="font-medium text-fg">{email}</span> }}
+          />
         </p>
         <Button variant="outline" fullWidth onClick={() => setSent(false)}>
-          Use a different address
+          {t("Use a different address")}
         </Button>
       </div>
     );
@@ -54,7 +59,7 @@ export function ForgotPasswordForm() {
     <form onSubmit={onSubmit} className="space-y-5" noValidate>
       {error && <Alert tone="danger">{error}</Alert>}
 
-      <Field label="Email address" required>
+      <Field label={t("Email address")} required>
         {({ id, invalid }) => (
           <Input
             id={id}
@@ -71,8 +76,8 @@ export function ForgotPasswordForm() {
         )}
       </Field>
 
-      <Button type="submit" fullWidth size="lg" loading={submitting} loadingText="Sending…">
-        Send reset link
+      <Button type="submit" fullWidth size="lg" loading={submitting} loadingText={t("Sending…")}>
+        {t("Send reset link")}
       </Button>
     </form>
   );

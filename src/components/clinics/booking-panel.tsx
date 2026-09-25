@@ -11,8 +11,9 @@ import { useToast } from "@/components/ui/toast";
 import { goToPayment } from "@/lib/payment-redirect";
 import { api, ApiError } from "@/lib/api-client";
 import { uuid } from "@/lib/api-idempotency";
-import { formatMoney } from "@/lib/money";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/components/i18n/i18n-provider";
+import { intlLocale } from "@/lib/i18n/config";
 
 interface Service {
   id: string;
@@ -61,6 +62,7 @@ export function BookingPanel({
   phone: string | null;
   website: string | null;
 }) {
+  const { t, fmt } = useI18n();
   const router = useRouter();
   const toast = useToast();
 
@@ -142,7 +144,7 @@ export function BookingPanel({
         idempotencyKey: uuid(),
       });
 
-      toast.success("Slot held", "Complete payment to confirm the appointment.");
+      toast.success(t("Slot held"), t("Complete payment to confirm the appointment."));
 
       if (result.payment.redirectUrl) {
         goToPayment(result.payment.redirectUrl, router.push);
@@ -173,13 +175,13 @@ export function BookingPanel({
     <Card className="p-5">
       <h2 className="flex items-center gap-2 font-display text-lg font-semibold text-fg">
         <CalendarDays className="size-4 text-brand" aria-hidden />
-        Book an appointment
+        {t("Book an appointment")}
       </h2>
 
       {services.length === 0 ? (
         <div className="mt-4 space-y-3">
           <Alert tone="info">
-            This clinic has not published bookable services yet.
+            {t("This clinic has not published bookable services yet.")}
           </Alert>
           {phone && (
             <a
@@ -193,12 +195,12 @@ export function BookingPanel({
         </div>
       ) : (
         <div className="mt-4 space-y-4">
-          <Field label="Service" required>
+          <Field label={t("Service")} required>
             {({ id }) => (
               <Select id={id} value={serviceId} onChange={(e) => setServiceId(e.target.value)}>
                 {services.map((s) => (
                   <option key={s.id} value={s.id}>
-                    {s.name} — {formatMoney(s.priceCents, s.currency)}
+                    {s.name} — {fmt.money(s.priceCents, s.currency)}
                   </option>
                 ))}
               </Select>
@@ -206,7 +208,7 @@ export function BookingPanel({
           </Field>
 
           {signedIn && pets.length > 0 && (
-            <Field label="Which pet?" required>
+            <Field label={t("Which pet?")} required>
               {({ id }) => (
                 <Select id={id} value={petId} onChange={(e) => setPetId(e.target.value)}>
                   {pets.map((pet) => (
@@ -220,17 +222,16 @@ export function BookingPanel({
           )}
 
           <div>
-            <p className="mb-2 text-sm font-medium text-fg">Available times</p>
+            <p className="mb-2 text-sm font-medium text-fg">{t("Available times")}</p>
 
             {loadingSlots ? (
               <div className="flex items-center gap-2 py-6 text-sm text-fg-muted">
                 <Loader2 className="size-4 animate-spin" aria-hidden />
-                Checking the calendar…
+                {t("Checking the calendar…")}
               </div>
             ) : days.length === 0 ? (
               <Alert tone="warning">
-                No free slots in the next two weeks for this service. Try another service, or
-                contact the clinic directly.
+                {t("No free slots in the next two weeks for this service. Try another service, or contact the clinic directly.")}
               </Alert>
             ) : (
               <div className="max-h-72 space-y-3 overflow-y-auto pe-1">
@@ -275,7 +276,7 @@ export function BookingPanel({
 
           {selectedSlot && (
             <>
-              <Field label="Reason for the visit" hint="Optional, but it helps the vet prepare.">
+              <Field label={t("Reason for the visit")} hint={t("Optional, but it helps the vet prepare.")}>
                 {({ id }) => (
                   <Textarea
                     id={id}
@@ -283,7 +284,7 @@ export function BookingPanel({
                     maxLength={1000}
                     value={reason}
                     onChange={(e) => setReason(e.target.value)}
-                    placeholder="Limping on her back left leg since Tuesday."
+                    placeholder={t("Limping on her back left leg since Tuesday.")}
                   />
                 )}
               </Field>
@@ -292,18 +293,20 @@ export function BookingPanel({
                 <div className="flex items-baseline justify-between">
                   <span className="text-fg-muted">{service?.name}</span>
                   <span className="font-display text-lg font-semibold tabular text-fg">
-                    {service && formatMoney(service.priceCents, service.currency)}
+                    {service && fmt.money(service.priceCents, service.currency)}
                   </span>
                 </div>
                 <p className="mt-1 text-xs text-fg-muted">
-                  {new Date(selectedSlot.startAt).toLocaleString("en-US", {
-                    weekday: "long",
-                    month: "long",
-                    day: "numeric",
-                    hour: "numeric",
-                    minute: "2-digit",
-                  })}{" "}
-                  with {selectedSlot.vetName}
+                  {t("{when} with {vet}", {
+                    when: new Date(selectedSlot.startAt).toLocaleString(intlLocale(fmt.locale), {
+                      weekday: "long",
+                      month: "long",
+                      day: "numeric",
+                      hour: "numeric",
+                      minute: "2-digit",
+                    }),
+                    vet: selectedSlot.vetName,
+                  })}
                 </p>
               </div>
             </>
@@ -313,22 +316,22 @@ export function BookingPanel({
 
           {!signedIn ? (
             <ButtonLink href="/login?next=/clinics" fullWidth size="lg">
-              Sign in to book
+              {t("Sign in to book")}
             </ButtonLink>
           ) : pets.length === 0 ? (
             <div className="space-y-2">
               <Alert tone="info">
-                Add a pet profile first — the appointment and its results attach to it.
+                {t("Add a pet profile first — the appointment and its results attach to it.")}
               </Alert>
               <ButtonLink href="/dashboard/pets/new" fullWidth>
-                Add a pet
+                {t("Add a pet")}
               </ButtonLink>
             </div>
           ) : !emailVerified ? (
             <Alert tone="warning">
-              Confirm your email address before booking.{" "}
+              {t("Confirm your email address before booking.")}{" "}
               <Link href="/settings" className="font-semibold underline">
-                Resend the link
+                {t("Resend the link")}
               </Link>
             </Alert>
           ) : (
@@ -337,25 +340,25 @@ export function BookingPanel({
               size="lg"
               onClick={() => void book()}
               loading={booking}
-              loadingText="Holding your slot…"
+              loadingText={t("Holding your slot…")}
               disabled={!selectedSlot || !petId}
             >
-              {selectedSlot ? "Book and pay" : "Pick a time"}
+              {selectedSlot ? t("Book and pay") : t("Pick a time")}
             </Button>
           )}
 
           <ul className="space-y-1.5 border-t border-[var(--border)] pt-3 text-xs text-fg-muted">
             <li className="flex items-start gap-1.5">
               <Info className="mt-0.5 size-3 shrink-0" aria-hidden />
-              Free cancellation up to {cancellationHours} hours before.
+              {t("Free cancellation up to {count} hours before.", { count: cancellationHours })}
             </li>
             <li className="flex items-start gap-1.5">
               <Info className="mt-0.5 size-3 shrink-0" aria-hidden />
-              {clinicName} needs {bookingLeadHours} hours notice.
+              {t("{clinic} needs {count} hours notice.", { clinic: clinicName, count: bookingLeadHours })}
             </li>
             <li className="flex items-start gap-1.5">
               <Info className="mt-0.5 size-3 shrink-0" aria-hidden />
-              Anything the vet records goes into your pet&rsquo;s health timeline as a verified entry.
+              {t("Anything the vet records goes into your pet’s health timeline as a verified entry.")}
             </li>
           </ul>
         </div>
@@ -380,7 +383,7 @@ export function BookingPanel({
               className="inline-flex items-center gap-1.5 text-sm text-fg-muted hover:text-fg"
             >
               <Globe className="size-3.5" aria-hidden />
-              Website
+              {t("Website")}
             </a>
           )}
         </div>

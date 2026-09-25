@@ -4,35 +4,39 @@ import Image from "next/image";
 import { MessageSquare } from "lucide-react";
 import { requireAuth } from "@/lib/auth/rbac";
 import { listConversations } from "@/lib/services/chat.service";
-import { relativeTime, truncate } from "@/lib/utils";
-import { formatMoney } from "@/lib/money";
+import { truncate } from "@/lib/utils";
 import { Avatar, EmptyState, PageHeader } from "@/components/ui/primitives";
 import { ButtonLink } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { getI18n } from "@/lib/i18n/server";
 
-export const metadata: Metadata = {
-  title: "Messages",
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return {
+  title: t("Messages"),
   robots: { index: false, follow: false },
 };
+}
 
 export default async function MessagesPage() {
+  const { t, fmt } = await getI18n();
   const auth = await requireAuth();
   const conversations = await listConversations(auth);
 
   return (
     <div className="container-page max-w-3xl py-8">
       <PageHeader
-        title="Messages"
-        description="Keep conversations here. It is the only way we can help if something goes wrong."
+        title={t("Messages")}
+        description={t("Keep conversations here. It is the only way we can help if something goes wrong.")}
       />
 
       {conversations.length === 0 ? (
         <div className="mt-8">
           <EmptyState
             icon={<MessageSquare className="size-6" aria-hidden />}
-            title="No messages yet"
-            description="When you contact a seller, apply to adopt, or send a breeding request, the conversation appears here."
-            action={<ButtonLink href="/pets">Browse pets</ButtonLink>}
+            title={t("No messages yet")}
+            description={t("When you contact a seller, apply to adopt, or send a breeding request, the conversation appears here.")}
+            action={<ButtonLink href="/pets">{t("Browse pets")}</ButtonLink>}
           />
         </div>
       ) : (
@@ -74,10 +78,10 @@ export default async function MessagesPage() {
                           : "font-medium text-fg",
                       )}
                     >
-                      {conversation.counterparty?.name ?? "PetMate"}
+                      {conversation.counterparty?.name ?? t("PetMate")}
                     </p>
                     <span className="shrink-0 text-xs text-fg-subtle">
-                      {relativeTime(conversation.lastMessageAt)}
+                      {fmt.relative(conversation.lastMessageAt)}
                     </span>
                   </div>
 
@@ -87,7 +91,7 @@ export default async function MessagesPage() {
                       {conversation.listing && conversation.listing.priceCents > 0 && (
                         <span className="text-fg-subtle">
                           {" · "}
-                          {formatMoney(conversation.listing.priceCents, conversation.listing.currency)}
+                          {fmt.money(conversation.listing.priceCents, conversation.listing.currency)}
                         </span>
                       )}
                     </p>
@@ -99,7 +103,7 @@ export default async function MessagesPage() {
                       conversation.unreadCount > 0 ? "text-fg" : "text-fg-muted",
                     )}
                   >
-                    {conversation.preview ? truncate(conversation.preview, 90) : "No messages yet"}
+                    {conversation.preview ? truncate(conversation.preview, 90) : t("No messages yet")}
                   </p>
                 </div>
 

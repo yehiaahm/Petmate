@@ -9,6 +9,7 @@ import { Alert } from "@/components/ui/primitives";
 import { Modal } from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
 import { api, ApiError } from "@/lib/api-client";
+import { useI18n } from "@/components/i18n/i18n-provider";
 
 export function AppointmentActions({
   appointmentId,
@@ -19,6 +20,7 @@ export function AppointmentActions({
   clinicId: string;
   freeCancellation: boolean;
 }) {
+  const { t } = useI18n();
   const router = useRouter();
   const toast = useToast();
 
@@ -36,12 +38,12 @@ export function AppointmentActions({
         appointmentId,
         reason: reason.trim() || undefined,
       });
-      toast.success("Appointment cancelled");
+      toast.success(t("Appointment cancelled"));
       setCancelOpen(false);
       router.refresh();
     } catch (err) {
       toast.error(
-        "Could not cancel",
+        t("Could not cancel"),
         err instanceof ApiError ? err.message : "Please try again.",
       );
     } finally {
@@ -60,7 +62,7 @@ export function AppointmentActions({
       router.push(`/messages/${conversationId}`);
     } catch (err) {
       toast.error(
-        "Could not send that",
+        t("Could not send that"),
         err instanceof ApiError ? err.message : "Please try again.",
       );
       setWorking(false);
@@ -72,26 +74,25 @@ export function AppointmentActions({
       <div className="flex flex-col gap-2">
         <Button variant="outline" size="sm" fullWidth onClick={() => setMessageOpen(true)}>
           <MessageSquare className="size-4" aria-hidden />
-          Message the clinic
+          {t("Message the clinic")}
         </Button>
         <Button variant="ghost" size="sm" fullWidth onClick={() => setCancelOpen(true)}>
           <XCircle className="size-4" aria-hidden />
-          Cancel appointment
+          {t("Cancel appointment")}
         </Button>
       </div>
 
-      <Modal open={cancelOpen} onClose={() => setCancelOpen(false)} title="Cancel this appointment?">
+      <Modal open={cancelOpen} onClose={() => setCancelOpen(false)} title={t("Cancel this appointment?")}>
         <div className="space-y-4">
           {!freeCancellation && (
             <Alert tone="warning">
               <p>
-                You are inside the clinic&rsquo;s cancellation window, so part of the fee may be
-                retained. The clinic decides, not us.
+                {t("You are inside the clinic’s cancellation window, so part of the fee may be retained. The clinic decides, not us.")}
               </p>
             </Alert>
           )}
 
-          <Field label="Reason" hint="Optional, but clinics appreciate it.">
+          <Field label={t("Reason")} hint={t("Optional, but clinics appreciate it.")}>
             {({ id, invalid }) => (
               <Textarea
                 id={id}
@@ -106,18 +107,18 @@ export function AppointmentActions({
 
           <div className="flex justify-end gap-3">
             <Button variant="outline" onClick={() => setCancelOpen(false)}>
-              Keep it
+              {t("Keep it")}
             </Button>
-            <Button variant="danger" onClick={cancel} loading={working} loadingText="Cancelling…">
-              Cancel appointment
+            <Button variant="danger" onClick={cancel} loading={working} loadingText={t("Cancelling…")}>
+              {t("Cancel appointment")}
             </Button>
           </div>
         </div>
       </Modal>
 
-      <Modal open={messageOpen} onClose={() => setMessageOpen(false)} title="Message the clinic">
+      <Modal open={messageOpen} onClose={() => setMessageOpen(false)} title={t("Message the clinic")}>
         <div className="space-y-4">
-          <Field label="Your message" required>
+          <Field label={t("Your message")} required>
             {({ id, invalid }) => (
               <Textarea
                 id={id}
@@ -126,21 +127,21 @@ export function AppointmentActions({
                 maxLength={2000}
                 value={body}
                 onChange={(e) => setBody(e.target.value)}
-                placeholder="Can I move this to the afternoon?"
+                placeholder={t("Can I move this to the afternoon?")}
               />
             )}
           </Field>
           <div className="flex justify-end gap-3">
             <Button variant="outline" onClick={() => setMessageOpen(false)}>
-              Cancel
+              {t("Cancel")}
             </Button>
             <Button
               onClick={message}
               loading={working}
-              loadingText="Sending…"
+              loadingText={t("Sending…")}
               disabled={body.trim().length < 2}
             >
-              Send
+              {t("Send")}
             </Button>
           </div>
         </div>

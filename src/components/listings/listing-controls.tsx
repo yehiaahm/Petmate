@@ -9,8 +9,7 @@ import { ConfirmDialog, Modal } from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
 import { api, ApiError } from "@/lib/api-client";
 import { uuid } from "@/lib/api-idempotency";
-import { formatMoney } from "@/lib/money";
-import { formatDate } from "@/lib/utils";
+import { useI18n } from "@/components/i18n/i18n-provider";
 
 /**
  * Listing state controls.
@@ -38,6 +37,7 @@ export function ListingControls({
   featured30dCents: number;
   currency: string;
 }) {
+  const { t, fmt } = useI18n();
   const router = useRouter();
   const toast = useToast();
 
@@ -58,7 +58,7 @@ export function ListingControls({
     } catch (err) {
       const message = err instanceof ApiError ? err.message : "Please try again.";
       setError(message);
-      toast.error("That did not work", message);
+      toast.error(t("That did not work"), message);
     } finally {
       setWorking(null);
     }
@@ -97,7 +97,7 @@ export function ListingControls({
     <>
       <div className="space-y-4 lg:sticky lg:top-24">
         <Card className="p-5">
-          <h2 className="font-display text-base font-semibold text-fg">Listing status</h2>
+          <h2 className="font-display text-base font-semibold text-fg">{t("Listing status")}</h2>
 
           {error && (
             <div className="mt-3">
@@ -111,10 +111,10 @@ export function ListingControls({
                 fullWidth
                 onClick={() => void act("publish", "Listing published")}
                 loading={working === "publish"}
-                loadingText="Publishing…"
+                loadingText={t("Publishing…")}
               >
                 <Play className="size-4" aria-hidden />
-                {status === "EXPIRED" ? "Renew listing" : "Publish"}
+                {status === "EXPIRED" ? t("Renew listing") : t("Publish")}
               </Button>
             )}
 
@@ -124,10 +124,10 @@ export function ListingControls({
                 variant="outline"
                 onClick={() => void act("pause", "Listing paused")}
                 loading={working === "pause"}
-                loadingText="Pausing…"
+                loadingText={t("Pausing…")}
               >
                 <Pause className="size-4" aria-hidden />
-                Pause
+                {t("Pause")}
               </Button>
             )}
 
@@ -139,7 +139,7 @@ export function ListingControls({
                 disabled={Boolean(working)}
               >
                 <CheckCircle2 className="size-4" aria-hidden />
-                Mark as rehomed
+                {t("Mark as rehomed")}
               </Button>
             )}
 
@@ -151,7 +151,7 @@ export function ListingControls({
               className="text-[var(--danger)] hover:bg-[var(--danger-soft)]"
             >
               <Trash2 className="size-4" aria-hidden />
-              Delete listing
+              {t("Delete listing")}
             </Button>
           </div>
         </Card>
@@ -159,19 +159,17 @@ export function ListingControls({
         {canFeature && (
           <Card className="p-5">
             <div className="flex items-start justify-between gap-2">
-              <h2 className="font-display text-base font-semibold text-fg">Visibility</h2>
-              {featured && <Badge tone="accent" size="sm">Featured</Badge>}
+              <h2 className="font-display text-base font-semibold text-fg">{t("Visibility")}</h2>
+              {featured && <Badge tone="accent" size="sm">{t("Featured")}</Badge>}
             </div>
 
             {featured && featuredUntil ? (
               <p className="mt-2 text-sm text-fg-muted">
-                Featured until {formatDate(featuredUntil, "long")}. Buying more time extends it
-                rather than replacing it.
+                {t("Featured until {date}. Buying more time extends it rather than replacing it.", { date: fmt.date(featuredUntil, "long") })}
               </p>
             ) : (
               <p className="mt-2 text-sm text-fg-muted">
-                A featured listing ranks higher in search. It does not override quality — a
-                well-documented organic listing can still outrank a featured one.
+                {t("A featured listing ranks higher in search. It does not override quality — a well-documented organic listing can still outrank a featured one.")}
               </p>
             )}
 
@@ -183,7 +181,7 @@ export function ListingControls({
               disabled={Boolean(working)}
             >
               <Sparkles className="size-4" aria-hidden />
-              {featured ? "Extend featuring" : "Feature this listing"}
+              {featured ? t("Extend featuring") : t("Feature this listing")}
             </Button>
           </Card>
         )}
@@ -195,8 +193,8 @@ export function ListingControls({
         onConfirm={() => void act("complete", "Listing closed")}
         loading={working === "complete"}
         tone="primary"
-        title="Mark as rehomed?"
-        description="This closes the listing and records that the pet found a home. Use this when the transaction happened — it counts toward your seller record."
+        title={t("Mark as rehomed?")}
+        description={t("This closes the listing and records that the pet found a home. Use this when the transaction happened — it counts toward your seller record.")}
         confirmLabel="Mark as rehomed"
       />
 
@@ -205,16 +203,16 @@ export function ListingControls({
         onClose={() => setConfirmClose(null)}
         onConfirm={() => void act("remove", "Listing deleted")}
         loading={working === "remove"}
-        title="Delete this listing?"
-        description="The listing disappears from the marketplace. Your pet's profile and health record are untouched. This cannot be undone."
+        title={t("Delete this listing?")}
+        description={t("The listing disappears from the marketplace. Your pet's profile and health record are untouched. This cannot be undone.")}
         confirmLabel="Delete"
       />
 
       <Modal
         open={featureOpen}
         onClose={() => setFeatureOpen(false)}
-        title="Feature this listing"
-        description="Featured listings appear near the top of matching searches."
+        title={t("Feature this listing")}
+        description={t("Featured listings appear near the top of matching searches.")}
       >
         <div className="space-y-3">
           {[
@@ -229,14 +227,14 @@ export function ListingControls({
               className="flex w-full items-center justify-between gap-4 rounded-[var(--radius-field)] border border-[var(--border-strong)] p-4 text-start transition-colors hover:border-brand hover:bg-brand-soft disabled:opacity-60"
             >
               <span>
-                <span className="block font-semibold text-fg">{option.label}</span>
+                <span className="block font-semibold text-fg">{t(option.label)}</span>
                 <span className="block text-xs text-fg-muted">
-                  {option.best ? "Best value per day" : "Short boost"}
+                  {option.best ? t("Best value per day") : t("Short boost")}
                 </span>
               </span>
               <span className="flex items-center gap-2">
                 <span className="font-display text-lg font-semibold tabular text-fg">
-                  {formatMoney(option.cents, currency)}
+                  {fmt.money(option.cents, currency)}
                 </span>
                 {working === "feature" && <Loader2 className="size-4 animate-spin" aria-hidden />}
               </span>
@@ -246,7 +244,7 @@ export function ListingControls({
           {error && <Alert tone="danger">{error}</Alert>}
 
           <p className="text-xs text-fg-subtle">
-            You will be taken to checkout. The listing is featured as soon as payment completes.
+            {t("You will be taken to checkout. The listing is featured as soon as payment completes.")}
           </p>
         </div>
       </Modal>

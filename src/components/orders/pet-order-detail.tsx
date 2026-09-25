@@ -19,8 +19,7 @@ import { Field, Textarea } from "@/components/ui/field";
 import { Modal } from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
 import { api, ApiError } from "@/lib/api-client";
-import { formatMoney } from "@/lib/money";
-import { formatDateTime, relativeTime } from "@/lib/utils";
+import { useI18n } from "@/components/i18n/i18n-provider";
 
 export interface PetOrderView {
   id: string;
@@ -79,6 +78,7 @@ const STATUS_TONE: Record<string, "info" | "warning" | "success" | "danger" | "n
 };
 
 export function PetOrderDetail({ order }: { order: PetOrderView }) {
+  const { t, fmt } = useI18n();
   const router = useRouter();
   const toast = useToast();
 
@@ -106,7 +106,7 @@ export function PetOrderDetail({ order }: { order: PetOrderView }) {
       router.refresh();
     } catch (err) {
       toast.error(
-        "Could not confirm",
+        t("Could not confirm"),
         err instanceof ApiError ? err.message : "Please try again.",
       );
     } finally {
@@ -122,12 +122,12 @@ export function PetOrderDetail({ order }: { order: PetOrderView }) {
         petOrderId: order.id,
         reason: cancelReason,
       });
-      toast.success("Cancelled", "Any money held in escrow is on its way back.");
+      toast.success(t("Cancelled"), t("Any money held in escrow is on its way back."));
       setCancelOpen(false);
       router.refresh();
     } catch (err) {
       toast.error(
-        "Could not cancel",
+        t("Could not cancel"),
         err instanceof ApiError ? err.message : "Please try again.",
       );
     } finally {
@@ -145,7 +145,7 @@ export function PetOrderDetail({ order }: { order: PetOrderView }) {
       router.push(`/messages/${conversationId}`);
     } catch (err) {
       toast.error(
-        "Could not open the conversation",
+        t("Could not open the conversation"),
         err instanceof ApiError ? err.message : "Please try again.",
       );
       setWorking(false);
@@ -188,11 +188,11 @@ export function PetOrderDetail({ order }: { order: PetOrderView }) {
 
           <div className="shrink-0 text-end">
             <p className="font-display text-2xl font-semibold tabular text-fg">
-              {formatMoney(order.amountCents, order.currency)}
+              {fmt.money(order.amountCents, order.currency)}
             </p>
             {!order.isBuyer && (
               <p className="mt-1 text-xs text-fg-subtle tabular">
-                you receive {formatMoney(order.sellerPayoutCents, order.currency)}
+                {t("you receive {amount}", { amount: fmt.money(order.sellerPayoutCents, order.currency) })}
               </p>
             )}
           </div>
@@ -203,25 +203,27 @@ export function PetOrderDetail({ order }: { order: PetOrderView }) {
         <Card className="p-5">
           <h3 className="flex items-center gap-2 font-display text-lg font-semibold text-fg">
             <Lock className="size-4.5 text-brand" aria-hidden />
-            Where the money is
+            {t("Where the money is")}
           </h3>
           <p className="mt-2 text-[15px] leading-relaxed text-fg-muted">
-            {formatMoney(order.amountCents, order.currency)} is held by PetMate. The seller can see
-            it has cleared but cannot touch it. It moves when you both confirm the handover
             {order.autoReleaseAt
-              ? `, or automatically ${relativeTime(new Date(order.autoReleaseAt))} if nobody opens a dispute`
-              : ""}
-            .
+              ? t("{amount} is held by PetMate. The seller can see it has cleared but cannot touch it. It moves when you both confirm the handover, or automatically {when} if nobody opens a dispute.", {
+                  amount: fmt.money(order.amountCents, order.currency),
+                  when: fmt.relative(new Date(order.autoReleaseAt)),
+                })
+              : t("{amount} is held by PetMate. The seller can see it has cleared but cannot touch it. It moves when you both confirm the handover.", {
+                  amount: fmt.money(order.amountCents, order.currency),
+                })}
           </p>
 
           <ul className="mt-4 space-y-2.5">
             <ConfirmRow
-              label={order.isBuyer ? "You confirmed" : "The buyer confirmed"}
+              label={order.isBuyer ? t("You confirmed") : t("The buyer confirmed")}
               done={Boolean(order.buyerConfirmedAt)}
               at={order.buyerConfirmedAt}
             />
             <ConfirmRow
-              label={order.isBuyer ? "The seller confirmed" : "You confirmed"}
+              label={order.isBuyer ? t("The seller confirmed") : t("You confirmed")}
               done={Boolean(order.sellerConfirmedAt)}
               at={order.sellerConfirmedAt}
             />
@@ -229,11 +231,11 @@ export function PetOrderDetail({ order }: { order: PetOrderView }) {
 
           {canConfirm && (
             <div className="mt-5">
-              <Button onClick={() => setConfirming(true)}>Confirm the handover</Button>
+              <Button onClick={() => setConfirming(true)}>{t("Confirm the handover")}</Button>
               <p className="mt-2 text-xs leading-relaxed text-fg-subtle">
                 {order.isBuyer
-                  ? "Only confirm once you have the animal. This releases the money and cannot be undone except through a dispute."
-                  : "Confirm once you have handed the animal over."}
+                  ? t("Only confirm once you have the animal. This releases the money and cannot be undone except through a dispute.")
+                  : t("Confirm once you have handed the animal over.")}
               </p>
             </div>
           )}
@@ -241,10 +243,12 @@ export function PetOrderDetail({ order }: { order: PetOrderView }) {
           {order.iConfirmed && !order.theyConfirmed && (
             <Alert tone="info" className="mt-5">
               <p>
-                You have confirmed. Waiting on {order.counterparty.name}
                 {order.autoReleaseAt
-                  ? `, or it releases automatically ${relativeTime(new Date(order.autoReleaseAt))}.`
-                  : "."}
+                  ? t("You have confirmed. Waiting on {name}, or it releases automatically {when}.", {
+                      name: order.counterparty.name,
+                      when: fmt.relative(new Date(order.autoReleaseAt)),
+                    })
+                  : t("You have confirmed. Waiting on {name}.", { name: order.counterparty.name })}
               </p>
             </Alert>
           )}
@@ -252,20 +256,21 @@ export function PetOrderDetail({ order }: { order: PetOrderView }) {
       ) : null}
 
       {order.status === "COMPLETED" && (
-        <Alert tone="success" title="Completed">
+        <Alert tone="success" title={t("Completed")}>
           <p className="mt-1">
-            Escrow released{" "}
-            {order.escrowReleasedAt ? relativeTime(new Date(order.escrowReleasedAt)) : ""}.{" "}
+            {order.escrowReleasedAt
+              ? t("Escrow released {when}.", { when: fmt.relative(new Date(order.escrowReleasedAt)) })
+              : t("Escrow released.")}{" "}
             {order.isBuyer
-              ? `${order.listing.pet.name}'s full record — health history, documents and lineage — is now yours.`
-              : `${formatMoney(order.sellerPayoutCents, order.currency)} was credited to your balance.`}
+              ? t("{name}’s full record — health history, documents and lineage — is now yours.", { name: order.listing.pet.name })
+              : t("{amount} was credited to your balance.", { amount: fmt.money(order.sellerPayoutCents, order.currency) })}
           </p>
         </Alert>
       )}
 
       <Card className="p-5">
         <h3 className="text-sm font-semibold text-fg">
-          {order.isBuyer ? "Seller" : "Buyer"}
+          {order.isBuyer ? t("Seller") : t("Buyer")}
         </h3>
         <div className="mt-3 flex items-center justify-between gap-4">
           <Link
@@ -282,13 +287,13 @@ export function PetOrderDetail({ order }: { order: PetOrderView }) {
                 {order.counterparty.name}
               </span>
               <span className="block text-xs text-fg-subtle">
-                Trust {order.counterparty.trustScore}
+                {t("Trust {score}", { score: order.counterparty.trustScore })}
               </span>
             </span>
           </Link>
           <Button variant="outline" size="sm" onClick={message} loading={working}>
             <MessageSquare className="size-4" aria-hidden />
-            Message
+            {t("Message")}
           </Button>
         </div>
 
@@ -300,22 +305,22 @@ export function PetOrderDetail({ order }: { order: PetOrderView }) {
       </Card>
 
       <Card className="p-5">
-        <h3 className="text-sm font-semibold text-fg">Breakdown</h3>
+        <h3 className="text-sm font-semibold text-fg">{t("Breakdown")}</h3>
         <dl className="mt-3">
-          <DataRow label="Price" value={formatMoney(order.amountCents, order.currency)} />
+          <DataRow label={t("Price")} value={fmt.money(order.amountCents, order.currency)} />
           {!order.isBuyer && (
             <>
               <DataRow
-                label="Platform commission"
-                value={`− ${formatMoney(order.platformFeeCents, order.currency)}`}
+                label={t("Platform commission")}
+                value={`− ${fmt.money(order.platformFeeCents, order.currency)}`}
               />
               <DataRow
-                label="You receive"
-                value={formatMoney(order.sellerPayoutCents, order.currency)}
+                label={t("You receive")}
+                value={fmt.money(order.sellerPayoutCents, order.currency)}
               />
             </>
           )}
-          <DataRow label="Ordered" value={formatDateTime(order.createdAt)} />
+          <DataRow label={t("Ordered")} value={fmt.dateTime(order.createdAt)} />
         </dl>
       </Card>
 
@@ -323,13 +328,13 @@ export function PetOrderDetail({ order }: { order: PetOrderView }) {
         {canDispute && (
           <ButtonLink href={`/dashboard/disputes/new?petOrderId=${order.id}`} variant="outline">
             <Scale className="size-4" aria-hidden />
-            Open a dispute
+            {t("Open a dispute")}
           </ButtonLink>
         )}
         {canCancel && (
           <Button variant="ghost" onClick={() => setCancelOpen(true)}>
             <XCircle className="size-4" aria-hidden />
-            Cancel
+            {t("Cancel")}
           </Button>
         )}
       </div>
@@ -337,18 +342,18 @@ export function PetOrderDetail({ order }: { order: PetOrderView }) {
       <Modal
         open={confirming}
         onClose={() => setConfirming(false)}
-        title="Confirm the handover?"
+        title={t("Confirm the handover?")}
       >
         <div className="space-y-4">
           <Alert tone="warning" icon={<ShieldAlert className="size-4" aria-hidden />}>
             <p>
               {order.isBuyer
-                ? `This releases ${formatMoney(order.amountCents, order.currency)} to the seller once they confirm too. Only do it if you have the animal.`
-                : "This confirms you have handed the animal over."}
+                ? t("This releases {amount} to the seller once they confirm too. Only do it if you have the animal.", { amount: fmt.money(order.amountCents, order.currency) })
+                : t("This confirms you have handed the animal over.")}
             </p>
           </Alert>
 
-          <Field label="Note" hint="Optional — where and when you met, anything agreed.">
+          <Field label={t("Note")} hint={t("Optional — where and when you met, anything agreed.")}>
             {({ id, invalid }) => (
               <Textarea
                 id={id}
@@ -363,24 +368,22 @@ export function PetOrderDetail({ order }: { order: PetOrderView }) {
 
           <div className="flex justify-end gap-3">
             <Button variant="outline" onClick={() => setConfirming(false)}>
-              Not yet
+              {t("Not yet")}
             </Button>
-            <Button onClick={confirm} loading={working} loadingText="Confirming…">
-              Confirm handover
+            <Button onClick={confirm} loading={working} loadingText={t("Confirming…")}>
+              {t("Confirm handover")}
             </Button>
           </div>
         </div>
       </Modal>
 
-      <Modal open={cancelOpen} onClose={() => setCancelOpen(false)} title="Cancel this purchase?">
+      <Modal open={cancelOpen} onClose={() => setCancelOpen(false)} title={t("Cancel this purchase?")}>
         <div className="space-y-4">
           <p className="text-sm leading-relaxed text-fg-muted">
-            Money held in escrow is returned in full. The listing goes back on sale. Repeatedly
-            cancelling after payment affects your trust score, because the other side held an
-            animal for you.
+            {t("Money held in escrow is returned in full. The listing goes back on sale. Repeatedly cancelling after payment affects your trust score, because the other side held an animal for you.")}
           </p>
 
-          <Field label="Why are you cancelling?" required>
+          <Field label={t("Why are you cancelling?")} required>
             {({ id, invalid }) => (
               <Textarea
                 id={id}
@@ -389,23 +392,23 @@ export function PetOrderDetail({ order }: { order: PetOrderView }) {
                 maxLength={300}
                 value={cancelReason}
                 onChange={(e) => setCancelReason(e.target.value)}
-                placeholder="We could not agree on a meeting time."
+                placeholder={t("We could not agree on a meeting time.")}
               />
             )}
           </Field>
 
           <div className="flex justify-end gap-3">
             <Button variant="outline" onClick={() => setCancelOpen(false)}>
-              Keep it
+              {t("Keep it")}
             </Button>
             <Button
               variant="danger"
               onClick={cancel}
               loading={working}
-              loadingText="Cancelling…"
+              loadingText={t("Cancelling…")}
               disabled={cancelReason.trim().length < 5}
             >
-              Cancel purchase
+              {t("Cancel purchase")}
             </Button>
           </div>
         </div>
@@ -421,8 +424,9 @@ function ConfirmRow({
 }: {
   label: string;
   done: boolean;
-  at: string | null;
+    at: string | null;
 }) {
+  const { fmt } = useI18n();
   return (
     <li className="flex items-center gap-2.5 text-sm">
       {done ? (
@@ -431,7 +435,7 @@ function ConfirmRow({
         <Circle className="size-4 shrink-0 text-fg-subtle" aria-hidden />
       )}
       <span className={done ? "text-fg" : "text-fg-muted"}>{label}</span>
-      {at && <span className="text-xs text-fg-subtle">{relativeTime(new Date(at))}</span>}
+      {at && <span className="text-xs text-fg-subtle">{fmt.relative(new Date(at))}</span>}
     </li>
   );
 }

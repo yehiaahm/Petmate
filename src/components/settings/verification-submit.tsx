@@ -8,6 +8,7 @@ import { Field, Textarea } from "@/components/ui/field";
 import { Alert } from "@/components/ui/primitives";
 import { useToast } from "@/components/ui/toast";
 import { api, ApiError } from "@/lib/api-client";
+import { useI18n } from "@/components/i18n/i18n-provider";
 
 interface StoredFile {
   id: string;
@@ -23,6 +24,7 @@ export function VerificationSubmit({
   subjectId: string;
   documentsHint: string;
 }) {
+  const { t } = useI18n();
   const router = useRouter();
   const toast = useToast();
 
@@ -35,7 +37,7 @@ export function VerificationSubmit({
   async function upload(list: FileList | null) {
     if (!list?.length) return;
     if (files.length + list.length > 5) {
-      toast.error("Up to 5 documents", "Remove one before adding more.");
+      toast.error(t("Up to 5 documents"), t("Remove one before adding more."));
       return;
     }
     setUploading(true);
@@ -75,7 +77,7 @@ export function VerificationSubmit({
           notes: notes || undefined,
         },
       });
-      toast.success("Submitted for review", "We will email you either way.");
+      toast.success(t("Submitted for review"), t("We will email you either way."));
       setFiles([]);
       setNotes("");
       router.refresh();
@@ -91,7 +93,7 @@ export function VerificationSubmit({
       {error && <Alert tone="danger">{error}</Alert>}
 
       <div>
-        <p className="text-sm font-medium text-fg">Documents</p>
+        <p className="text-sm font-medium text-fg">{t("Documents")}</p>
         <p className="mt-0.5 text-xs text-fg-muted">{documentsHint}</p>
 
         {files.length > 0 && (
@@ -107,7 +109,7 @@ export function VerificationSubmit({
                   type="button"
                   onClick={() => setFiles((prev) => prev.filter((f) => f.id !== file.id))}
                   className="rounded p-1 text-fg-subtle hover:bg-bg-inset hover:text-fg"
-                  aria-label={`Remove ${file.name}`}
+                  aria-label={t("Remove {name}", { name: file.name })}
                 >
                   <X className="size-3.5" aria-hidden />
                 </button>
@@ -122,7 +124,7 @@ export function VerificationSubmit({
           ) : (
             <Upload className="size-4" aria-hidden />
           )}
-          {uploading ? "Uploading…" : "Add document"}
+          {uploading ? t("Uploading…") : t("Add document")}
           <input
             type="file"
             accept="image/*,application/pdf"
@@ -134,7 +136,7 @@ export function VerificationSubmit({
         </label>
       </div>
 
-      <Field label="Anything we should know?" hint="Optional.">
+      <Field label={t("Anything we should know?")} hint={t("Optional.")}>
         {({ id, invalid }) => (
           <Textarea
             id={id}
@@ -150,10 +152,10 @@ export function VerificationSubmit({
       <Button
         type="submit"
         loading={submitting}
-        loadingText="Submitting…"
+        loadingText={t("Submitting…")}
         disabled={files.length === 0}
       >
-        Submit for review
+        {t("Submit for review")}
       </Button>
     </form>
   );

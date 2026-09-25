@@ -8,17 +8,22 @@ import { isAppError } from "@/lib/errors";
 import { FulfilmentQueue } from "@/components/sell/fulfilment-queue";
 import { PageHeader, Breadcrumbs, EmptyState } from "@/components/ui/primitives";
 import { ButtonLink } from "@/components/ui/button";
+import { getI18n } from "@/lib/i18n/server";
 
-export const metadata: Metadata = {
-  title: "Shop orders",
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return {
+  title: t("Shop orders"),
   robots: { index: false, follow: false },
 };
+}
 
 export default async function ShopOrdersPage({
   searchParams,
 }: {
   searchParams: Promise<{ shopId?: string; status?: string }>;
 }) {
+  const { t } = await getI18n();
   const [params, auth] = await Promise.all([searchParams, requireAuth()]);
 
   const shops = await db.shop.findMany({
@@ -30,13 +35,13 @@ export default async function ShopOrdersPage({
   if (shops.length === 0) {
     return (
       <div className="container-page max-w-3xl py-8 lg:py-10">
-        <PageHeader title="Shop orders" />
+        <PageHeader title={t("Shop orders")} />
         <EmptyState
           className="mt-6"
           icon={<Package className="size-5" aria-hidden />}
-          title="You do not have a shop"
-          description="Shops sell products — food, medication, beds. Listing an animal is a separate thing and does not need one."
-          action={<ButtonLink href="/sell">Back to the console</ButtonLink>}
+          title={t("You do not have a shop")}
+          description={t("Shops sell products — food, medication, beds. Listing an animal is a separate thing and does not need one.")}
+          action={<ButtonLink href="/sell">{t("Back to the console")}</ButtonLink>}
         />
       </div>
     );
@@ -65,8 +70,8 @@ export default async function ShopOrdersPage({
       />
 
       <PageHeader
-        title="Orders to fulfil"
-        description="Marking an item shipped moves the whole order forward only once every seller on it has shipped, so a multi-shop order never claims to be further along than it is."
+        title={t("Orders to fulfil")}
+        description={t("Marking an item shipped moves the whole order forward only once every seller on it has shipped, so a multi-shop order never claims to be further along than it is.")}
       />
 
       <div className="mt-6">

@@ -9,6 +9,7 @@ import { Alert, Avatar, Card, CardHeader } from "@/components/ui/primitives";
 import { useToast } from "@/components/ui/toast";
 import { api, ApiError } from "@/lib/api-client";
 import { LIMITS } from "@/lib/constants";
+import { useI18n } from "@/components/i18n/i18n-provider";
 
 interface Profile {
   name: string;
@@ -24,6 +25,7 @@ interface Profile {
 }
 
 export function ProfileForm({ profile }: { profile: Profile }) {
+  const { t } = useI18n();
   const router = useRouter();
   const toast = useToast();
 
@@ -61,10 +63,10 @@ export function ProfileForm({ profile }: { profile: Profile }) {
       setAvatarFileId(stored.id);
       // Not saved yet: the id is attached to the next profile save, so an
       // abandoned form does not change the avatar.
-      toast.info("Photo ready", "Save your profile to apply it.");
+      toast.info(t("Photo ready"), t("Save your profile to apply it."));
     } catch (err) {
       toast.error(
-        "That image was not accepted",
+        t("That image was not accepted"),
         err instanceof ApiError ? err.message : "Try a different file.",
       );
     } finally {
@@ -88,12 +90,12 @@ export function ProfileForm({ profile }: { profile: Profile }) {
         postalCode: values.postalCode || undefined,
         ...(avatarFileId ? { avatarFileId } : {}),
       });
-      toast.success("Profile saved");
+      toast.success(t("Profile saved"));
       setAvatarFileId(null);
       router.refresh();
     } catch (err) {
       if (err instanceof ApiError) setError(err);
-      else toast.error("Could not save", "Please try again.");
+      else toast.error(t("Could not save"), t("Please try again."));
     } finally {
       setSaving(false);
     }
@@ -106,7 +108,7 @@ export function ProfileForm({ profile }: { profile: Profile }) {
       {error && !error.isValidation && <Alert tone="danger">{error.message}</Alert>}
 
       <Card>
-        <CardHeader title="Public profile" description="Shown on your listings and reviews." />
+        <CardHeader title={t("Public profile")} description={t("Shown on your listings and reviews.")} />
         <div className="space-y-5 p-5">
           <div className="flex items-center gap-4">
             <Avatar src={avatarUrl} name={values.name || profile.name} size="lg" />
@@ -117,7 +119,7 @@ export function ProfileForm({ profile }: { profile: Profile }) {
                 ) : (
                   <Camera className="size-4" aria-hidden />
                 )}
-                {uploading ? "Uploading…" : "Change photo"}
+                {uploading ? t("Uploading…") : t("Change photo")}
                 <input
                   type="file"
                   accept="image/*"
@@ -126,12 +128,12 @@ export function ProfileForm({ profile }: { profile: Profile }) {
                   disabled={uploading}
                 />
               </label>
-              <p className="mt-1.5 text-xs text-fg-subtle">JPEG, PNG or WebP.</p>
+              <p className="mt-1.5 text-xs text-fg-subtle">{t("JPEG, PNG or WebP.")}</p>
             </div>
           </div>
 
           <div className="grid gap-5 sm:grid-cols-2">
-            <Field label="Name" required error={fieldError("name")}>
+            <Field label={t("Name")} required error={fieldError("name")}>
               {({ id, invalid }) => (
                 <Input
                   id={id}
@@ -145,9 +147,9 @@ export function ProfileForm({ profile }: { profile: Profile }) {
             </Field>
 
             <Field
-              label="Handle"
+              label={t("Handle")}
               required
-              hint={`petmate.app/u/${values.handle || "your-handle"}`}
+              hint={`petmate.app/u/${values.handle || t("your-handle")}`}
               error={fieldError("handle")}
             >
               {({ id, invalid }) => (
@@ -163,8 +165,8 @@ export function ProfileForm({ profile }: { profile: Profile }) {
           </div>
 
           <Field
-            label="About you"
-            hint="Buyers read this. Breeders and rescues: say how long you have been doing this."
+            label={t("About you")}
+            hint={t("Buyers read this. Breeders and rescues: say how long you have been doing this.")}
             error={fieldError("bio")}
             trailing={`${values.bio.length}/${LIMITS.bioMax}`}
           >
@@ -184,15 +186,15 @@ export function ProfileForm({ profile }: { profile: Profile }) {
 
       <Card>
         <CardHeader
-          title="Contact & location"
-          description="Your city is public. Your street address, postcode and phone number are not."
+          title={t("Contact & location")}
+          description={t("Your city is public. Your street address, postcode and phone number are not.")}
         />
         <div className="grid gap-5 p-5 sm:grid-cols-2">
-          <Field label="Email address" hint="To change it, contact support.">
+          <Field label={t("Email address")} hint={t("To change it, contact support.")}>
             {({ id }) => <Input id={id} value={profile.email} readOnly disabled />}
           </Field>
 
-          <Field label="City" error={fieldError("city")}>
+          <Field label={t("City")} error={fieldError("city")}>
             {({ id, invalid }) => (
               <Input
                 id={id}
@@ -204,7 +206,7 @@ export function ProfileForm({ profile }: { profile: Profile }) {
             )}
           </Field>
 
-          <Field label="Region or state" error={fieldError("region")}>
+          <Field label={t("Region or state")} error={fieldError("region")}>
             {({ id, invalid }) => (
               <Input
                 id={id}
@@ -216,7 +218,7 @@ export function ProfileForm({ profile }: { profile: Profile }) {
             )}
           </Field>
 
-          <Field label="Country" error={fieldError("country")}>
+          <Field label={t("Country")} error={fieldError("country")}>
             {({ id, invalid }) => (
               <Input
                 id={id}
@@ -228,7 +230,7 @@ export function ProfileForm({ profile }: { profile: Profile }) {
             )}
           </Field>
 
-          <Field label="Postcode" error={fieldError("postalCode")}>
+          <Field label={t("Postcode")} error={fieldError("postalCode")}>
             {({ id, invalid }) => (
               <Input
                 id={id}
@@ -243,8 +245,8 @@ export function ProfileForm({ profile }: { profile: Profile }) {
       </Card>
 
       <div className="flex justify-end">
-        <Button type="submit" loading={saving} loadingText="Saving…">
-          Save changes
+        <Button type="submit" loading={saving} loadingText={t("Saving…")}>
+          {t("Save changes")}
         </Button>
       </div>
     </form>

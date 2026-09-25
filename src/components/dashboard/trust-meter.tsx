@@ -3,6 +3,7 @@ import { ShieldCheck, Plus, Minus, ArrowRight } from "lucide-react";
 import { Card, Badge } from "@/components/ui/primitives";
 import { TRUST_TIER_LABEL, type TrustTier } from "@/lib/constants";
 import type { TrustBreakdown } from "@/lib/services/trust.service";
+import { getI18n } from "@/lib/i18n/server";
 
 /**
  * The trust score, broken down.
@@ -11,7 +12,8 @@ import type { TrustBreakdown } from "@/lib/services/trust.service";
  * shows exactly what earned it and exactly what would raise it, which is the
  * only way a trust system changes behaviour rather than just labelling it.
  */
-export function TrustMeter({ trust }: { trust: TrustBreakdown }) {
+export async function TrustMeter({ trust }: { trust: TrustBreakdown }) {
+  const { t } = await getI18n();
   const tone =
     trust.score >= 60
       ? "text-[var(--success)]"
@@ -58,13 +60,13 @@ export function TrustMeter({ trust }: { trust: TrustBreakdown }) {
         <div className="min-w-0">
           <h2 className="flex items-center gap-1.5 font-display text-base font-semibold text-fg">
             <ShieldCheck className="size-4 text-brand" aria-hidden />
-            Trust score
+            {t("Trust score")}
           </h2>
           <Badge tone={trust.score >= 60 ? "success" : "brand"} size="sm" className="mt-1.5">
-            {TRUST_TIER_LABEL[trust.tier as TrustTier]}
+            {t(TRUST_TIER_LABEL[trust.tier as TrustTier])}
           </Badge>
           <p className="mt-1.5 text-xs leading-snug text-fg-muted">
-            Buyers and sellers see this on your profile.
+            {t("Buyers and sellers see this on your profile.")}
           </p>
         </div>
       </div>
@@ -72,7 +74,7 @@ export function TrustMeter({ trust }: { trust: TrustBreakdown }) {
       {trust.earned.length > 0 && (
         <div className="mt-4 border-t border-[var(--border)] pt-3">
           <p className="text-xs font-semibold uppercase tracking-wider text-fg-subtle">
-            What earned it
+            {t("What earned it")}
           </p>
           <ul className="mt-2 space-y-1.5">
             {trust.earned.slice(0, 4).map((signal) => (
@@ -80,7 +82,7 @@ export function TrustMeter({ trust }: { trust: TrustBreakdown }) {
                 <span className="flex min-w-0 items-center gap-1.5 text-fg-muted">
                   <Plus className="size-3 shrink-0 text-[var(--success)]" aria-hidden />
                   <span className="truncate">
-                    {signal.label}
+                    {t(signal.label)}
                     {signal.count > 1 && <span className="text-fg-subtle"> ×{signal.count}</span>}
                   </span>
                 </span>
@@ -100,7 +102,7 @@ export function TrustMeter({ trust }: { trust: TrustBreakdown }) {
               <li key={signal.kind} className="flex items-center justify-between gap-2 text-xs">
                 <span className="flex min-w-0 items-center gap-1.5 text-fg-muted">
                   <Minus className="size-3 shrink-0 text-[var(--danger)]" aria-hidden />
-                  <span className="truncate">{signal.label}</span>
+                  <span className="truncate">{t(signal.label)}</span>
                 </span>
                 <span className="shrink-0 font-semibold tabular text-[var(--danger)]">
                   {signal.points}
@@ -113,11 +115,11 @@ export function TrustMeter({ trust }: { trust: TrustBreakdown }) {
 
       {trust.available.length > 0 && (
         <div className="mt-4 rounded-[var(--radius-field)] bg-bg-sunken p-3">
-          <p className="text-xs font-semibold text-fg">Raise your score</p>
+          <p className="text-xs font-semibold text-fg">{t("Raise your score")}</p>
           <ul className="mt-1.5 space-y-1">
             {trust.available.slice(0, 3).map((option) => (
               <li key={option.kind} className="flex items-center justify-between gap-2 text-xs">
-                <span className="truncate text-fg-muted">{option.label}</span>
+                <span className="truncate text-fg-muted">{t(option.label)}</span>
                 <span className="shrink-0 font-semibold tabular text-brand">+{option.points}</span>
               </li>
             ))}
@@ -126,7 +128,7 @@ export function TrustMeter({ trust }: { trust: TrustBreakdown }) {
             href="/settings/verification"
             className="mt-2.5 inline-flex items-center gap-1 text-xs font-semibold text-brand hover:underline"
           >
-            Get verified
+            {t("Get verified")}
             <ArrowRight className="rtl:-scale-x-100 size-3" aria-hidden />
           </Link>
         </div>

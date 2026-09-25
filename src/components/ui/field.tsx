@@ -3,6 +3,7 @@
 import { forwardRef, useId } from "react";
 import { AlertCircle, Check, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/components/i18n/i18n-provider";
 
 /**
  * Form controls.
@@ -35,6 +36,7 @@ export function Field({
   className,
   trailing,
 }: FieldProps) {
+  const { t } = useI18n();
   const id = useId();
   const hintId = `${id}-hint`;
   const errorId = `${id}-error`;
@@ -52,7 +54,7 @@ export function Field({
                   *
                 </span>
               )}
-              {required && <span className="sr-only"> (required)</span>}
+              {required && <span className="sr-only"> {t("(required)")}</span>}
             </label>
           )}
           {trailing && <span className="text-xs text-fg-subtle tabular">{trailing}</span>}
@@ -300,12 +302,14 @@ export function SegmentedControl<T extends string>({
   value: T;
   onChange: (v: T) => void;
   label: string;
-  className?: string;
+    className?: string;
 }) {
+  // Option labels often come from shared constants, so translate them here.
+  const { t } = useI18n();
   return (
     <div
       role="radiogroup"
-      aria-label={label}
+      aria-label={t(label)}
       className={cn(
         "inline-flex w-full rounded-[var(--radius-field)] border border-[var(--border)] bg-bg-sunken p-1",
         className,
@@ -327,8 +331,8 @@ export function SegmentedControl<T extends string>({
                 : "text-fg-muted hover:text-fg",
             )}
           >
-            {o.icon}
-            {o.label}
+                        {o.icon}
+            {t(o.label)}
           </button>
         );
       })}

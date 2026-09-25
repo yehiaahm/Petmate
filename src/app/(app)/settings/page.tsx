@@ -6,10 +6,13 @@ import { PageHeader, Card, CardHeader } from "@/components/ui/primitives";
 import { PhoneVerification } from "@/components/settings/phone-verification";
 import { getI18n } from "@/lib/i18n/server";
 
-export const metadata: Metadata = {
-  title: "Profile settings",
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return {
+  title: t("Profile settings"),
   robots: { index: false, follow: false },
 };
+}
 
 export default async function ProfileSettingsPage() {
   const [auth, { t }] = await Promise.all([requireAuth(), getI18n()]);
@@ -36,8 +39,8 @@ export default async function ProfileSettingsPage() {
   return (
     <>
       <PageHeader
-        title="Profile"
-        description="What other members see. Your email address, phone number and exact address are never shown publicly."
+        title={t("Profile")}
+        description={t("What other members see. Your email address, phone number and exact address are never shown publicly.")}
       />
       <div className="mt-6 space-y-5">
         <Card>

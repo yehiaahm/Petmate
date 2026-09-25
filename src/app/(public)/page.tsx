@@ -21,21 +21,26 @@ import { HeroSearch } from "@/components/home/hero-search";
 import { SPECIES_PLURAL, type Species } from "@/lib/constants";
 import { compactNumber } from "@/lib/utils";
 import { AdSlot } from "@/components/ads/ad-slot";
+import { getI18n } from "@/lib/i18n/server";
 
-export const metadata: Metadata = {
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return {
   title: {
-    absolute: "PetMate — Verified pets, verified people, one lifelong record",
+    absolute: t("PetMate — Verified pets, verified people, one lifelong record"),
   },
   description:
-    "Find, buy, adopt and breed pets from people you can actually check. Every pet gets a health record that follows them for life, plus vet booking and a pet store in one place.",
+    t("Find, buy, adopt and breed pets from people you can actually check. Every pet gets a health record that follows them for life, plus vet booking and a pet store in one place."),
   alternates: { canonical: "/" },
 };
+}
 
 // The home page is mostly public data; revalidating on a timer keeps it fast
 // without serving a stale marketplace.
 export const revalidate = 120;
 
 export default async function HomePage() {
+  const { t } = await getI18n();
   const auth = await getAuth();
 
   const [featured, adoptable, breeds, stats, recommended] = await Promise.all([
@@ -58,11 +63,17 @@ export default async function HomePage() {
 
       {recommended && recommended.items.length > 0 && (
         <Section
-          eyebrow={recommended.personalised ? "For you" : "Popular right now"}
-          title={`Welcome back, ${auth!.user.name.split(" ")[0]}`}
-          description={recommended.basis}
+          eyebrow={recommended.personalised ? t("For you") : t("Popular right now")}
+          title={t("Welcome back, {value}", { value: auth!.user.name.split(" ")[0] })}
+                    description={
+            recommended.interests?.length
+              ? t("Based on your interest in {interest}", {
+                  interest: recommended.interests.map((x) => t(x).toLowerCase()).join(t(", ")),
+                })
+              : t(recommended.basis)
+          }
           href="/pets"
-          linkLabel="Browse everything"
+          linkLabel={t("Browse everything")}
         >
           <ListingGrid>
             {recommended.items.slice(0, 4).map((listing) => (
@@ -80,11 +91,11 @@ export default async function HomePage() {
 
       {featured.items.length > 0 && (
         <Section
-          eyebrow="For sale"
-          title="Pets with a record you can read"
-          description="Every listing shows how well documented the animal's health is, and whether a clinic — not just the seller — put it there."
+          eyebrow={t("For sale")}
+          title={t("Pets with a record you can read")}
+          description={t("Every listing shows how well documented the animal's health is, and whether a clinic — not just the seller — put it there.")}
           href="/pets?intent=SALE"
-          linkLabel="See all for sale"
+          linkLabel={t("See all for sale")}
         >
           <ListingGrid>
             {featured.items.map((listing, index) => (
@@ -98,11 +109,11 @@ export default async function HomePage() {
 
       {adoptable.items.length > 0 && (
         <Section
-          eyebrow="Adoption"
-          title="Waiting for the right home"
-          description="Rescues ask real questions and get real answers. Apply once and your household profile is reused every time."
+          eyebrow={t("Adoption")}
+          title={t("Waiting for the right home")}
+          description={t("Rescues ask real questions and get real answers. Apply once and your household profile is reused every time.")}
           href="/pets?intent=ADOPTION"
-          linkLabel="See all adoptions"
+          linkLabel={t("See all adoptions")}
         >
           <ListingGrid>
             {adoptable.items.map((listing) => (
@@ -133,7 +144,8 @@ async function getPlatformStats() {
   return { pets, listings, clinics, members };
 }
 
-function Hero({ stats }: { stats: { pets: number; listings: number; clinics: number; members: number } }) {
+async function Hero({ stats }: { stats: { pets: number; listings: number; clinics: number; members: number } }) {
+  const { t } = await getI18n();
   return (
     <section className="relative overflow-hidden border-b border-[var(--border)]">
       {/* A warm wash rather than a stock photo: the listings below are the
@@ -150,25 +162,23 @@ function Hero({ stats }: { stats: { pets: number; listings: number; clinics: num
       <div className="container-page py-16 lg:py-24">
         <div className="mx-auto max-w-3xl text-center">
           <Badge tone="brand" icon={<BadgeCheck className="size-3.5" aria-hidden />}>
-            Every pet gets a passport
+            {t("Every pet gets a passport")}
           </Badge>
 
           <h1 className="mt-5 font-display text-4xl font-semibold leading-[1.08] tracking-tight text-fg sm:text-5xl lg:text-[3.5rem]">
-            Know exactly who you are
+            {t("Know exactly who you are")}
             <span className="relative mx-2 inline-block">
-              <span className="relative z-10 text-brand">buying from</span>
+              <span className="relative z-10 text-brand">{t("buying from")}</span>
               <span
                 className="absolute inset-x-0 bottom-1 -z-0 h-3 rounded-full bg-accent-soft"
                 aria-hidden
               />
             </span>
-            before you meet the animal
+            {t("before you meet the animal")}
           </h1>
 
           <p className="mx-auto mt-5 max-w-2xl text-lg leading-relaxed text-fg-muted">
-            Anyone can post a photo and a price. PetMate shows you the pet&rsquo;s vaccination
-            history, who recorded it, the seller&rsquo;s transaction record, and holds your money
-            in escrow until you have met the animal in person.
+            {t("Anyone can post a photo and a price. PetMate shows you the pet’s vaccination history, who recorded it, the seller’s transaction record, and holds your money in escrow until you have met the animal in person.")}
           </p>
 
           <div className="mx-auto mt-8 max-w-xl">
@@ -176,7 +186,7 @@ function Hero({ stats }: { stats: { pets: number; listings: number; clinics: num
           </div>
 
           <div className="mt-4 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs text-fg-subtle">
-            <span>Try:</span>
+            <span>{t("Try:")}</span>
             {[
               "calm small dog near me",
               "kitten for adoption",
@@ -187,7 +197,7 @@ function Hero({ stats }: { stats: { pets: number; listings: number; clinics: num
                 href={`/pets?q=${encodeURIComponent(example)}`}
                 className="rounded-full border border-[var(--border)] px-3 py-1 transition-colors hover:border-[var(--border-strong)] hover:text-fg-muted"
               >
-                {example}
+                {t(example)}
               </Link>
             ))}
           </div>
@@ -204,7 +214,7 @@ function Hero({ stats }: { stats: { pets: number; listings: number; clinics: num
               <dd className="font-display text-2xl font-semibold tabular text-fg">
                 {compactNumber(stat.value)}
               </dd>
-              <dt className="mt-0.5 text-xs text-fg-muted">{stat.label}</dt>
+              <dt className="mt-0.5 text-xs text-fg-muted">{t(stat.label)}</dt>
             </div>
           ))}
         </dl>
@@ -213,7 +223,8 @@ function Hero({ stats }: { stats: { pets: number; listings: number; clinics: num
   );
 }
 
-function TrustStrip() {
+async function TrustStrip() {
+  const { t } = await getI18n();
   const items = [
     {
       icon: Lock,
@@ -241,8 +252,8 @@ function TrustStrip() {
               <div className="flex size-10 items-center justify-center rounded-xl bg-brand-soft text-brand-soft-fg">
                 <item.icon className="size-5" aria-hidden />
               </div>
-              <h3 className="mt-4 font-display text-lg font-semibold text-fg">{item.title}</h3>
-              <p className="mt-2 text-[15px] leading-relaxed text-fg-muted">{item.body}</p>
+              <h3 className="mt-4 font-display text-lg font-semibold text-fg">{t(item.title)}</h3>
+              <p className="mt-2 text-[15px] leading-relaxed text-fg-muted">{t(item.body)}</p>
             </div>
           ))}
         </div>
@@ -251,7 +262,8 @@ function TrustStrip() {
   );
 }
 
-function Ecosystem() {
+async function Ecosystem() {
+  const { t } = await getI18n();
   const pillars = [
     {
       icon: HeartHandshake,
@@ -287,15 +299,13 @@ function Ecosystem() {
     <section className="container-page py-16 lg:py-20">
       <div className="max-w-2xl">
         <p className="text-xs font-semibold uppercase tracking-[0.12em] text-brand">
-          The whole lifecycle
+          {t("The whole lifecycle")}
         </p>
         <h2 className="mt-2 font-display text-3xl font-semibold tracking-tight text-fg sm:text-4xl">
-          One account, from the first search to the last vet visit
+          {t("One account, from the first search to the last vet visit")}
         </h2>
         <p className="mt-3 text-lg text-fg-muted">
-          Most people stitch this together from a Facebook group, a WhatsApp thread, a paper
-          vaccination card and a phone call to the clinic. PetMate is the same journey with the
-          gaps closed.
+          {t("Most people stitch this together from a Facebook group, a WhatsApp thread, a paper vaccination card and a phone call to the clinic. PetMate is the same journey with the gaps closed.")}
         </p>
       </div>
 
@@ -309,10 +319,10 @@ function Ecosystem() {
             <div className="flex size-11 items-center justify-center rounded-xl bg-bg-sunken text-brand transition-colors group-hover:bg-brand-soft">
               <pillar.icon className="size-5" aria-hidden />
             </div>
-            <h3 className="mt-4 font-display text-lg font-semibold text-fg">{pillar.title}</h3>
-            <p className="mt-2 flex-1 text-sm leading-relaxed text-fg-muted">{pillar.body}</p>
+            <h3 className="mt-4 font-display text-lg font-semibold text-fg">{t(pillar.title)}</h3>
+            <p className="mt-2 flex-1 text-sm leading-relaxed text-fg-muted">{t(pillar.body)}</p>
             <span className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-brand">
-              {pillar.cta}
+              {t(pillar.cta)}
               <ArrowRight className="rtl:-scale-x-100 size-4 transition-transform group-hover:translate-x-0.5 rtl:group-hover:-translate-x-0.5" aria-hidden />
             </span>
           </Link>
@@ -357,26 +367,27 @@ function Section({
   );
 }
 
-function BreedStrip({
+async function BreedStrip({
   breeds,
 }: {
   breeds: { id: string; name: string; slug: string; species: string; sizeClass: string | null; _count: { pets: number } }[];
 }) {
+  const { t } = await getI18n();
   return (
     <section className="border-y border-[var(--border)] bg-bg-sunken">
       <div className="container-page py-12">
         <div className="flex items-end justify-between gap-4">
           <div>
-            <h2 className="font-display text-xl font-semibold text-fg">Explore by breed</h2>
+            <h2 className="font-display text-xl font-semibold text-fg">{t("Explore by breed")}</h2>
             <p className="mt-1 text-sm text-fg-muted">
-              Honest guides: what the breed is actually like to live with, and what to screen for.
+              {t("Honest guides: what the breed is actually like to live with, and what to screen for.")}
             </p>
           </div>
           <Link
             href="/breeds"
             className="shrink-0 text-sm font-semibold text-brand hover:underline"
           >
-            All breeds
+            {t("All breeds")}
           </Link>
         </div>
 
@@ -398,13 +409,14 @@ function BreedStrip({
   );
 }
 
-function SpeciesGrid() {
+async function SpeciesGrid() {
+  const { t } = await getI18n();
   const featured: Species[] = ["DOG", "CAT", "BIRD", "RABBIT", "SMALL_MAMMAL", "REPTILE"];
 
   return (
     <section className="container-page py-16">
       <h2 className="font-display text-2xl font-semibold tracking-tight text-fg">
-        Whatever you keep
+        {t("Whatever you keep")}
       </h2>
       <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         {featured.map((species) => (
@@ -413,7 +425,7 @@ function SpeciesGrid() {
             href={`/pets?species=${species}`}
             className="surface surface-lift flex items-center justify-center px-4 py-6 text-center text-sm font-semibold text-fg"
           >
-            {SPECIES_PLURAL[species]}
+            {t(SPECIES_PLURAL[species])}
           </Link>
         ))}
       </div>
@@ -421,7 +433,8 @@ function SpeciesGrid() {
   );
 }
 
-function ClosingCta({ signedIn }: { signedIn: boolean }) {
+async function ClosingCta({ signedIn }: { signedIn: boolean }) {
+  const { t } = await getI18n();
   return (
     <section className="container-page pb-20">
       <div className="passport-edge relative overflow-hidden rounded-[var(--radius-panel)] bg-[var(--color-pine-700)] px-6 py-14 text-center sm:px-12">
@@ -436,11 +449,10 @@ function ClosingCta({ signedIn }: { signedIn: boolean }) {
         <div className="relative mx-auto max-w-2xl">
           <Sparkles className="mx-auto size-7 text-[color-mix(in_srgb,#ffffff_75%,transparent)]" aria-hidden />
           <h2 className="mt-4 font-display text-3xl font-semibold tracking-tight text-white sm:text-4xl">
-            Start with one pet profile
+            {t("Start with one pet profile")}
           </h2>
           <p className="mx-auto mt-3 max-w-xl text-[15px] leading-relaxed text-[color-mix(in_srgb,#ffffff_82%,transparent)]">
-            Add your animal, record a vaccination, set a reminder. It costs nothing, it stays
-            yours, and it is what every listing, booking and match is built on later.
+            {t("Add your animal, record a vaccination, set a reminder. It costs nothing, it stays yours, and it is what every listing, booking and match is built on later.")}
           </p>
           <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
             <ButtonLink
@@ -448,7 +460,7 @@ function ClosingCta({ signedIn }: { signedIn: boolean }) {
               size="lg"
               className="bg-white text-[var(--color-pine-700)] hover:bg-[color-mix(in_srgb,#ffffff_90%,transparent)]"
             >
-              {signedIn ? "Add a pet" : "Create a free account"}
+              {signedIn ? t("Add a pet") : t("Create a free account")}
             </ButtonLink>
             <ButtonLink
               href="/pets"
@@ -456,7 +468,7 @@ function ClosingCta({ signedIn }: { signedIn: boolean }) {
               variant="outline"
               className="border-[color-mix(in_srgb,#ffffff_35%,transparent)] text-white hover:bg-[color-mix(in_srgb,#ffffff_12%,transparent)]"
             >
-              Just browsing
+              {t("Just browsing")}
             </ButtonLink>
           </div>
         </div>

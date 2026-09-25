@@ -8,9 +8,10 @@ import { searchListings } from "@/lib/services/search.service";
 import { ListingCard, ListingGrid } from "@/components/listings/listing-card";
 import { Card, Badge, Breadcrumbs, Alert, EmptyState } from "@/components/ui/primitives";
 import { ButtonLink } from "@/components/ui/button";
-import { SPECIES_LABEL, type Species } from "@/lib/constants";
+import { SPECIES_LABEL, SPECIES_PLURAL, type Species } from "@/lib/constants";
 import { clientEnv } from "@/lib/env";
 import { PawPrint } from "lucide-react";
+import { getI18n } from "@/lib/i18n/server";
 
 export const revalidate = 3600;
 
@@ -66,6 +67,7 @@ const CARE_COPY: Record<string, string> = {
 };
 
 export default async function BreedPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { t } = await getI18n();
   const [{ slug }, auth] = await Promise.all([params, getAuth()]);
 
   const breed = await loadBreed(slug);
@@ -88,7 +90,7 @@ export default async function BreedPage({ params }: { params: Promise<{ slug: st
 
   const temperament = (breed.temperament ?? "")
     .split(",")
-    .map((t) => t.trim())
+    .map((s) => s.trim())
     .filter(Boolean);
 
   const facts = [
@@ -104,12 +106,12 @@ export default async function BreedPage({ params }: { params: Promise<{ slug: st
       breed.lifespanMaxY && {
         icon: Clock,
         label: "Typical lifespan",
-        value: `${breed.lifespanMinY}–${breed.lifespanMaxY} years`,
+        value: t("{min}–{max} years", { min: breed.lifespanMinY, max: breed.lifespanMaxY }),
       },
     breed.careLevel && {
       icon: HeartPulse,
       label: "Care level",
-      value: breed.careLevel.toLowerCase(),
+      value: t(breed.careLevel.toLowerCase()),
     },
     breed.originCountry && { icon: Globe2, label: "Origin", value: breed.originCountry },
     breed.hypoallergenic && {
@@ -124,13 +126,13 @@ export default async function BreedPage({ params }: { params: Promise<{ slug: st
       <Breadcrumbs
         items={[
           { label: "Breeds", href: "/breeds" },
-          { label: SPECIES_LABEL[breed.species as Species], href: `/breeds?species=${breed.species}` },
+          { label: t(SPECIES_LABEL[breed.species as Species]), href: `/breeds?species=${breed.species}` },
           { label: breed.name },
         ]}
       />
 
       <header className="mt-4">
-        <Badge tone="brand">{SPECIES_LABEL[breed.species as Species]}</Badge>
+        <Badge tone="brand">{t(SPECIES_LABEL[breed.species as Species])}</Badge>
         <h1 className="mt-3 font-display text-4xl font-semibold tracking-tight text-fg sm:text-5xl">
           {breed.name}
         </h1>
@@ -147,7 +149,7 @@ export default async function BreedPage({ params }: { params: Promise<{ slug: st
             <div key={fact.label} className="bg-bg-elevated p-4">
               <dt className="flex items-center gap-1.5 text-xs text-fg-subtle">
                 <fact.icon className="size-3.5" aria-hidden />
-                {fact.label}
+                {t(fact.label)}
               </dt>
               <dd className="mt-1.5 text-sm font-semibold capitalize text-fg">{fact.value}</dd>
             </div>
@@ -159,20 +161,17 @@ export default async function BreedPage({ params }: { params: Promise<{ slug: st
         <section className="mt-8">
           <h2 className="flex items-center gap-2 font-display text-xl font-semibold text-fg">
             <Sparkles className="size-4.5 text-brand" aria-hidden />
-            Temperament
+            {t("Temperament")}
           </h2>
           <div className="mt-3 flex flex-wrap gap-2">
             {temperament.map((trait) => (
               <Badge key={trait} tone="accent">
-                {trait}
+                {t(trait)}
               </Badge>
             ))}
           </div>
           <p className="mt-3 max-w-2xl text-sm leading-relaxed text-fg-muted">
-            These are breed tendencies, not guarantees. Individual temperament comes from
-            socialisation and the specific animal far more than from the breed label, which is why
-            PetMate&rsquo;s breeding matcher weighs the individual pet&rsquo;s recorded temperament
-            alongside the breed.
+            {t("These are breed tendencies, not guarantees. Individual temperament comes from socialisation and the specific animal far more than from the breed label, which is why PetMate’s breeding matcher weighs the individual pet’s recorded temperament alongside the breed.")}
           </p>
         </section>
       )}
@@ -181,9 +180,9 @@ export default async function BreedPage({ params }: { params: Promise<{ slug: st
         <Alert
           tone={breed.careLevel === "HIGH" ? "warning" : "info"}
           className="mt-6"
-          title={`What a ${breed.name} asks of you`}
+          title={t("What a {breed} asks of you", { breed: breed.name })}
         >
-          <p className="mt-1 leading-relaxed">{CARE_COPY[breed.careLevel]}</p>
+          <p className="mt-1 leading-relaxed">{t(CARE_COPY[breed.careLevel] ?? "")}</p>
         </Alert>
       )}
 
@@ -191,15 +190,15 @@ export default async function BreedPage({ params }: { params: Promise<{ slug: st
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <h2 className="font-display text-2xl font-semibold tracking-tight text-fg">
-              {breed.name}s on PetMate
+              {t("{breed} on PetMate", { breed: breed.name })}
             </h2>
             <p className="mt-1 text-sm text-fg-muted tabular">
-              {listings.total} listed now · {registered} registered in total
+              {t("{listed} listed now · {registered} registered in total", { listed: listings.total, registered })}
             </p>
           </div>
           {listings.total > 0 && (
             <ButtonLink href={`/pets?breed=${breed.slug}`} variant="outline" size="sm">
-              Search all
+              {t("Search all")}
             </ButtonLink>
           )}
         </div>
@@ -208,11 +207,11 @@ export default async function BreedPage({ params }: { params: Promise<{ slug: st
           {listings.items.length === 0 ? (
             <EmptyState
               icon={<PawPrint className="size-5" aria-hidden />}
-              title={`No ${breed.name}s listed right now`}
-              description="Save a search and we will tell you the moment one appears, rather than making you check back."
+              title={t("No {breed} listed right now", { breed: breed.name })}
+              description={t("Save a search and we will tell you the moment one appears, rather than making you check back.")}
               action={
                 <ButtonLink href={`/pets?species=${breed.species}`}>
-                  Browse {SPECIES_LABEL[breed.species as Species].toLowerCase()}
+                  {t("Browse {species}", { species: t(SPECIES_PLURAL[breed.species as Species]).toLowerCase() })}
                 </ButtonLink>
               }
             />
@@ -229,7 +228,7 @@ export default async function BreedPage({ params }: { params: Promise<{ slug: st
       {related.length > 0 && (
         <section className="mt-12">
           <h2 className="font-display text-xl font-semibold tracking-tight text-fg">
-            Similar in size
+            {t("Similar in size")}
           </h2>
           <ul className="mt-3 flex flex-wrap gap-2">
             {related.map((r) => (
@@ -248,24 +247,20 @@ export default async function BreedPage({ params }: { params: Promise<{ slug: st
 
       <Card className="mt-12 p-6">
         <h2 className="font-display text-lg font-semibold text-fg">
-          Before you commit to a {breed.name}
+          {t("Before you commit to a {breed}", { breed: breed.name })}
         </h2>
         <ul className="mt-3 space-y-2 text-[15px] leading-relaxed text-fg-muted">
           <li>
-            Ask for clinic-verified health records, not the seller&rsquo;s word. On PetMate the
-            badge tells you which is which.
+            {t("Ask for clinic-verified health records, not the seller’s word. On PetMate the badge tells you which is which.")}
           </li>
           <li>
-            For a puppy or kitten, ask to see the mother. A seller who cannot show you is telling
-            you something.
+            {t("For a puppy or kitten, ask to see the mother. A seller who cannot show you is telling you something.")}
           </li>
           <li>
-            Check the lineage if one is claimed — a PetMate pedigree links to each ancestor&rsquo;s
-            own passport, so it can be followed.
+            {t("Check the lineage if one is claimed — a PetMate pedigree links to each ancestor’s own passport, so it can be followed.")}
           </li>
           <li>
-            Budget for the full {breed.lifespanMaxY ?? 12}-year span, not the purchase price.
-            Veterinary care is the larger number.
+            {t("Budget for the full {years}-year span, not the purchase price. Veterinary care is the larger number.", { years: breed.lifespanMaxY ?? 12 })}
           </li>
         </ul>
       </Card>

@@ -9,13 +9,17 @@ import { TicketLookup } from "@/components/support/ticket-lookup";
 import { Card, Badge, Alert } from "@/components/ui/primitives";
 import { SUPPORT_TOPICS, SUPPORT_TOPIC_LABEL } from "@/lib/support-topics";
 import { clientEnv } from "@/lib/env";
+import { getI18n } from "@/lib/i18n/server";
 
-export const metadata: Metadata = {
-  title: "Help & support",
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return {
+  title: t("Help & support"),
   description:
-    "Answers about escrow, refunds, verification, health records and safety — plus a way to reach a person.",
+    t("Answers about escrow, refunds, verification, health records and safety — plus a way to reach a person."),
   alternates: { canonical: "/support" },
 };
+}
 
 const topics = SUPPORT_TOPICS.map((value) => ({ value, label: SUPPORT_TOPIC_LABEL[value] }));
 
@@ -24,6 +28,15 @@ export default async function SupportPage({
 }: {
   searchParams: Promise<{ topic?: string }>;
 }) {
+  const { t } = await getI18n();
+  // Translated once here, so the search box, the categories and the FAQ
+  // structured data all work in the reader's language.
+  const articles = HELP_ARTICLES.map((article) => ({
+    ...article,
+    category: t(article.category),
+    question: t(article.question),
+    answer: article.answer.map((paragraph) => t(paragraph)),
+  }));
   const [auth, params] = await Promise.all([getAuth(), searchParams]);
 
   const defaultTopic =
@@ -34,13 +47,12 @@ export default async function SupportPage({
   return (
     <div className="container-page py-12 lg:py-16">
       <div className="mx-auto max-w-2xl text-center">
-        <Badge tone="brand">Help centre</Badge>
+        <Badge tone="brand">{t("Help centre")}</Badge>
         <h1 className="mt-4 font-display text-4xl font-semibold tracking-tight text-fg sm:text-5xl">
-          How can we help?
+          {t("How can we help?")}
         </h1>
         <p className="mt-4 text-lg leading-relaxed text-fg-muted">
-          Most answers are below. If yours is not, a person reads every message — you do not need an
-          account to send one.
+          {t("Most answers are below. If yours is not, a person reads every message — you do not need an account to send one.")}
         </p>
       </div>
 
@@ -70,13 +82,13 @@ export default async function SupportPage({
         ].map((item) => (
           <Card key={item.title} className="flex flex-col p-5">
             <item.icon className="size-5 text-brand" aria-hidden />
-            <h2 className="mt-3 text-[15px] font-semibold text-fg">{item.title}</h2>
-            <p className="mt-1.5 flex-1 text-sm leading-relaxed text-fg-muted">{item.body}</p>
+            <h2 className="mt-3 text-[15px] font-semibold text-fg">{t(item.title)}</h2>
+            <p className="mt-1.5 flex-1 text-sm leading-relaxed text-fg-muted">{t(item.body)}</p>
             <Link
               href={item.href}
               className="mt-3 text-sm font-medium text-brand hover:underline"
             >
-              {item.cta} →
+              {t(item.cta)} →
             </Link>
           </Card>
         ))}
@@ -84,10 +96,10 @@ export default async function SupportPage({
 
       <section className="mx-auto mt-14 max-w-3xl">
         <h2 className="font-display text-2xl font-semibold tracking-tight text-fg">
-          Common questions
+          {t("Common questions")}
         </h2>
         <div className="mt-5">
-          <HelpArticles articles={HELP_ARTICLES} />
+          <HelpArticles articles={articles} />
         </div>
       </section>
 
@@ -103,7 +115,7 @@ export default async function SupportPage({
             <Card className="p-5">
               <div className="flex items-center gap-2">
                 <Clock className="size-4 text-fg-subtle" aria-hidden />
-                <h3 className="text-sm font-semibold text-fg">Response times</h3>
+                <h3 className="text-sm font-semibold text-fg">{t("Response times")}</h3>
               </div>
               <dl className="mt-3 space-y-2 text-sm">
                 {[
@@ -112,23 +124,21 @@ export default async function SupportPage({
                   ["Everything else", "1–2 working days"],
                 ].map(([label, value]) => (
                   <div key={label} className="flex items-baseline justify-between gap-3">
-                    <dt className="text-fg-muted">{label}</dt>
-                    <dd className="text-end font-medium text-fg">{value}</dd>
+                    <dt className="text-fg-muted">{t(label!)}</dt>
+                    <dd className="text-end font-medium text-fg">{t(value!)}</dd>
                   </div>
                 ))}
               </dl>
               <p className="mt-3 text-xs leading-relaxed text-fg-subtle">
-                These are targets, not a contractual guarantee. If something is genuinely urgent,
-                say so in the subject line.
+                {t("These are targets, not a contractual guarantee. If something is genuinely urgent, say so in the subject line.")}
               </p>
             </Card>
 
             <TicketLookup signedIn={Boolean(auth)} />
 
-            <Alert tone="warning" title="We will never ask for">
+            <Alert tone="warning" title={t("We will never ask for")}>
               <p className="mt-1 text-sm leading-relaxed">
-                Your password, a card number, a one-time code, or remote access to your device.
-                Anyone claiming to be PetMate support and asking for those is not.
+                {t("Your password, a card number, a one-time code, or remote access to your device. Anyone claiming to be PetMate support and asking for those is not.")}
               </p>
             </Alert>
           </div>
@@ -142,7 +152,7 @@ export default async function SupportPage({
             "@context": "https://schema.org",
             "@type": "FAQPage",
             url: `${clientEnv.NEXT_PUBLIC_APP_URL}/support`,
-            mainEntity: HELP_ARTICLES.map((article) => ({
+            mainEntity: articles.map((article) => ({
               "@type": "Question",
               name: article.question,
               acceptedAnswer: { "@type": "Answer", text: article.answer.join(" ") },

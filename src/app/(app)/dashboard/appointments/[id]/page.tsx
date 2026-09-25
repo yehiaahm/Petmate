@@ -8,13 +8,15 @@ import { getSettings } from "@/lib/settings";
 import { AppointmentActions } from "@/components/appointments/appointment-actions";
 import { Breadcrumbs, Card, Badge, Alert, DataRow } from "@/components/ui/primitives";
 import { ButtonLink } from "@/components/ui/button";
-import { formatMoney } from "@/lib/money";
-import { formatDateTime, formatDate, relativeTime } from "@/lib/utils";
+import { getI18n } from "@/lib/i18n/server";
 
-export const metadata: Metadata = {
-  title: "Appointment",
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return {
+  title: t("Appointment"),
   robots: { index: false, follow: false },
 };
+}
 
 const TONE: Record<string, "info" | "warning" | "success" | "danger" | "neutral"> = {
   PENDING_PAYMENT: "warning",
@@ -30,6 +32,7 @@ export default async function AppointmentPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const { t, fmt } = await getI18n();
   const [{ id }, auth] = await Promise.all([params, requireAuth()]);
 
   // Scoped to the customer. A clinic's own view of the same booking lives in
@@ -105,14 +108,14 @@ export default async function AppointmentPage({
         {appointment.service.name}
       </h1>
       <p className="mt-1 text-[15px] text-fg-muted">
-        {formatDateTime(appointment.startAt)} · {appointment.service.durationMinutes} minutes
+        {fmt.dateTime(appointment.startAt)} · {t.plural(appointment.service.durationMinutes, { one: "{count} minute", other: "{count} minutes" })}
         {appointment.status === "CONFIRMED" && hoursUntil > 0
-          ? ` · ${relativeTime(appointment.startAt)}`
+          ? ` · ${fmt.relative(appointment.startAt)}`
           : ""}
       </p>
 
       {appointment.status === "CANCELLED" && appointment.cancellationReason && (
-        <Alert tone="info" className="mt-5" title="Cancelled">
+        <Alert tone="info" className="mt-5" title={t("Cancelled")}>
           <p className="mt-1">{appointment.cancellationReason}</p>
         </Alert>
       )}
@@ -122,7 +125,7 @@ export default async function AppointmentPage({
           <Card className="p-5">
             <h2 className="flex items-center gap-2 font-display text-lg font-semibold text-fg">
               <Stethoscope className="size-4.5 text-brand" aria-hidden />
-              Where to go
+              {t("Where to go")}
             </h2>
             <Link
               href={`/clinics/${appointment.clinic.slug}`}
@@ -146,13 +149,13 @@ export default async function AppointmentPage({
             )}
             {appointment.vet?.user.name && (
               <p className="mt-3 text-sm text-fg-muted">
-                Seeing <span className="font-medium text-fg">{appointment.vet.user.name}</span>
+                {t("Seeing")} <span className="font-medium text-fg">{appointment.vet.user.name}</span>
               </p>
             )}
           </Card>
 
           <Card className="p-5">
-            <h2 className="text-sm font-semibold text-fg">Patient</h2>
+            <h2 className="text-sm font-semibold text-fg">{t("Patient")}</h2>
             <Link
               href={`/dashboard/pets/${appointment.pet.id}`}
               className="mt-2 block text-[15px] font-medium text-fg hover:underline"
@@ -161,7 +164,7 @@ export default async function AppointmentPage({
             </Link>
             {appointment.reasonForVisit && (
               <p className="mt-3 text-sm leading-relaxed text-fg-muted">
-                <span className="font-medium text-fg">Reason given: </span>
+                <span className="font-medium text-fg">{t("Reason given:")} </span>
                 {appointment.reasonForVisit}
               </p>
             )}
@@ -171,7 +174,7 @@ export default async function AppointmentPage({
             <Card className="p-5">
               <h2 className="flex items-center gap-2 font-display text-lg font-semibold text-fg">
                 <FileHeart className="size-4.5 text-brand" aria-hidden />
-                What the clinic recorded
+                {t("What the clinic recorded")}
               </h2>
               {appointment.outcome && (
                 <p className="mt-2 text-[15px] leading-relaxed text-fg-muted">
@@ -186,21 +189,19 @@ export default async function AppointmentPage({
                         {record.title}
                         {record.source === "CLINIC" && (
                           <Badge tone="success" size="sm" className="ms-2">
-                            Clinic verified
+                            {t("Clinic verified")}
                           </Badge>
                         )}
                       </span>
                       <time className="shrink-0 text-xs text-fg-subtle tabular">
-                        {formatDate(record.occurredAt)}
+                        {fmt.date(record.occurredAt)}
                       </time>
                     </li>
                   ))}
                 </ul>
               ) : (
                 <p className="mt-2 text-sm text-fg-muted">
-                  No health entries were written for this visit. If the clinic told you something
-                  that should be on the record, ask them to add it — an entry they write carries a
-                  badge that one you add yourself cannot.
+                  {t("No health entries were written for this visit. If the clinic told you something that should be on the record, ask them to add it — an entry they write carries a badge that one you add yourself cannot.")}
                 </p>
               )}
               <div className="mt-4">
@@ -209,7 +210,7 @@ export default async function AppointmentPage({
                   variant="outline"
                   size="sm"
                 >
-                  Open {appointment.pet.name}&rsquo;s health record
+                  {t("Open {name}’s health record", { name: appointment.pet.name })}
                 </ButtonLink>
               </div>
             </Card>
@@ -218,30 +219,29 @@ export default async function AppointmentPage({
 
         <aside className="space-y-5">
           <Card className="p-5">
-            <h2 className="text-sm font-semibold text-fg">Payment</h2>
+            <h2 className="text-sm font-semibold text-fg">{t("Payment")}</h2>
             <dl className="mt-3">
               <DataRow
-                label="Consultation"
-                value={formatMoney(appointment.priceCents, appointment.currency)}
+                label={t("Consultation")}
+                value={fmt.money(appointment.priceCents, appointment.currency)}
               />
               <DataRow
-                label="Status"
-                value={appointment.paidAt ? `Paid ${formatDate(appointment.paidAt)}` : "Unpaid"}
+                label={t("Status")}
+                value={appointment.paidAt ? `Paid ${fmt.date(appointment.paidAt)}` : "Unpaid"}
               />
             </dl>
             <p className="mt-3 text-xs leading-relaxed text-fg-subtle">
-              Paid at booking and held until the appointment completes, so a clinic that never sees
-              you is never paid.
+              {t("Paid at booking and held until the appointment completes, so a clinic that never sees you is never paid.")}
             </p>
           </Card>
 
           {cancellable && (
             <Card className="p-5">
-              <h2 className="text-sm font-semibold text-fg">Need to change it?</h2>
+              <h2 className="text-sm font-semibold text-fg">{t("Need to change it?")}</h2>
               <p className="mt-2 text-sm leading-relaxed text-fg-muted">
                 {freeCancellation
-                  ? `Free cancellation until ${appointment.clinic.cancellationHours} hours before the appointment.`
-                  : `You are inside this clinic's ${appointment.clinic.cancellationHours}-hour cancellation window, so a fee may apply.`}
+                  ? t("Free cancellation until {count} hours before the appointment.", { count: appointment.clinic.cancellationHours })
+                  : t("You are inside this clinic's {count}-hour cancellation window, so a fee may apply.", { count: appointment.clinic.cancellationHours })}
               </p>
               <div className="mt-4">
                 <AppointmentActions
@@ -255,10 +255,9 @@ export default async function AppointmentPage({
 
           {appointment.status === "COMPLETED" && (
             <Card className="p-5">
-              <h2 className="text-sm font-semibold text-fg">How did it go?</h2>
+              <h2 className="text-sm font-semibold text-fg">{t("How did it go?")}</h2>
               <p className="mt-2 text-sm text-fg-muted">
-                Reviews here are tied to a booking that actually happened, which is why they are
-                worth reading.
+                {t("Reviews here are tied to a booking that actually happened, which is why they are worth reading.")}
               </p>
               <div className="mt-4">
                 <ButtonLink
@@ -266,15 +265,17 @@ export default async function AppointmentPage({
                   variant="outline"
                   size="sm"
                 >
-                  Leave a review
+                  {t("Leave a review")}
                 </ButtonLink>
               </div>
             </Card>
           )}
 
           <p className="text-xs leading-relaxed text-fg-subtle">
-            Disputes about a booking can be opened for {settings.disputeWindowDays} days
-            afterwards.
+            {t.plural(settings.disputeWindowDays, {
+              one: "Disputes about a booking can be opened for {count} day afterwards.",
+              other: "Disputes about a booking can be opened for {count} days afterwards.",
+            })}
           </p>
         </aside>
       </div>

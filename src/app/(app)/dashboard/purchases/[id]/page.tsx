@@ -6,13 +6,18 @@ import { isAppError } from "@/lib/errors";
 import { PetOrderDetail } from "@/components/orders/pet-order-detail";
 import { toPetOrderView } from "@/components/orders/serialize";
 import { Breadcrumbs, PageHeader } from "@/components/ui/primitives";
+import { getI18n } from "@/lib/i18n/server";
 
-export const metadata: Metadata = {
-  title: "Purchase",
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return {
+  title: t("Purchase"),
   robots: { index: false, follow: false },
 };
+}
 
 export default async function PurchasePage({ params }: { params: Promise<{ id: string }> }) {
+  const { t } = await getI18n();
   const [{ id }, auth] = await Promise.all([params, requireAuth()]);
 
   let order;
@@ -35,7 +40,7 @@ export default async function PurchasePage({ params }: { params: Promise<{ id: s
           { label: order.orderNumber },
         ]}
       />
-      <PageHeader title="Your purchase" description="Where the money is, and what happens next." />
+      <PageHeader title={t("Your purchase")} description={t("Where the money is, and what happens next.")} />
       <div className="mt-6">
         <PetOrderDetail order={toPetOrderView(order)} />
       </div>

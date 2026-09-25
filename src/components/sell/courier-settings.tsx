@@ -70,7 +70,7 @@ export function CourierSettings({
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
         <Truck className="size-4 text-fg-subtle" aria-hidden />
-        <span className="text-sm font-medium text-fg">Bosta</span>
+        <span className="text-sm font-medium text-fg">{t("Bosta")}</span>
         <Badge tone={connected ? "success" : "neutral"} size="sm">
           {connected ? t("Connected") : t("Not connected")}
         </Badge>

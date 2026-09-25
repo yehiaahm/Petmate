@@ -18,6 +18,7 @@ import {
   LIMITS,
   type Species,
 } from "@/lib/constants";
+import { useI18n } from "@/components/i18n/i18n-provider";
 
 interface Breed {
   id: string;
@@ -63,6 +64,7 @@ export function PetForm({
   defaultCity?: string | null;
   defaultCountry?: string | null;
 }) {
+  const { t } = useI18n();
   const router = useRouter();
   const toast = useToast();
 
@@ -107,7 +109,7 @@ export function PetForm({
     if (!files?.length) return;
 
     if (photos.length + files.length > LIMITS.photosPerPet) {
-      toast.error(`Up to ${LIMITS.photosPerPet} photos`, "Remove one before adding more.");
+      toast.error(`Up to ${LIMITS.photosPerPet} photos`, t("Remove one before adding more."));
       return;
     }
 
@@ -125,7 +127,7 @@ export function PetForm({
         setPhotos((p) => [...p, stored]);
       } catch (err) {
         toast.error(
-          "That photo was not accepted",
+          t("That photo was not accepted"),
           err instanceof ApiError ? err.message : "Please try a different image.",
         );
       }
@@ -168,7 +170,7 @@ export function PetForm({
       for (const photo of photos) {
         await api
           .post(`/api/pets/${id}/photos`, { fileId: photo.id })
-          .catch(() => toast.error("A photo could not be attached", "You can add it again later."));
+          .catch(() => toast.error(t("A photo could not be attached"), t("You can add it again later.")));
       }
 
       toast.success(petId ? "Changes saved" : `${values.name} added`);
@@ -191,16 +193,16 @@ export function PetForm({
   return (
     <form onSubmit={submit} className="space-y-6" noValidate>
       {error && (
-        <Alert tone="danger" title="Check the form">
+        <Alert tone="danger" title={t("Check the form")}>
           {error}
         </Alert>
       )}
 
       <Card className="p-5">
-        <h2 className="font-display text-lg font-semibold text-fg">The basics</h2>
+        <h2 className="font-display text-lg font-semibold text-fg">{t("The basics")}</h2>
         <div className="mt-4 space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Name" required error={fieldErrors.name}>
+            <Field label={t("Name")} required error={fieldErrors.name}>
               {({ id, invalid }) => (
                 <Input
                   id={id}
@@ -210,12 +212,12 @@ export function PetForm({
                   autoFocus
                   value={values.name}
                   onChange={(e) => set("name", e.target.value)}
-                  placeholder="Maple"
+                  placeholder={t("Maple")}
                 />
               )}
             </Field>
 
-            <Field label="Species" required error={fieldErrors.species}>
+            <Field label={t("Species")} required error={fieldErrors.species}>
               {({ id }) => (
                 <Select
                   id={id}
@@ -224,7 +226,7 @@ export function PetForm({
                 >
                   {SPECIES.map((species) => (
                     <option key={species} value={species}>
-                      {SPECIES_LABEL[species]}
+                      {t(SPECIES_LABEL[species])}
                     </option>
                   ))}
                 </Select>
@@ -234,13 +236,13 @@ export function PetForm({
 
           <div className="grid gap-4 sm:grid-cols-2">
             <Field
-              label="Breed"
-              hint={speciesBreeds.length ? undefined : "No catalogue breeds for this species yet."}
+              label={t("Breed")}
+              hint={speciesBreeds.length ? undefined : t("No catalogue breeds for this species yet.")}
               error={fieldErrors.breedId}
             >
               {({ id }) => (
                 <Select id={id} value={values.breedId} onChange={(e) => set("breedId", e.target.value)}>
-                  <option value="">Not listed / mixed</option>
+                  <option value="">{t("Not listed / mixed")}</option>
                   {speciesBreeds.map((breed) => (
                     <option key={breed.id} value={breed.id}>
                       {breed.name}
@@ -251,14 +253,14 @@ export function PetForm({
             </Field>
 
             {!values.breedId && (
-              <Field label="Breed description" hint="For a mix or a breed not in the list.">
+              <Field label={t("Breed description")} hint={t("For a mix or a breed not in the list.")}>
                 {({ id }) => (
                   <Input
                     id={id}
                     maxLength={80}
                     value={values.breedText}
                     onChange={(e) => set("breedText", e.target.value)}
-                    placeholder="Collie cross"
+                    placeholder={t("Collie cross")}
                   />
                 )}
               </Field>
@@ -266,7 +268,7 @@ export function PetForm({
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Sex" required>
+            <Field label={t("Sex")} required>
               {({ id }) => (
                 <Select
                   id={id}
@@ -275,7 +277,7 @@ export function PetForm({
                 >
                   {SEX.map((sex) => (
                     <option key={sex} value={sex}>
-                      {sex === "MALE" ? "Male" : sex === "FEMALE" ? "Female" : "Unknown"}
+                      {sex === "MALE" ? t("Male") : sex === "FEMALE" ? t("Female") : t("Unknown")}
                     </option>
                   ))}
                 </Select>
@@ -283,8 +285,8 @@ export function PetForm({
             </Field>
 
             <Field
-              label="Date of birth"
-              hint="An estimate is better than nothing."
+              label={t("Date of birth")}
+              hint={t("An estimate is better than nothing.")}
               error={fieldErrors.birthDate}
             >
               {({ id, invalid }) => (
@@ -298,7 +300,7 @@ export function PetForm({
                     onChange={(e) => set("birthDate", e.target.value)}
                   />
                   <Checkbox
-                    label="This is an estimate"
+                    label={t("This is an estimate")}
                     checked={values.birthDateIsEstimate}
                     onChange={(e) => set("birthDateIsEstimate", e.target.checked)}
                   />
@@ -308,7 +310,7 @@ export function PetForm({
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Weight (kg)" error={fieldErrors.weightKg}>
+            <Field label={t("Weight (kg)")} error={fieldErrors.weightKg}>
               {({ id, invalid }) => (
                 <Input
                   id={id}
@@ -323,21 +325,21 @@ export function PetForm({
               )}
             </Field>
 
-            <Field label="Colour or markings">
+            <Field label={t("Colour or markings")}>
               {({ id }) => (
                 <Input
                   id={id}
                   maxLength={60}
                   value={values.color}
                   onChange={(e) => set("color", e.target.value)}
-                  placeholder="Golden, white chest"
+                  placeholder={t("Golden, white chest")}
                 />
               )}
             </Field>
           </div>
 
           <Checkbox
-            label="Neutered or spayed"
+            label={t("Neutered or spayed")}
             checked={values.isNeutered}
             onChange={(e) => set("isNeutered", e.target.checked)}
           />
@@ -345,9 +347,9 @@ export function PetForm({
       </Card>
 
       <Card className="p-5">
-        <h2 className="font-display text-lg font-semibold text-fg">Photos</h2>
+        <h2 className="font-display text-lg font-semibold text-fg">{t("Photos")}</h2>
         <p className="mt-1 text-sm text-fg-muted">
-          Up to {LIMITS.photosPerPet}. The first becomes the main photo.
+          {t("Up to {count}. The first becomes the main photo.", { count: LIMITS.photosPerPet })}
         </p>
 
         <div className="mt-4 flex flex-wrap gap-3">
@@ -359,14 +361,14 @@ export function PetForm({
               <Image src={photo.url} alt="" fill sizes="96px" className="object-cover" />
               {index === 0 && (
                 <span className="absolute start-1 top-1 rounded-full bg-brand px-1.5 py-0.5 text-[9px] font-bold text-brand-fg">
-                  MAIN
+                  {t("MAIN")}
                 </span>
               )}
               <button
                 type="button"
                 onClick={() => setPhotos((p) => p.filter((x) => x.id !== photo.id))}
                 className="absolute end-1 top-1 rounded-full bg-[var(--overlay)] p-1 text-white opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
-                aria-label="Remove photo"
+                aria-label={t("Remove photo")}
               >
                 <X className="size-3" aria-hidden />
               </button>
@@ -385,7 +387,7 @@ export function PetForm({
               ) : (
                 <Upload className="size-5" aria-hidden />
               )}
-              <span className="text-[10px] font-medium">{uploading ? "Uploading" : "Add"}</span>
+              <span className="text-[10px] font-medium">{uploading ? t("Uploading") : t("Add")}</span>
               <input
                 type="file"
                 accept="image/jpeg,image/png,image/webp"
@@ -402,13 +404,13 @@ export function PetForm({
       </Card>
 
       <Card className="p-5">
-        <h2 className="font-display text-lg font-semibold text-fg">Character</h2>
+        <h2 className="font-display text-lg font-semibold text-fg">{t("Character")}</h2>
 
         <div className="mt-4 space-y-4">
           <fieldset>
             <legend className="mb-2 text-sm font-medium text-fg">
-              Temperament{" "}
-              <span className="font-normal text-fg-subtle">(up to 6)</span>
+              {t("Temperament")}{" "}
+              <span className="font-normal text-fg-subtle">{t("(up to 6)")}</span>
             </legend>
             <div className="flex flex-wrap gap-2">
               {TEMPERAMENT_TAGS.map((tag) => {
@@ -424,7 +426,7 @@ export function PetForm({
                       set(
                         "temperament",
                         active
-                          ? values.temperament.filter((t) => t !== tag)
+                          ? values.temperament.filter((x) => x !== tag)
                           : [...values.temperament, tag],
                       )
                     }
@@ -435,7 +437,7 @@ export function PetForm({
                         : "border-[var(--border)] text-fg-muted hover:border-[var(--border-strong)] hover:text-fg",
                     )}
                   >
-                    {tag}
+                    {t(tag)}
                   </button>
                 );
               })}
@@ -443,8 +445,8 @@ export function PetForm({
           </fieldset>
 
           <Field
-            label="About them"
-            hint="Routine, habits, what they are like to live with."
+            label={t("About them")}
+            hint={t("Routine, habits, what they are like to live with.")}
             trailing={`${values.description.length}/${LIMITS.descriptionMax}`}
           >
             {({ id }) => (
@@ -461,14 +463,13 @@ export function PetForm({
       </Card>
 
       <Card className="p-5">
-        <h2 className="font-display text-lg font-semibold text-fg">Identification</h2>
+        <h2 className="font-display text-lg font-semibold text-fg">{t("Identification")}</h2>
         <p className="mt-1 text-sm text-fg-muted">
-          A microchip number is the strongest proof of ownership there is. It is never shown
-          publicly.
+          {t("A microchip number is the strongest proof of ownership there is. It is never shown publicly.")}
         </p>
 
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          <Field label="Microchip number" error={fieldErrors.microchipId}>
+          <Field label={t("Microchip number")} error={fieldErrors.microchipId}>
             {({ id, invalid }) => (
               <Input
                 id={id}
@@ -482,7 +483,7 @@ export function PetForm({
           </Field>
 
           <div className="grid grid-cols-2 gap-3">
-            <Field label="City">
+            <Field label={t("City")}>
               {({ id }) => (
                 <Input
                   id={id}
@@ -492,7 +493,7 @@ export function PetForm({
                 />
               )}
             </Field>
-            <Field label="Country">
+            <Field label={t("Country")}>
               {({ id }) => (
                 <Input
                   id={id}
@@ -508,16 +509,16 @@ export function PetForm({
 
       <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
         <Button type="button" variant="ghost" onClick={() => router.back()}>
-          Cancel
+          {t("Cancel")}
         </Button>
         <Button
           type="submit"
           size="lg"
           loading={submitting}
-          loadingText="Saving…"
+          loadingText={t("Saving…")}
           disabled={!values.name.trim()}
         >
-          {petId ? "Save changes" : "Add pet"}
+          {petId ? t("Save changes") : t("Add pet")}
         </Button>
       </div>
     </form>

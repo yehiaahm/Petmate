@@ -3,13 +3,13 @@ import Link from "next/link";
 import Image from "next/image";
 import { Stethoscope, MapPin, Star, Siren, Home, BadgeCheck, Sparkles } from "lucide-react";
 import { searchClinics } from "@/lib/services/vet.service";
-import { formatMoney, formatRating } from "@/lib/money";
-import { formatDistance } from "@/lib/utils";
+import { formatRating } from "@/lib/money";
 import { Card, Badge, EmptyState, PageHeader } from "@/components/ui/primitives";
 import { ButtonLink } from "@/components/ui/button";
 import { ClinicFilters } from "@/components/clinics/clinic-filters";
 import { Pagination } from "@/components/ui/pagination";
 import { AdSlot } from "@/components/ads/ad-slot";
+import { getI18n } from "@/lib/i18n/server";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
@@ -34,6 +34,7 @@ export async function generateMetadata({
 }
 
 export default async function ClinicsPage({ searchParams }: { searchParams: SearchParams }) {
+  const { t, fmt } = await getI18n();
   const raw = await searchParams;
   const one = (key: string) => {
     const value = raw[key];
@@ -65,9 +66,9 @@ export default async function ClinicsPage({ searchParams }: { searchParams: Sear
   return (
     <div className="container-page py-8 lg:py-12">
       <PageHeader
-        eyebrow="Veterinary"
-        title="Find a vet"
-        description="Book a real slot from the clinic's own calendar. Anything the vet records lands in your pet's health timeline as a verified entry."
+        eyebrow={t("Veterinary")}
+        title={t("Find a vet")}
+        description={t("Book a real slot from the clinic's own calendar. Anything the vet records lands in your pet's health timeline as a verified entry.")}
       />
 
       <div className="mt-8 grid gap-8 lg:grid-cols-[16rem_1fr]">
@@ -79,21 +80,21 @@ export default async function ClinicsPage({ searchParams }: { searchParams: Sear
         <div className="min-w-0">
           <p className="mb-4 text-sm text-fg-muted tabular">
             {results.total === 0
-              ? "No clinics found"
-              : `${results.total} ${results.total === 1 ? "clinic" : "clinics"}`}
+              ? t("No clinics found")
+              : t.plural(results.total, { one: "{count} clinic", other: "{count} clinics" })}
           </p>
 
           {results.items.length === 0 ? (
             <EmptyState
               icon={<Stethoscope className="size-6" aria-hidden />}
-              title="No clinics match those filters"
-              description="Try widening the distance or clearing a filter. We are adding clinics continuously."
+              title={t("No clinics match those filters")}
+              description={t("Try widening the distance or clearing a filter. We are adding clinics continuously.")}
               action={
                 <div className="flex flex-wrap justify-center gap-3">
                   <ButtonLink href="/clinics" variant="outline">
-                    Clear filters
+                    {t("Clear filters")}
                   </ButtonLink>
-                  <ButtonLink href="/for-clinics">Run a clinic? List it</ButtonLink>
+                  <ButtonLink href="/for-clinics">{t("Run a clinic? List it")}</ButtonLink>
                 </div>
               }
             />
@@ -135,7 +136,7 @@ export default async function ClinicsPage({ searchParams }: { searchParams: Sear
                                 <span className="flex items-center gap-1">
                                   <MapPin className="size-3.5" aria-hidden />
                                   {clinic.distanceKm != null
-                                    ? formatDistance(clinic.distanceKm)
+                                    ? fmt.distance(clinic.distanceKm)
                                     : [clinic.city, clinic.country].filter(Boolean).join(", ")}
                                 </span>
                                 {clinic.ratingCount > 0 && (
@@ -156,7 +157,7 @@ export default async function ClinicsPage({ searchParams }: { searchParams: Sear
                             <div className="flex shrink-0 flex-wrap gap-1.5">
                               {clinic.featured && (
                                 <Badge tone="accent" size="sm" icon={<Sparkles className="size-3" aria-hidden />}>
-                                  Featured
+                                  {t("Featured")}
                                 </Badge>
                               )}
                               {clinic.verifiedAt && (
@@ -165,17 +166,17 @@ export default async function ClinicsPage({ searchParams }: { searchParams: Sear
                                   size="sm"
                                   icon={<BadgeCheck className="size-3" aria-hidden />}
                                 >
-                                  Verified
+                                  {t("Verified")}
                                 </Badge>
                               )}
                               {clinic.emergencyServices && (
                                 <Badge tone="danger" size="sm" icon={<Siren className="size-3" aria-hidden />}>
-                                  Emergency
+                                  {t("Emergency")}
                                 </Badge>
                               )}
                               {clinic.homeVisits && (
                                 <Badge tone="neutral" size="sm" icon={<Home className="size-3" aria-hidden />}>
-                                  Home visits
+                                  {t("Home visits")}
                                 </Badge>
                               )}
                             </div>
@@ -194,7 +195,7 @@ export default async function ClinicsPage({ searchParams }: { searchParams: Sear
                                   <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border)] px-2.5 py-1 text-xs text-fg-muted">
                                     {service.name}
                                     <span className="font-semibold tabular text-fg">
-                                      {formatMoney(service.priceCents, service.currency)}
+                                      {fmt.money(service.priceCents, service.currency)}
                                     </span>
                                   </span>
                                 </li>
@@ -204,7 +205,7 @@ export default async function ClinicsPage({ searchParams }: { searchParams: Sear
 
                           <div className="mt-3">
                             <ButtonLink href={`/clinics/${clinic.slug}`} size="sm">
-                              See availability
+                              {t("See availability")}
                             </ButtonLink>
                           </div>
                         </div>

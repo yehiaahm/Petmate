@@ -4,13 +4,18 @@ import { getSettings } from "@/lib/settings";
 import { bpsToPercent } from "@/lib/money";
 import { ClinicRegistration } from "@/components/clinics/clinic-registration";
 import { PageHeader, Breadcrumbs, Alert } from "@/components/ui/primitives";
+import { getI18n } from "@/lib/i18n/server";
 
-export const metadata: Metadata = {
-  title: "Register a clinic",
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return {
+  title: t("Register a clinic"),
   robots: { index: false, follow: false },
 };
+}
 
 export default async function NewClinicPage() {
+  const { t } = await getI18n();
   const auth = await requireAuth();
   const settings = await getSettings();
 
@@ -24,15 +29,15 @@ export default async function NewClinicPage() {
       />
 
       <PageHeader
-        title="Register your clinic"
-        description="A person checks your registration number before the clinic goes live. That check is the whole reason the clinic-verified badge on a health record means anything."
+        title={t("Register your clinic")}
+        description={t("A person checks your registration number before the clinic goes live. That check is the whole reason the clinic-verified badge on a health record means anything.")}
       />
 
-      <Alert tone="info" className="mt-6" title="What it costs">
+      <Alert tone="info" className="mt-6" title={t("What it costs")}>
         <p className="mt-1 leading-relaxed">
-          Nothing to register and no monthly fee. PetMate takes{" "}
-          {bpsToPercent(settings.commissionAppointmentBps)} of each completed booking. Writing
-          health records is free and always will be.
+          {t("Nothing to register and no monthly fee. PetMate takes {percent} of each completed booking. Writing health records is free and always will be.", {
+            percent: bpsToPercent(settings.commissionAppointmentBps),
+          })}
         </p>
       </Alert>
 

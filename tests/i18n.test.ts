@@ -11,6 +11,9 @@ import { createTranslator, interpolate, translateMessage, type Messages } from "
 import { createFormatter } from "@/lib/i18n/format";
 import { ar } from "@/lib/i18n/ar";
 import { formatMoney } from "@/lib/money";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { RichText } from "@/components/i18n/rich-text";
 
 describe("locale resolution", () => {
   it("honours Accept-Language quality values and ignores what we do not ship", () => {
@@ -72,6 +75,22 @@ describe("translation", () => {
     expect(translateMessage("ar", messages, "That clinic could not be found.")).toBe("تعذّر العثور على هذه العيادة.");
     expect(translateMessage("ar", messages, "Something new went wrong.")).toBe("Something new went wrong.");
     expect(translateMessage("en", messages, "Use at least 10 characters.")).toBe("Use at least 10 characters.");
+  });
+
+  it("does not let a template with little fixed wording claim an unrelated sentence", () => {
+    const loose: Messages = { "To {name}": "إلى {name}", "{what} could not be found.": "تعذّر العثور على {what}." };
+    expect(translateMessage("ar", loose, "To continue, confirm your email.")).toBe("To continue, confirm your email.");
+    expect(translateMessage("ar", loose, "That order could not be found.")).toBe("تعذّر العثور على That order.");
+  });
+
+  it("places elements inside a translated sentence", () => {
+    const html = renderToStaticMarkup(
+      createElement(RichText, {
+        text: "رقمك المرجعي هو {reference}. {missing}",
+        values: { reference: createElement("b", null, "SUP-1") },
+      }),
+    );
+    expect(html).toBe("رقمك المرجعي هو <b>SUP-1</b>. {missing}");
   });
 
   it("leaves unknown placeholders visible rather than printing undefined", () => {

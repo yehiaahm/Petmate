@@ -17,13 +17,17 @@ import { Card, Badge, Alert } from "@/components/ui/primitives";
 import { ButtonLink } from "@/components/ui/button";
 import { compactNumber } from "@/lib/utils";
 import { WEIGHTS } from "@/lib/breeding/compatibility";
+import { getI18n } from "@/lib/i18n/server";
 
-export const metadata: Metadata = {
-  title: "Responsible breeding",
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return {
+  title: t("Responsible breeding"),
   description:
-    "A deterministic compatibility engine that checks age, health records, relatedness and distance — and shows its working, factor by factor. Not machine learning, and we do not claim otherwise.",
+    t("A deterministic compatibility engine that checks age, health records, relatedness and distance — and shows its working, factor by factor. Not machine learning, and we do not claim otherwise."),
   alternates: { canonical: "/breeding" },
 };
+}
 
 export const revalidate = 3600;
 
@@ -85,6 +89,7 @@ const BLOCKERS = [
 ];
 
 export default async function BreedingLandingPage() {
+  const { t } = await getI18n();
   const [auth, settings, profiles, litters, species] = await Promise.all([
     getAuth(),
     getSettings(),
@@ -105,21 +110,19 @@ export default async function BreedingLandingPage() {
   return (
     <div className="container-page py-12 lg:py-16">
       <div className="mx-auto max-w-2xl text-center">
-        <Badge tone="brand">Breeding</Badge>
+        <Badge tone="brand">{t("Breeding")}</Badge>
         <h1 className="mt-4 font-display text-4xl font-semibold tracking-tight text-fg sm:text-5xl">
-          A match you can argue with
+          {t("A match you can argue with")}
         </h1>
         <p className="mt-4 text-lg leading-relaxed text-fg-muted">
-          Most breeding decisions are made on a photo and a phone call. PetMate scores a pairing
-          against the records both animals actually have, refuses the ones that should not happen,
-          and shows you every factor behind the number.
+          {t("Most breeding decisions are made on a photo and a phone call. PetMate scores a pairing against the records both animals actually have, refuses the ones that should not happen, and shows you every factor behind the number.")}
         </p>
         <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
           <ButtonLink href={auth ? "/dashboard/breeding" : "/register?next=/dashboard/breeding"} size="lg">
-            {auth ? "Open breeding matches" : "Create a free account"}
+            {auth ? t("Open breeding matches") : t("Create a free account")}
           </ButtonLink>
           <ButtonLink href="/pets?intent=BREEDING" variant="outline" size="lg">
-            Browse available studs
+            {t("Browse available studs")}
           </ButtonLink>
         </div>
       </div>
@@ -134,7 +137,7 @@ export default async function BreedingLandingPage() {
             <dd className="font-display text-2xl font-semibold tabular text-fg">
               {compactNumber(stat.value)}
             </dd>
-            <dt className="mt-0.5 text-xs text-fg-muted">{stat.label}</dt>
+            <dt className="mt-0.5 text-xs text-fg-muted">{t(stat.label)}</dt>
           </div>
         ))}
       </dl>
@@ -142,23 +145,22 @@ export default async function BreedingLandingPage() {
       <Alert
         tone="info"
         className="mx-auto mt-10 max-w-3xl"
-        title="This is a rule engine, not machine learning"
+        title={t("This is a rule engine, not machine learning")}
       >
         <p className="mt-1 leading-relaxed">
-          Every number the matcher produces comes from a weighted rule you can read on this page.
-          It does not learn, it does not predict, and calling it AI would be a lie that happens to
-          sell better. Because it is deterministic, the same two animals always score the same, and
-          any score can be traced to the facts that produced it.
+          {t("Every number the matcher produces comes from a weighted rule you can read on this page. It does not learn, it does not predict, and calling it AI would be a lie that happens to sell better. Because it is deterministic, the same two animals always score the same, and any score can be traced to the facts that produced it.")}
         </p>
       </Alert>
 
       <section className="mx-auto mt-14 max-w-4xl">
         <h2 className="font-display text-2xl font-semibold tracking-tight text-fg">
-          What goes into the score
+          {t("What goes into the score")}
         </h2>
         <p className="mt-2 max-w-2xl text-[15px] text-fg-muted">
-          {FACTORS.length} factors, each capped at the weight shown, adding up to {totalWeight}
-          points before the total is normalised to 100.
+          {t("{count} factors, each capped at the weight shown, adding up to {total} points before the total is normalised to 100.", {
+            count: FACTORS.length,
+            total: totalWeight,
+          })}
         </p>
 
         <ul className="mt-6 space-y-3">
@@ -173,12 +175,12 @@ export default async function BreedingLandingPage() {
                 </span>
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-baseline justify-between gap-3">
-                    <h3 className="font-display text-lg font-semibold text-fg">{factor.title}</h3>
+                    <h3 className="font-display text-lg font-semibold text-fg">{t(factor.title)}</h3>
                     <span className="shrink-0 text-sm font-semibold tabular text-brand">
-                      {factor.weight} pts
+                      {t("{count} pts", { count: factor.weight })}
                     </span>
                   </div>
-                  <p className="mt-1.5 text-sm leading-relaxed text-fg-muted">{factor.body}</p>
+                  <p className="mt-1.5 text-sm leading-relaxed text-fg-muted">{t(factor.body)}</p>
                   <div
                     className="mt-3 h-1.5 overflow-hidden rounded-full bg-bg-sunken"
                     role="presentation"
@@ -198,11 +200,10 @@ export default async function BreedingLandingPage() {
       <section className="mx-auto mt-14 max-w-3xl">
         <h2 className="flex items-center gap-2 font-display text-2xl font-semibold tracking-tight text-fg">
           <ShieldX className="size-5 text-[var(--danger)]" aria-hidden />
-          What we refuse outright
+          {t("What we refuse outright")}
         </h2>
         <p className="mt-2 text-[15px] leading-relaxed text-fg-muted">
-          These are not penalties that a high score elsewhere can outweigh. A pairing that hits any
-          of them scores zero and cannot be arranged through PetMate.
+          {t("These are not penalties that a high score elsewhere can outweigh. A pairing that hits any of them scores zero and cannot be arranged through PetMate.")}
         </p>
         <ul className="mt-5 space-y-2">
           {BLOCKERS.map((blocker) => (
@@ -211,20 +212,17 @@ export default async function BreedingLandingPage() {
               className="flex items-start gap-2.5 rounded-[var(--radius-field)] border border-[var(--danger)]/20 bg-[var(--danger-soft)]/40 px-4 py-2.5 text-[15px] text-fg"
             >
               <ShieldX className="mt-0.5 size-4 shrink-0 text-[var(--danger)]" aria-hidden />
-              {blocker}
+              {t(blocker)}
             </li>
           ))}
         </ul>
         <p className="mt-4 text-sm leading-relaxed text-fg-muted">
-          Close relatedness is the one worth dwelling on. Doubling up on a recent ancestor is where
-          most of the real welfare harm in hobby breeding comes from, and it is invisible without a
-          lineage record — which is exactly what PetMate keeps. The absence of a block is not
-          approval: our records only know what has been entered.
+          {t("Close relatedness is the one worth dwelling on. Doubling up on a recent ancestor is where most of the real welfare harm in hobby breeding comes from, and it is invisible without a lineage record — which is exactly what PetMate keeps. The absence of a block is not approval: our records only know what has been entered.")}
         </p>
       </section>
 
       <section className="mx-auto mt-14 max-w-3xl">
-        <h2 className="font-display text-2xl font-semibold tracking-tight text-fg">How it works</h2>
+        <h2 className="font-display text-2xl font-semibold tracking-tight text-fg">{t("How it works")}</h2>
         <ol className="mt-5 space-y-3">
           {[
             {
@@ -254,8 +252,8 @@ export default async function BreedingLandingPage() {
                   {i + 1}
                 </span>
                 <div className="min-w-0">
-                  <h3 className="text-[15px] font-semibold text-fg">{step.title}</h3>
-                  <p className="mt-1 text-sm leading-relaxed text-fg-muted">{step.body}</p>
+                  <h3 className="text-[15px] font-semibold text-fg">{t(step.title)}</h3>
+                  <p className="mt-1 text-sm leading-relaxed text-fg-muted">{t(step.body)}</p>
                 </div>
               </Card>
             </li>
@@ -263,25 +261,22 @@ export default async function BreedingLandingPage() {
         </ol>
       </section>
 
-      <Alert tone="warning" className="mx-auto mt-14 max-w-3xl" title="What this does not do">
+      <Alert tone="warning" className="mx-auto mt-14 max-w-3xl" title={t("What this does not do")}>
         <p className="mt-1 leading-relaxed">
-          It is not genetic testing and not veterinary advice. It cannot see a heritable condition
-          that nobody has recorded, and it does not know your local licensing rules — complying
-          with those is yours to do. Screen the parents properly with a vet before you breed
-          anything.
+          {t("It is not genetic testing and not veterinary advice. It cannot see a heritable condition that nobody has recorded, and it does not know your local licensing rules — complying with those is yours to do. Screen the parents properly with a vet before you breed anything.")}
         </p>
       </Alert>
 
       <section className="mx-auto mt-14 max-w-2xl text-center">
         <h2 className="font-display text-2xl font-semibold tracking-tight text-fg">
-          Ready to look?
+          {t("Ready to look?")}
         </h2>
         <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
           <ButtonLink href={auth ? "/dashboard/breeding" : "/register?next=/dashboard/breeding"}>
-            {auth ? "Open breeding matches" : "Create a free account"}
+            {auth ? t("Open breeding matches") : t("Create a free account")}
           </ButtonLink>
           <ButtonLink href="/trust" variant="outline">
-            How we keep this safe
+            {t("How we keep this safe")}
           </ButtonLink>
         </div>
       </section>

@@ -10,13 +10,19 @@ import { account } from "./account";
 import { promotions } from "./promotions";
 import { courier } from "./courier";
 import { site } from "./site";
+import { pages } from "./pages";
+import { components } from "./components";
+import { listings } from "./listings";
+import { clinics } from "./clinics";
+import { pets } from "./pets";
+import { content } from "./content";
 
 /**
  * The Arabic dictionary, assembled from one module per product area so that
  * no single file becomes unreviewable. A sentence defined in two modules is a
  * mistake — the second would silently win — so assembly refuses it.
  */
-const modules: Record<string, Messages> = { common, shell, sell, errors, commerce, breeding, community, account, promotions, courier, site };
+const modules: Record<string, Messages> = { common, shell, sell, errors, commerce, breeding, community, account, promotions, courier, site, pages, components, listings, clinics, pets, content };
 
 function assemble(parts: Record<string, Messages>): Messages {
   const out: Record<string, Messages[string]> = {};

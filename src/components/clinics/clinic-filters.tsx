@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/primitives";
 import { useToast } from "@/components/ui/toast";
 import { SERVICE_CATEGORY, SERVICE_CATEGORY_LABEL } from "@/lib/constants";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/components/i18n/i18n-provider";
 
 /**
  * Clinic filters.
@@ -19,6 +20,7 @@ import { cn } from "@/lib/utils";
  * forty minutes away is not a vet you will use.
  */
 export function ClinicFilters({ resultCount }: { resultCount: number }) {
+  const { t } = useI18n();
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
@@ -42,7 +44,7 @@ export function ClinicFilters({ resultCount }: { resultCount: number }) {
 
   function useMyLocation() {
     if (!navigator.geolocation) {
-      toast.error("Location is not available", "Your browser does not support it.");
+      toast.error(t("Location is not available"), t("Your browser does not support it."));
       return;
     }
 
@@ -59,7 +61,7 @@ export function ClinicFilters({ resultCount }: { resultCount: number }) {
       },
       () => {
         setLocating(false);
-        toast.info("We could not get your location", "Type a city instead.");
+        toast.info(t("We could not get your location"), t("Type a city instead."));
       },
       { timeout: 8000, maximumAge: 300_000 },
     );
@@ -72,19 +74,19 @@ export function ClinicFilters({ resultCount }: { resultCount: number }) {
   const content = (
     <div className="space-y-5">
       <fieldset>
-        <legend className="mb-2 text-sm font-semibold text-fg">Where</legend>
+        <legend className="mb-2 text-sm font-semibold text-fg">{t("Where")}</legend>
 
         {params.get("lat") ? (
           <div className="flex items-center justify-between rounded-[var(--radius-field)] border border-brand bg-brand-soft px-3 py-2">
             <span className="flex items-center gap-2 text-sm font-medium text-brand-soft-fg">
               <MapPin className="size-4" aria-hidden />
-              Within {params.get("radius") ?? 25} km
+              {t("Within {km} km", { km: params.get("radius") ?? 25 })}
             </span>
             <button
               type="button"
               onClick={() => update({ lat: null, lng: null, radius: null })}
               className="rounded p-1 text-brand-soft-fg hover:opacity-70"
-              aria-label="Clear location"
+              aria-label={t("Clear location")}
             >
               <X className="size-4" aria-hidden />
             </button>
@@ -96,8 +98,8 @@ export function ClinicFilters({ resultCount }: { resultCount: number }) {
               onChange={(e) => setCity(e.target.value)}
               onBlur={() => update({ city: city || null })}
               onKeyDown={(e) => e.key === "Enter" && update({ city: city || null })}
-              placeholder="City"
-              aria-label="City"
+              placeholder={t("City")}
+              aria-label={t("City")}
               leading={<MapPin className="size-4" aria-hidden />}
             />
             <Button
@@ -107,9 +109,9 @@ export function ClinicFilters({ resultCount }: { resultCount: number }) {
               fullWidth
               onClick={useMyLocation}
               loading={locating}
-              loadingText="Finding you…"
+              loadingText={t("Finding you…")}
             >
-              Use my location
+              {t("Use my location")}
             </Button>
           </div>
         )}
@@ -119,11 +121,11 @@ export function ClinicFilters({ resultCount }: { resultCount: number }) {
             className="mt-2"
             value={params.get("radius") ?? "25"}
             onChange={(e) => update({ radius: e.target.value })}
-            aria-label="Search radius"
+            aria-label={t("Search radius")}
           >
             {[5, 10, 25, 50, 100].map((km) => (
               <option key={km} value={km}>
-                Within {km} km
+                {t("Within {km} km", { km })}
               </option>
             ))}
           </Select>
@@ -131,46 +133,46 @@ export function ClinicFilters({ resultCount }: { resultCount: number }) {
       </fieldset>
 
       <fieldset>
-        <legend className="mb-2 text-sm font-semibold text-fg">Service</legend>
+        <legend className="mb-2 text-sm font-semibold text-fg">{t("Service")}</legend>
         <Select
           value={params.get("category") ?? ""}
           onChange={(e) => update({ category: e.target.value || null })}
-          aria-label="Service type"
+          aria-label={t("Service type")}
         >
-          <option value="">Any service</option>
+          <option value="">{t("Any service")}</option>
           {SERVICE_CATEGORY.map((category) => (
             <option key={category} value={category}>
-              {SERVICE_CATEGORY_LABEL[category]}
+              {t(SERVICE_CATEGORY_LABEL[category])}
             </option>
           ))}
         </Select>
       </fieldset>
 
       <fieldset className="space-y-3">
-        <legend className="mb-2 text-sm font-semibold text-fg">Options</legend>
+        <legend className="mb-2 text-sm font-semibold text-fg">{t("Options")}</legend>
         <Checkbox
-          label="Emergency services"
-          hint="Open for urgent cases"
+          label={t("Emergency services")}
+          hint={t("Open for urgent cases")}
           checked={params.get("emergency") === "true"}
           onChange={(e) => update({ emergency: e.target.checked ? "true" : null })}
         />
         <Checkbox
-          label="Home visits"
+          label={t("Home visits")}
           checked={params.get("homeVisits") === "true"}
           onChange={(e) => update({ homeVisits: e.target.checked ? "true" : null })}
         />
       </fieldset>
 
       <fieldset>
-        <legend className="mb-2 text-sm font-semibold text-fg">Sort by</legend>
+        <legend className="mb-2 text-sm font-semibold text-fg">{t("Sort by")}</legend>
         <Select
           value={params.get("sort") ?? "relevance"}
           onChange={(e) => update({ sort: e.target.value === "relevance" ? null : e.target.value })}
-          aria-label="Sort clinics"
+          aria-label={t("Sort clinics")}
         >
-          <option value="relevance">Best match</option>
-          <option value="rating">Highest rated</option>
-          {params.get("lat") && <option value="distance">Closest</option>}
+          <option value="relevance">{t("Best match")}</option>
+          <option value="rating">{t("Highest rated")}</option>
+          {params.get("lat") && <option value="distance">{t("Closest")}</option>}
         </Select>
       </fieldset>
 
@@ -180,7 +182,7 @@ export function ClinicFilters({ resultCount }: { resultCount: number }) {
           fullWidth
           onClick={() => startTransition(() => router.push(pathname))}
         >
-          Clear all filters
+          {t("Clear all filters")}
         </Button>
       )}
     </div>
@@ -191,7 +193,7 @@ export function ClinicFilters({ resultCount }: { resultCount: number }) {
       <div className="lg:hidden">
         <Button variant="outline" fullWidth onClick={() => setMobileOpen(true)}>
           <SlidersHorizontal className="size-4" aria-hidden />
-          Filters
+          {t("Filters")}
           {activeCount > 0 && (
             <Badge tone="brand" size="sm">
               {activeCount}
@@ -209,16 +211,16 @@ export function ClinicFilters({ resultCount }: { resultCount: number }) {
             <div
               role="dialog"
               aria-modal="true"
-              aria-label="Clinic filters"
+              aria-label={t("Clinic filters")}
               className="absolute inset-x-0 bottom-0 max-h-[85dvh] overflow-y-auto rounded-t-[var(--radius-panel)] bg-bg pb-[env(safe-area-inset-bottom)]"
             >
               <div className="sticky top-0 flex items-center justify-between border-b border-[var(--border)] bg-bg px-4 py-3">
-                <h2 className="font-display text-lg font-semibold">Filters</h2>
+                <h2 className="font-display text-lg font-semibold">{t("Filters")}</h2>
                 <button
                   type="button"
                   onClick={() => setMobileOpen(false)}
                   className="rounded-full p-1.5 text-fg-muted hover:bg-bg-sunken"
-                  aria-label="Close filters"
+                  aria-label={t("Close filters")}
                 >
                   <X className="size-5" aria-hidden />
                 </button>
@@ -226,7 +228,7 @@ export function ClinicFilters({ resultCount }: { resultCount: number }) {
               <div className="p-4">{content}</div>
               <div className="sticky bottom-0 border-t border-[var(--border)] bg-bg p-4">
                 <Button fullWidth onClick={() => setMobileOpen(false)}>
-                  Show {resultCount} {resultCount === 1 ? "clinic" : "clinics"}
+                  {t.plural(resultCount, { one: "Show {count} clinic", other: "Show {count} clinics" })}
                 </Button>
               </div>
             </div>

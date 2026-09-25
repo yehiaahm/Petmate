@@ -7,14 +7,18 @@ import { getPendingReviews } from "@/lib/services/review.service";
 import { ReviewComposer } from "@/components/reviews/review-composer";
 import { Stars } from "@/components/reviews/review-list";
 import { PageHeader, Card, EmptyState, Badge } from "@/components/ui/primitives";
-import { formatDate } from "@/lib/utils";
+import { getI18n } from "@/lib/i18n/server";
 
-export const metadata: Metadata = {
-  title: "Reviews",
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return {
+  title: t("Reviews"),
   robots: { index: false, follow: false },
 };
+}
 
 export default async function ReviewsPage() {
+  const { t, fmt } = await getI18n();
   const auth = await requireAuth();
 
   const [pending, written, received] = await Promise.all([
@@ -54,8 +58,8 @@ export default async function ReviewsPage() {
   return (
     <div className="container-page max-w-3xl py-8 lg:py-10">
       <PageHeader
-        title="Reviews"
-        description="You can only review a transaction that actually completed on PetMate. That constraint is the whole reason these are worth reading."
+        title={t("Reviews")}
+        description={t("You can only review a transaction that actually completed on PetMate. That constraint is the whole reason these are worth reading.")}
       />
 
       <div className="mt-8 space-y-8">
@@ -63,13 +67,13 @@ export default async function ReviewsPage() {
           <section>
             <h2 className="flex items-center gap-2 font-display text-xl font-semibold text-fg">
               <PenLine className="size-4.5 text-accent" aria-hidden />
-              Waiting on you
+              {t("Waiting on you")}
             </h2>
             <ul className="mt-4 space-y-3">
               {pending.map((item) => (
                 <li key={`${item.targetType}:${item.targetId}:${item.refId}`}>
                   <Card className="p-5">
-                    <p className="text-[15px] font-medium text-fg">{item.label}</p>
+                    <p className="text-[15px] font-medium text-fg">{t(item.label)}</p>
                     <p className="mt-0.5 text-sm text-fg-muted">{item.context}</p>
                     <div className="mt-4">
                       <ReviewComposer
@@ -77,7 +81,7 @@ export default async function ReviewsPage() {
                         targetId={item.targetId}
                         refType={item.type}
                         refId={item.refId}
-                        label={item.label}
+                        label={t(item.label)}
                       />
                     </div>
                   </Card>
@@ -88,13 +92,13 @@ export default async function ReviewsPage() {
         )}
 
         <section>
-          <h2 className="font-display text-xl font-semibold text-fg">Reviews about you</h2>
+          <h2 className="font-display text-xl font-semibold text-fg">{t("Reviews about you")}</h2>
           {received.length === 0 ? (
             <EmptyState
               className="mt-4"
               icon={<Star className="size-5" aria-hidden />}
-              title="No reviews yet"
-              description="Sell or rehome an animal through PetMate and the buyer can review you. Reviews are tied to the transaction, so nobody can post one without buying from you."
+              title={t("No reviews yet")}
+              description={t("Sell or rehome an animal through PetMate and the buyer can review you. Reviews are tied to the transaction, so nobody can post one without buying from you.")}
             />
           ) : (
             <ul className="mt-4 space-y-3">
@@ -105,11 +109,11 @@ export default async function ReviewsPage() {
                       <Stars rating={review.rating} />
                       {review.isVerified && (
                         <Badge tone="success" size="sm">
-                          Verified purchase
+                          {t("Verified purchase")}
                         </Badge>
                       )}
                       <span className="text-xs text-fg-subtle">
-                        {formatDate(review.createdAt)}
+                        {fmt.date(review.createdAt)}
                       </span>
                     </div>
                     {review.title && (
@@ -119,14 +123,14 @@ export default async function ReviewsPage() {
                       <p className="mt-1 text-sm leading-relaxed text-fg-muted">{review.body}</p>
                     )}
                     <p className="mt-2 text-xs text-fg-subtle">
-                      by{" "}
+                      {t("by")}{" "}
                       <Link href={`/u/${review.author.handle}`} className="hover:underline">
                         {review.author.name}
                       </Link>
                     </p>
                     {review.sellerResponse && (
                       <div className="mt-3 rounded-[var(--radius-field)] border-s-2 border-brand bg-bg-sunken px-3.5 py-2.5">
-                        <p className="text-xs font-semibold text-fg">Your reply</p>
+                        <p className="text-xs font-semibold text-fg">{t("Your reply")}</p>
                         <p className="mt-1 text-sm leading-relaxed text-fg-muted">
                           {review.sellerResponse}
                         </p>
@@ -141,7 +145,7 @@ export default async function ReviewsPage() {
 
         {written.length > 0 && (
           <section>
-            <h2 className="font-display text-xl font-semibold text-fg">Reviews you wrote</h2>
+            <h2 className="font-display text-xl font-semibold text-fg">{t("Reviews you wrote")}</h2>
             <ul className="mt-4 space-y-2">
               {written.map((review) => (
                 <li key={review.id}>
@@ -149,7 +153,7 @@ export default async function ReviewsPage() {
                     <div className="flex flex-wrap items-center gap-2">
                       <Stars rating={review.rating} />
                       <span className="text-xs text-fg-subtle">
-                        {formatDate(review.createdAt)}
+                        {fmt.date(review.createdAt)}
                       </span>
                       {review.status !== "PUBLISHED" && (
                         <Badge tone="warning" size="sm">

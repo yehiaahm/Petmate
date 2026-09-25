@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import { ChevronLeft, ChevronRight, Expand, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/components/i18n/i18n-provider";
 
 interface Photo {
   id: string;
@@ -21,6 +22,7 @@ interface Photo {
  * while it loads.
  */
 export function PhotoGallery({ photos, petName }: { photos: Photo[]; petName: string }) {
+  const { t } = useI18n();
   const [index, setIndex] = useState(0);
   const [lightbox, setLightbox] = useState(false);
 
@@ -48,7 +50,7 @@ export function PhotoGallery({ photos, petName }: { photos: Photo[]; petName: st
   if (!photos.length) {
     return (
       <div className="aspect-card flex items-center justify-center rounded-[var(--radius-panel)] border border-dashed border-[var(--border-strong)] text-sm text-fg-subtle">
-        No photos yet
+        {t("No photos yet")}
       </div>
     );
   }
@@ -60,7 +62,7 @@ export function PhotoGallery({ photos, petName }: { photos: Photo[]; petName: st
           {current && (
             <Image
               src={current.url}
-              alt={current.alt ?? `${petName}, photo ${index + 1} of ${photos.length}`}
+              alt={current.alt ?? t("{name}, photo {n} of {total}", { name: petName, n: index + 1, total: photos.length })}
               fill
               priority
               sizes="(max-width: 1024px) 100vw, 60vw"
@@ -72,7 +74,7 @@ export function PhotoGallery({ photos, petName }: { photos: Photo[]; petName: st
             type="button"
             onClick={() => setLightbox(true)}
             className="absolute end-3 top-3 inline-flex size-9 items-center justify-center rounded-full bg-[var(--overlay)] text-white opacity-0 backdrop-blur transition-opacity focus-visible:opacity-100 group-hover:opacity-100"
-            aria-label="View full size"
+            aria-label={t("View full size")}
           >
             <Expand className="size-4" aria-hidden />
           </button>
@@ -101,7 +103,7 @@ export function PhotoGallery({ photos, petName }: { photos: Photo[]; petName: st
                 <button
                   type="button"
                   onClick={() => setIndex(i)}
-                  aria-label={`Show photo ${i + 1}`}
+                  aria-label={t("Show photo {value}", { value: i + 1 })}
                   aria-current={i === index}
                   className={cn(
                     "relative size-16 shrink-0 overflow-hidden rounded-[var(--radius-field)] transition-all sm:size-20",
@@ -129,13 +131,13 @@ export function PhotoGallery({ photos, petName }: { photos: Photo[]; petName: st
           className="fixed inset-0 z-[80] flex items-center justify-center bg-black/92 p-4"
           role="dialog"
           aria-modal="true"
-          aria-label={`${petName} photo viewer`}
+          aria-label={t("{petName} photo viewer", { petName })}
         >
           <button
             type="button"
             onClick={() => setLightbox(false)}
             className="absolute end-4 top-4 inline-flex size-11 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20"
-            aria-label="Close photo viewer"
+            aria-label={t("Close photo viewer")}
             autoFocus
           >
             <X className="size-5" aria-hidden />
@@ -144,7 +146,7 @@ export function PhotoGallery({ photos, petName }: { photos: Photo[]; petName: st
           <div className="relative max-h-full w-full max-w-5xl">
             <Image
               src={current.url}
-              alt={current.alt ?? `${petName}, photo ${index + 1}`}
+              alt={current.alt ?? t("{name}, photo {n}", { name: petName, n: index + 1 })}
               width={current.width ?? 1600}
               height={current.height ?? 1200}
               className="mx-auto max-h-[85dvh] w-auto rounded-[var(--radius-card)] object-contain"
@@ -157,7 +159,7 @@ export function PhotoGallery({ photos, petName }: { photos: Photo[]; petName: st
                 type="button"
                 onClick={() => setIndex((i) => (i - 1 + photos.length) % photos.length)}
                 className="absolute start-4 inline-flex size-11 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20"
-                aria-label="Previous photo"
+                aria-label={t("Previous photo")}
               >
                 <ChevronLeft className="rtl:-scale-x-100 size-6" aria-hidden />
               </button>
@@ -165,7 +167,7 @@ export function PhotoGallery({ photos, petName }: { photos: Photo[]; petName: st
                 type="button"
                 onClick={() => setIndex((i) => (i + 1) % photos.length)}
                 className="absolute end-4 top-1/2 inline-flex size-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20"
-                aria-label="Next photo"
+                aria-label={t("Next photo")}
               >
                 <ChevronRight className="rtl:-scale-x-100 size-6" aria-hidden />
               </button>
@@ -184,6 +186,7 @@ function GalleryArrow({
   direction: "prev" | "next";
   onClick: () => void;
 }) {
+  const { t } = useI18n();
   const Icon = direction === "prev" ? ChevronLeft : ChevronRight;
   return (
     <button
@@ -195,7 +198,7 @@ function GalleryArrow({
         "opacity-100 md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100",
         direction === "prev" ? "start-3" : "end-3",
       )}
-      aria-label={direction === "prev" ? "Previous photo" : "Next photo"}
+      aria-label={direction === "prev" ? t("Previous photo") : t("Next photo")}
     >
       <Icon className="size-5" aria-hidden />
     </button>

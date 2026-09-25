@@ -1,12 +1,16 @@
 import type { Metadata } from "next";
 import { LegalPage, type LegalSection } from "@/components/legal/legal-page";
+import { getI18n } from "@/lib/i18n/server";
 
-export const metadata: Metadata = {
-  title: "Privacy policy",
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return {
+  title: t("Privacy policy"),
   description:
-    "What PetMate collects, why, who can see it, how long we keep it, and how to get it deleted.",
+    t("What PetMate collects, why, who can see it, how long we keep it, and how to get it deleted."),
   alternates: { canonical: "/privacy" },
 };
+}
 
 const sections: LegalSection[] = [
   {
@@ -114,11 +118,12 @@ const sections: LegalSection[] = [
   },
 ];
 
-export default function PrivacyPage() {
+export default async function PrivacyPage() {
+  const { t, fmt } = await getI18n();
   return (
     <LegalPage
-      title="Privacy policy"
-      updated="20 September 2026"
+      title={t("Privacy policy")}
+      updated={fmt.date("2026-09-20T12:00:00Z", "long")}
       intro="This explains what PetMate collects, why, and what control you have. It is written to be specific: where we say 'not public', that is enforced in code, not policy."
       sections={sections}
     />

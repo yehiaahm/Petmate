@@ -102,8 +102,11 @@ function templatesOf(messages: Messages): CompiledTemplate[] {
   if (cached) return cached;
 
   const list: CompiledTemplate[] = [];
-  for (const [key, value] of Object.entries(messages)) {
+    for (const [key, value] of Object.entries(messages)) {
     if (!key.includes("{")) continue;
+    // A template with little fixed wording ("To {name}", "{count} min")
+    // would claim unrelated sentences, so only distinctive ones are matched.
+    if (key.replace(PLACEHOLDER, "").replace(/[^\p{L}]/gu, "").length < 12) continue;
     const names: string[] = [];
     let source = "";
     let last = 0;

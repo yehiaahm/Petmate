@@ -5,8 +5,6 @@ import { requireAuth } from "@/lib/auth/rbac";
 import { listMyDisputes } from "@/lib/services/safety.service";
 import { PageHeader, Card, Badge, EmptyState } from "@/components/ui/primitives";
 import { ButtonLink } from "@/components/ui/button";
-import { formatMoney } from "@/lib/money";
-import { formatDate, relativeTime } from "@/lib/utils";
 import {
   DISPUTE_REASON_LABEL,
   DISPUTE_STATUS_LABEL,
@@ -14,11 +12,15 @@ import {
   type DisputeStatus,
 } from "@/lib/constants";
 import { PLATFORM_CURRENCY } from "@/lib/currency";
+import { getI18n } from "@/lib/i18n/server";
 
-export const metadata: Metadata = {
-  title: "Disputes",
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return {
+  title: t("Disputes"),
   robots: { index: false, follow: false },
 };
+}
 
 const TONE: Record<string, "info" | "warning" | "success" | "danger" | "neutral"> = {
   OPEN: "warning",
@@ -31,23 +33,24 @@ const TONE: Record<string, "info" | "warning" | "success" | "danger" | "neutral"
 };
 
 export default async function DisputesPage() {
+  const { t, fmt } = await getI18n();
   const auth = await requireAuth();
   const disputes = await listMyDisputes(auth);
 
   return (
     <div className="container-page max-w-3xl py-8 lg:py-10">
       <PageHeader
-        title="Disputes"
-        description="Money stays frozen while a dispute is open. Both sides submit evidence, and a person decides."
+        title={t("Disputes")}
+        description={t("Money stays frozen while a dispute is open. Both sides submit evidence, and a person decides.")}
       />
 
       <div className="mt-6">
         {disputes.length === 0 ? (
           <EmptyState
             icon={<Scale className="size-5" aria-hidden />}
-            title="No disputes"
-            description="Open one from an order if something went wrong. Escrow freezes the moment you do."
-            action={<ButtonLink href="/dashboard/orders">Go to orders</ButtonLink>}
+            title={t("No disputes")}
+            description={t("Open one from an order if something went wrong. Escrow freezes the moment you do.")}
+            action={<ButtonLink href="/dashboard/orders">{t("Go to orders")}</ButtonLink>}
           />
         ) : (
           <ul className="space-y-2">
@@ -59,29 +62,26 @@ export default async function DisputesPage() {
                       <p className="text-[15px] font-medium text-fg">
                         {dispute.petOrder?.listing.title ??
                           dispute.order?.orderNumber ??
-                          "Order"}
+                          t("Order")}
                       </p>
                       <p className="mt-0.5 text-sm text-fg-muted">
-                        {DISPUTE_REASON_LABEL[dispute.reason as DisputeReason] ?? dispute.reason}
-                        {dispute.raisedById === auth.user.id ? " · you opened this" : " · opened against you"}
+                        {t(DISPUTE_REASON_LABEL[dispute.reason as DisputeReason] ?? dispute.reason)}
+                        {" · "}{dispute.raisedById === auth.user.id ? t("you opened this") : t("opened against you")}
                       </p>
                       <p className="mt-0.5 text-xs text-fg-subtle">
                         <span className="font-mono">{dispute.reference}</span> ·{" "}
-                        opened {formatDate(dispute.createdAt)}
+                        {t("opened {date}", { date: fmt.date(dispute.createdAt) })}
                         {dispute.responseDueAt && dispute.status === "AWAITING_RESPONSE"
-                          ? ` · response due ${relativeTime(dispute.responseDueAt)}`
+                          ? ` · ${t("response due {when}", { when: fmt.relative(dispute.responseDueAt) })}`
                           : ""}
                       </p>
                     </div>
                     <div className="text-end">
                       <p className="text-sm font-semibold tabular text-fg">
-                        {formatMoney(
-                          dispute.amountCents,
-                          dispute.petOrder?.currency ?? dispute.order?.currency ?? PLATFORM_CURRENCY,
-                        )}
+                        {fmt.money(dispute.amountCents, dispute.petOrder?.currency ?? dispute.order?.currency ?? PLATFORM_CURRENCY)}
                       </p>
                       <Badge tone={TONE[dispute.status] ?? "neutral"} size="sm">
-                        {DISPUTE_STATUS_LABEL[dispute.status as DisputeStatus] ?? dispute.status}
+                        {t(DISPUTE_STATUS_LABEL[dispute.status as DisputeStatus] ?? dispute.status)}
                       </Badge>
                     </div>
                   </Card>

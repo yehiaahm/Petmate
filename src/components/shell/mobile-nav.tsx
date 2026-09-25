@@ -136,7 +136,7 @@ export function MobileNav({
                     href={link.href}
                     className="block rounded-[var(--radius-field)] px-3 py-3 text-[15px] font-medium text-fg transition-colors hover:bg-bg-sunken"
                   >
-                    {link.label}
+                    {t(link.label)}
                   </Link>
                 ))}
               </nav>
@@ -148,7 +148,7 @@ export function MobileNav({
                     href={link.href}
                     className="block rounded-[var(--radius-field)] px-3 py-2.5 text-sm text-fg-muted transition-colors hover:bg-bg-sunken hover:text-fg"
                   >
-                    {link.label}
+                    {t(link.label)}
                   </Link>
                 ))}
               </div>

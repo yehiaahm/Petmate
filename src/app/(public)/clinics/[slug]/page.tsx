@@ -14,7 +14,7 @@ import { db } from "@/lib/db";
 import { getAuth } from "@/lib/auth/session";
 import { getClinicBySlug } from "@/lib/services/vet.service";
 import { listReviews } from "@/lib/services/review.service";
-import { formatMoney, formatRating } from "@/lib/money";
+import { formatRating } from "@/lib/money";
 import { splitTags } from "@/lib/utils";
 import { clientEnv } from "@/lib/env";
 import { Card, Badge, Breadcrumbs, DataRow, Avatar } from "@/components/ui/primitives";
@@ -22,6 +22,7 @@ import { BookingPanel } from "@/components/clinics/booking-panel";
 import { ReviewList, RatingSummary } from "@/components/reviews/review-list";
 import { ReportButton } from "@/components/listings/report-button";
 import { SERVICE_CATEGORY_LABEL, type ServiceCategory } from "@/lib/constants";
+import { getI18n } from "@/lib/i18n/server";
 
 type Params = Promise<{ slug: string }>;
 
@@ -63,6 +64,7 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
 }
 
 export default async function ClinicPage({ params }: { params: Params }) {
+  const { t, fmt } = await getI18n();
   const { slug } = await params;
   const auth = await getAuth();
 
@@ -115,20 +117,20 @@ export default async function ClinicPage({ params }: { params: Params }) {
             <div className="flex flex-wrap items-center gap-2">
               {clinic.verifiedAt && (
                 <Badge tone="success" icon={<BadgeCheck className="size-3" aria-hidden />}>
-                  Licence verified
+                  {t("Licence verified")}
                 </Badge>
               )}
               {clinic.emergencyServices && (
                 <Badge tone="danger" icon={<Siren className="size-3" aria-hidden />}>
-                  Emergency services
+                  {t("Emergency services")}
                 </Badge>
               )}
               {clinic.homeVisits && (
                 <Badge tone="neutral" icon={<Home className="size-3" aria-hidden />}>
-                  Home visits
+                  {t("Home visits")}
                 </Badge>
               )}
-              {clinic.acceptsWalkIns && <Badge tone="neutral">Walk-ins accepted</Badge>}
+              {clinic.acceptsWalkIns && <Badge tone="neutral">{t("Walk-ins accepted")}</Badge>}
             </div>
 
             <h1 className="mt-3 font-display text-3xl font-semibold tracking-tight text-fg sm:text-4xl">
@@ -146,11 +148,11 @@ export default async function ClinicPage({ params }: { params: Params }) {
                   <span className="font-semibold tabular text-fg">
                     {formatRating(clinic.ratingAvgBps)}
                   </span>
-                  <span>({clinic.ratingCount} reviews)</span>
+                  <span>({t.plural(clinic.ratingCount, { one: "{count} review", other: "{count} reviews" })})</span>
                 </span>
               )}
               {clinic.bookingCount > 0 && (
-                <span className="tabular">{clinic.bookingCount} bookings</span>
+                <span className="tabular">{t.plural(clinic.bookingCount, { one: "{count} booking", other: "{count} bookings" })}</span>
               )}
             </div>
           </div>
@@ -164,14 +166,14 @@ export default async function ClinicPage({ params }: { params: Params }) {
           )}
 
           <section className="mt-8">
-            <h2 className="font-display text-xl font-semibold text-fg">Services and prices</h2>
+            <h2 className="font-display text-xl font-semibold text-fg">{t("Services and prices")}</h2>
             <p className="mt-1 text-sm text-fg-muted">
-              Prices are what you pay. No booking fee is added at checkout.
+              {t("Prices are what you pay. No booking fee is added at checkout.")}
             </p>
 
             {clinic.services.length === 0 ? (
               <Card className="mt-3 p-5 text-sm text-fg-muted">
-                This clinic has not published its services yet. Contact them directly.
+                {t("This clinic has not published its services yet. Contact them directly.")}
               </Card>
             ) : (
               <ul className="mt-3 space-y-2">
@@ -181,8 +183,8 @@ export default async function ClinicPage({ params }: { params: Params }) {
                       <div className="min-w-0">
                         <h3 className="text-sm font-semibold text-fg">{service.name}</h3>
                         <p className="mt-0.5 text-xs text-fg-muted">
-                          {SERVICE_CATEGORY_LABEL[service.category as ServiceCategory]} ·{" "}
-                          {service.durationMinutes} min
+                          {t(SERVICE_CATEGORY_LABEL[service.category as ServiceCategory])} ·{" "}
+                          {t("{count} min", { count: service.durationMinutes })}
                           {service.species && ` · ${splitTags(service.species).join(", ")}`}
                         </p>
                         {service.description && (
@@ -190,7 +192,7 @@ export default async function ClinicPage({ params }: { params: Params }) {
                         )}
                       </div>
                       <p className="shrink-0 font-display text-lg font-semibold tabular text-fg">
-                        {formatMoney(service.priceCents, service.currency)}
+                        {fmt.money(service.priceCents, service.currency)}
                       </p>
                     </Card>
                   </li>
@@ -201,7 +203,7 @@ export default async function ClinicPage({ params }: { params: Params }) {
 
           {clinic.vets.length > 0 && (
             <section className="mt-8">
-              <h2 className="font-display text-xl font-semibold text-fg">The team</h2>
+              <h2 className="font-display text-xl font-semibold text-fg">{t("The team")}</h2>
               <ul className="mt-3 grid gap-3 sm:grid-cols-2">
                 {clinic.vets.map((vet) => (
                   <li key={vet.id}>
@@ -213,7 +215,7 @@ export default async function ClinicPage({ params }: { params: Params }) {
                           {vet.licenseVerifiedAt && (
                             <BadgeCheck
                               className="size-3.5 text-[var(--success)]"
-                              aria-label="Licence verified"
+                              aria-label={t("Licence verified")}
                             />
                           )}
                         </p>
@@ -224,7 +226,7 @@ export default async function ClinicPage({ params }: { params: Params }) {
                         )}
                         {vet.yearsExperience != null && (
                           <p className="text-xs text-fg-subtle">
-                            {vet.yearsExperience} years experience
+                            {t.plural(vet.yearsExperience, { one: "{count} year experience", other: "{count} years experience" })}
                           </p>
                         )}
                         {vet.bio && (
@@ -242,7 +244,7 @@ export default async function ClinicPage({ params }: { params: Params }) {
             <section className="mt-8">
               <h2 className="flex items-center gap-2 font-display text-xl font-semibold text-fg">
                 <Clock className="size-4 text-brand" aria-hidden />
-                Opening hours
+                {t("Opening hours")}
               </h2>
               <Card className="mt-3 p-5">
                 <dl className="divide-y divide-[var(--border)]">
@@ -251,14 +253,14 @@ export default async function ClinicPage({ params }: { params: Params }) {
                     return (
                       <DataRow
                         key={day}
-                        label={day}
+                        label={t(day)}
                         value={
                           hours ? (
                             <span className="tabular">
                               {formatMinutes(hours.startMinute)} – {formatMinutes(hours.endMinute)}
                             </span>
                           ) : (
-                            <span className="text-fg-subtle">Closed</span>
+                            <span className="text-fg-subtle">{t("Closed")}</span>
                           )
                         }
                       />
@@ -271,9 +273,9 @@ export default async function ClinicPage({ params }: { params: Params }) {
 
           {reviews.total > 0 && (
             <section className="mt-8">
-              <h2 className="font-display text-xl font-semibold text-fg">Reviews</h2>
+              <h2 className="font-display text-xl font-semibold text-fg">{t("Reviews")}</h2>
               <p className="mt-1 text-sm text-fg-muted">
-                Only people who completed an appointment here can leave one.
+                {t("Only people who completed an appointment here can leave one.")}
               </p>
 
               <Card className="mt-3 p-5">
@@ -291,7 +293,7 @@ export default async function ClinicPage({ params }: { params: Params }) {
           )}
 
           <div className="mt-8 flex justify-end">
-            <ReportButton entityType="CLINIC" entityId={clinic.id} label="Report this clinic" />
+            <ReportButton entityType="CLINIC" entityId={clinic.id} label={t("Report this clinic")} />
           </div>
         </div>
 

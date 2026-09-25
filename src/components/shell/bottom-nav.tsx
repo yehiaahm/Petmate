@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useAppPathname } from "@/components/i18n/use-app-pathname";
 import { Home, Search, MessageSquare, PawPrint, User } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/components/i18n/i18n-provider";
 
 /**
  * Mobile bottom bar.
@@ -21,6 +22,7 @@ const ITEMS = [
 ];
 
 export function BottomNav({ signedIn, unread = 0 }: { signedIn: boolean; unread?: number }) {
+  const { t } = useI18n();
   const pathname = useAppPathname();
 
   const items = signedIn
@@ -35,7 +37,7 @@ export function BottomNav({ signedIn, unread = 0 }: { signedIn: boolean; unread?
 
   return (
     <nav
-      aria-label="Primary"
+      aria-label={t("Primary")}
       className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--border)] bg-bg/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md md:hidden"
     >
       <ul className="grid grid-cols-5">
@@ -62,7 +64,7 @@ export function BottomNav({ signedIn, unread = 0 }: { signedIn: boolean; unread?
                     </span>
                   )}
                 </span>
-                {item.label}
+                {t(item.label)}
                 {active && (
                   <span
                     className="absolute inset-x-5 top-0 h-0.5 rounded-full bg-brand"

@@ -177,7 +177,7 @@ export default async function SecuritySettingsPage() {
                 {recentAuthEvents.map((event) => (
                   <li key={event.id} className="flex items-baseline justify-between gap-4 py-2.5">
                     <span className="text-sm text-fg">
-                      {AUTH_EVENT_LABEL[event.action] ?? event.action}
+                      {t(AUTH_EVENT_LABEL[event.action] ?? event.action)}
                       {event.ip && <span className="ms-2 text-xs text-fg-subtle">{event.ip}</span>}
                     </span>
                     <time

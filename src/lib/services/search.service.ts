@@ -2,7 +2,7 @@ import "server-only";
 import { db } from "@/lib/db";
 import { boundingBox, haversineKm, ageInMonths } from "@/lib/utils";
 import { searchTextClauses, relevanceScore, cityVariants } from "@/lib/search/text";
-import { LIMITS, PUBLIC_LISTING_STATUSES, type Species } from "@/lib/constants";
+import { LIMITS, PUBLIC_LISTING_STATUSES, SPECIES_LABEL, SPECIES_PLURAL, type Species } from "@/lib/constants";
 import { logger } from "@/lib/logger";
 import { getVisibilityBoosts } from "@/lib/billing/entitlements";
 
@@ -501,7 +501,7 @@ export async function searchSuggestions(query: string, limit = 8) {
     ...breeds.map((b) => ({
       type: "breed" as const,
       label: b.name,
-      sublabel: b.species,
+      sublabel: SPECIES_LABEL[b.species as Species] ?? b.species,
       href: `/breeds/${b.slug}`,
     })),
     ...listings.map((l) => ({
@@ -532,7 +532,7 @@ export async function searchSuggestions(query: string, limit = 8) {
 export async function getRecommendedListings(
   userId: string | null,
   opts: { limit?: number; lat?: number | null; lng?: number | null; country?: string | null } = {},
-): Promise<{ items: ListingCard[]; personalised: boolean; basis: string }> {
+): Promise<{ items: ListingCard[]; personalised: boolean; basis: string; interests?: string[] }> {
   const limit = opts.limit ?? 12;
 
   if (!userId) {
@@ -630,16 +630,22 @@ export async function getRecommendedListings(
   const seen = new Set(interactedIds);
   const fresh = results.items.filter((l) => !seen.has(l.id)).slice(0, limit);
 
-  const basisParts: string[] = [];
+    const basisParts: string[] = [];
   if (topSpecies.length) {
     basisParts.push(topSpecies.map((s) => s.toLowerCase().replace("_", " ")).join(" and "));
   }
   if (breedIds.size) basisParts.push("breeds you have looked at");
+  // The same reasons as phrases a screen can translate one by one.
+  const interests = [
+    ...topSpecies.map((s) => SPECIES_PLURAL[s as Species] ?? s),
+    ...(breedIds.size ? ["breeds you have looked at"] : []),
+  ];
 
   return {
     items: fresh.length ? fresh : results.items.slice(0, limit),
     personalised: true,
     basis: basisParts.length ? `Based on your interest in ${basisParts.join(", ")}` : "Picked for you",
+    interests,
   };
 }
 

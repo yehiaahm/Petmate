@@ -9,17 +9,22 @@ import { Breadcrumbs, PageHeader, EmptyState, Alert } from "@/components/ui/prim
 import { ButtonLink } from "@/components/ui/button";
 import { ListingForm } from "@/components/listings/listing-form";
 import { PLATFORM_CURRENCY } from "@/lib/currency";
+import { getI18n } from "@/lib/i18n/server";
 
-export const metadata: Metadata = {
-  title: "Create a listing",
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return {
+  title: t("Create a listing"),
   robots: { index: false, follow: false },
 };
+}
 
 export default async function NewListingPage({
   searchParams,
 }: {
   searchParams: Promise<{ petId?: string }>;
 }) {
+  const { t } = await getI18n();
   const { petId } = await searchParams;
   const auth = await requireAuth();
 
@@ -68,18 +73,22 @@ export default async function NewListingPage({
       />
 
       <PageHeader
-        eyebrow="Marketplace"
-        title="Create a listing"
-        description="A listing points at one of your pet profiles, so the photos and health record stay in one place and cannot drift apart."
+        eyebrow={t("Marketplace")}
+        title={t("Create a listing")}
+        description={t("A listing points at one of your pet profiles, so the photos and health record stay in one place and cannot drift apart.")}
       />
 
       {atLimit && (
         <div className="mt-6">
-          <Alert tone="warning" title="You have reached your listing limit">
-            Your {entitlements.planName} plan allows {entitlements.activeListings} active listings
-            and you have {activeCount}. Close one, or{" "}
+          <Alert tone="warning" title={t("You have reached your listing limit")}>
+            {t("Your {plan} plan allows {limit} active listings and you have {count}.", {
+              plan: entitlements.planName,
+              limit: entitlements.activeListings,
+              count: activeCount,
+            })}{" "}
+            {t("Close one, or")}{" "}
             <Link href="/pricing" className="font-semibold underline">
-              see plans
+              {t("see plans")}
             </Link>
             .
           </Alert>
@@ -90,10 +99,10 @@ export default async function NewListingPage({
         <div className="mt-8">
           <EmptyState
             icon={<PawPrint className="size-6" aria-hidden />}
-            title="Add a pet first"
-            description="Listings are built on a pet profile. Create one and you can list them in a couple of clicks."
+            title={t("Add a pet first")}
+            description={t("Listings are built on a pet profile. Create one and you can list them in a couple of clicks.")}
             action={
-              <ButtonLink href="/dashboard/pets/new">Add a pet</ButtonLink>
+              <ButtonLink href="/dashboard/pets/new">{t("Add a pet")}</ButtonLink>
             }
           />
         </div>
@@ -101,14 +110,14 @@ export default async function NewListingPage({
         <div className="mt-8">
           <EmptyState
             icon={<PawPrint className="size-6" aria-hidden />}
-            title="Every pet already has an open listing"
-            description="Close an existing listing, or add another pet."
+            title={t("Every pet already has an open listing")}
+            description={t("Close an existing listing, or add another pet.")}
             action={
               <div className="flex flex-wrap justify-center gap-3">
                 <ButtonLink href="/dashboard/listings" variant="outline">
-                  My listings
+                  {t("My listings")}
                 </ButtonLink>
-                <ButtonLink href="/dashboard/pets/new">Add a pet</ButtonLink>
+                <ButtonLink href="/dashboard/pets/new">{t("Add a pet")}</ButtonLink>
               </div>
             }
           />

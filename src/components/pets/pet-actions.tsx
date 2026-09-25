@@ -9,6 +9,7 @@ import { ConfirmDialog, Modal } from "@/components/ui/modal";
 import { Field, Input, Select } from "@/components/ui/field";
 import { useToast } from "@/components/ui/toast";
 import { api, ApiError } from "@/lib/api-client";
+import { useI18n } from "@/components/i18n/i18n-provider";
 
 /**
  * Destructive and ownership-changing actions.
@@ -26,6 +27,7 @@ export function PetActions({
   petName: string;
   hasOpenListing: boolean;
 }) {
+  const { t } = useI18n();
   const router = useRouter();
   const toast = useToast();
 
@@ -40,12 +42,12 @@ export function PetActions({
     setWorking(true);
     try {
       await api.delete(`/api/pets/${petId}`);
-      toast.success(`${petName} archived`, "Their record is kept but hidden.");
+      toast.success(`${petName} archived`, t("Their record is kept but hidden."));
       router.push("/dashboard/pets");
       router.refresh();
     } catch (err) {
       toast.error(
-        "Could not archive",
+        t("Could not archive"),
         err instanceof ApiError ? err.message : "Please try again.",
       );
       setWorking(false);
@@ -56,16 +58,15 @@ export function PetActions({
   return (
     <>
       <Card className="p-5">
-        <h2 className="font-display text-base font-semibold text-fg">Ownership</h2>
+        <h2 className="font-display text-base font-semibold text-fg">{t("Ownership")}</h2>
         <p className="mt-1 text-xs leading-relaxed text-fg-muted">
-          Transferring hands over the full passport and health history. The new owner has to
-          accept before anything moves.
+          {t("Transferring hands over the full passport and health history. The new owner has to accept before anything moves.")}
         </p>
 
         <div className="mt-3 space-y-2">
           <Button variant="outline" size="sm" fullWidth onClick={() => setTransferOpen(true)}>
             <Send className="rtl:-scale-x-100 size-4" aria-hidden />
-            Transfer {petName}
+            {t("Transfer {name}", { name: petName })}
           </Button>
 
           <Button
@@ -76,13 +77,13 @@ export function PetActions({
             className="text-[var(--danger)] hover:bg-[var(--danger-soft)]"
           >
             <Trash2 className="size-4" aria-hidden />
-            Archive profile
+            {t("Archive profile")}
           </Button>
         </div>
 
         {hasOpenListing && (
           <p className="mt-2 text-xs text-fg-subtle">
-            Close the open listing before archiving or transferring.
+            {t("Close the open listing before archiving or transferring.")}
           </p>
         )}
       </Card>
@@ -92,16 +93,16 @@ export function PetActions({
         onClose={() => setConfirmDelete(false)}
         onConfirm={() => void remove()}
         loading={working}
-        title={`Archive ${petName}?`}
-        description={`Their health record and lineage are kept — offspring and past transactions still reference them — but the profile is hidden and cannot be listed. This cannot be undone from here.`}
+        title={t("Archive {petName}?", { petName })}
+        description={t("Their health record and lineage are kept — offspring and past transactions still reference them — but the profile is hidden and cannot be listed. This cannot be undone from here.")}
         confirmLabel="Archive"
       />
 
       <Modal
         open={transferOpen}
         onClose={() => setTransferOpen(false)}
-        title={`Transfer ${petName}`}
-        description="The recipient gets the passport, the full health record and the lineage. They must accept before ownership changes."
+        title={t("Transfer {petName}", { petName })}
+        description={t("The recipient gets the passport, the full health record and the lineage. They must accept before ownership changes.")}
       >
         <TransferForm
           petId={petId}
@@ -137,6 +138,7 @@ function TransferForm({
   setReason: (v: "GIFT" | "RESCUE" | "SALE" | "ADOPTION") => void;
   onDone: () => void;
 }) {
+  const { t } = useI18n();
   const toast = useToast();
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -160,7 +162,7 @@ function TransferForm({
 
       await api.post(`/api/pets/${petId}/transfer`, { toUserId: user.id, reason });
 
-      toast.success("Transfer offered", `${user.name} has to accept before ${petName} moves.`);
+      toast.success(t("Transfer offered"), `${user.name} has to accept before ${petName} moves.`);
       onDone();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "We could not offer that transfer.");
@@ -172,9 +174,9 @@ function TransferForm({
   return (
     <div className="space-y-4">
       <Field
-        label="Recipient's PetMate handle"
+        label={t("Recipient's PetMate handle")}
         required
-        hint="Ask them for it — it is on their profile."
+        hint={t("Ask them for it — it is on their profile.")}
         error={error}
       >
         {({ id, invalid }) => (
@@ -188,28 +190,28 @@ function TransferForm({
         )}
       </Field>
 
-      <Field label="Reason">
+      <Field label={t("Reason")}>
         {({ id }) => (
           <Select id={id} value={reason} onChange={(e) => setReason(e.target.value as typeof reason)}>
-            <option value="GIFT">Gift</option>
-            <option value="RESCUE">Rescue or rehoming</option>
-            <option value="SALE">Private sale</option>
-            <option value="ADOPTION">Adoption</option>
+            <option value="GIFT">{t("Gift")}</option>
+            <option value="RESCUE">{t("Rescue or rehoming")}</option>
+            <option value="SALE">{t("Private sale")}</option>
+            <option value="ADOPTION">{t("Adoption")}</option>
           </Select>
         )}
       </Field>
 
       <div className="flex justify-end gap-2">
         <Button variant="ghost" onClick={onDone}>
-          Cancel
+          {t("Cancel")}
         </Button>
         <Button
           onClick={() => void submit()}
           loading={sending}
-          loadingText="Sending…"
+          loadingText={t("Sending…")}
           disabled={!recipient.trim()}
         >
-          Offer transfer
+          {t("Offer transfer")}
         </Button>
       </div>
     </div>

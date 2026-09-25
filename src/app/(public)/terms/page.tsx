@@ -2,16 +2,21 @@ import type { Metadata } from "next";
 import { LegalPage, type LegalSection } from "@/components/legal/legal-page";
 import { getSettings } from "@/lib/settings";
 import { bpsToPercent } from "@/lib/money";
+import { getI18n } from "@/lib/i18n/server";
 
-export const metadata: Metadata = {
-  title: "Terms of service",
-  description: "The rules for using PetMate: accounts, listings, transactions, escrow and disputes.",
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return {
+  title: t("Terms of service"),
+  description: t("The rules for using PetMate: accounts, listings, transactions, escrow and disputes."),
   alternates: { canonical: "/terms" },
 };
+}
 
 export const revalidate = 3600;
 
 export default async function TermsPage() {
+  const { t, fmt } = await getI18n();
   const settings = await getSettings();
   const escrowDays = Math.round(settings.escrowAutoReleaseHours / 24);
 
@@ -51,7 +56,7 @@ export default async function TermsPage() {
     {
       heading: "Buying, escrow and completion",
       paragraphs: [
-        `When you buy an animal through PetMate, your payment is held in escrow. It is released to the seller when both parties confirm the handover, or automatically after ${escrowDays} days if no dispute is opened.`,
+        t("When you buy an animal through PetMate, your payment is held in escrow. It is released to the seller when both parties confirm the handover, or automatically after {days} days if no dispute is opened.", { days: escrowDays }),
         "You are expected to see the animal in person before confirming. Confirming handover releases the money and is not reversible except through the dispute process.",
         "Ownership of the animal's PetMate record transfers with the transaction. The health history, documents and lineage go to the new owner.",
         "Prices shown are what you pay. We do not add a buyer fee at checkout.",
@@ -62,10 +67,10 @@ export default async function TermsPage() {
       paragraphs: [
         "PetMate charges the seller a commission on completed transactions. Current rates:",
         [
-          `Pet sales: ${bpsToPercent(settings.commissionPetSaleBps)}`,
-          `Products: ${bpsToPercent(settings.commissionProductBps)}`,
-          `Veterinary bookings: ${bpsToPercent(settings.commissionAppointmentBps)}`,
-          `Paid breeding arrangements: ${bpsToPercent(settings.commissionBreedingBps)}`,
+          t("Pet sales: {percent}", { percent: bpsToPercent(settings.commissionPetSaleBps) }),
+          t("Products: {percent}", { percent: bpsToPercent(settings.commissionProductBps) }),
+          t("Veterinary bookings: {percent}", { percent: bpsToPercent(settings.commissionAppointmentBps) }),
+          t("Paid breeding arrangements: {percent}", { percent: bpsToPercent(settings.commissionBreedingBps) }),
         ],
         "Adoption is free and we take no commission on an adoption fee. Subscriptions, featured placements and advertising are optional and always labelled as paid.",
         "Commission is charged on completion. If a transaction is cancelled or refunded, the commission is reversed with it.",
@@ -74,7 +79,7 @@ export default async function TermsPage() {
     {
       heading: "Disputes and refunds",
       paragraphs: [
-        `Either party may open a dispute within ${settings.disputeWindowDays} days of completion. Funds still in escrow are frozen while a dispute is open.`,
+        t("Either party may open a dispute within {days} days of completion. Funds still in escrow are frozen while a dispute is open.", { days: settings.disputeWindowDays }),
         "Both sides may submit evidence. We review it and decide: full refund, partial refund, or release to the seller. Our decision is final for the purposes of funds we hold; it does not affect either party's separate legal rights.",
         "Deliberately false claims in a dispute are grounds for account closure.",
       ],
@@ -133,8 +138,8 @@ export default async function TermsPage() {
 
   return (
     <LegalPage
-      title="Terms of service"
-      updated="20 September 2026"
+      title={t("Terms of service")}
+      updated={fmt.date("2026-09-20T12:00:00Z", "long")}
       intro="These terms describe how PetMate works and what we each commit to. They are written to be read, not to be impenetrable."
       sections={sections}
     />

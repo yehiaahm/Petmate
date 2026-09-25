@@ -20,9 +20,9 @@ import { ReviewList, RatingSummary } from "@/components/reviews/review-list";
 import { ReportButton } from "@/components/listings/report-button";
 import { Card, Badge, Avatar, EmptyState, Stat } from "@/components/ui/primitives";
 import { ButtonLink } from "@/components/ui/button";
-import { formatDate } from "@/lib/utils";
 import { TRUST_TIER_LABEL, type TrustTier } from "@/lib/constants";
 import { clientEnv } from "@/lib/env";
+import { getI18n } from "@/lib/i18n/server";
 
 export const revalidate = 300;
 
@@ -87,6 +87,7 @@ export default async function ProfilePage({
 }: {
   params: Promise<{ handle: string }>;
 }) {
+  const { t, fmt } = await getI18n();
   const [{ handle }, auth] = await Promise.all([params, getAuth()]);
 
   const user = await loadUser(handle);
@@ -108,9 +109,9 @@ export default async function ProfilePage({
     <div className="container-page max-w-5xl py-8 lg:py-12">
       {user.status === "SUSPENDED" && (
         <div className="mb-6 rounded-[var(--radius-card)] border border-[var(--danger)]/30 bg-[var(--danger-soft)] p-4 text-sm text-[var(--danger)]">
-          <p className="font-semibold">This account is suspended.</p>
+          <p className="font-semibold">{t("This account is suspended.")}</p>
           <p className="mt-1">
-            It cannot list, message or transact. Do not arrange anything with this member.
+            {t("It cannot list, message or transact. Do not arrange anything with this member.")}
           </p>
         </div>
       )}
@@ -138,17 +139,17 @@ export default async function ProfilePage({
             <div className="flex flex-wrap gap-2 pb-1">
               {isSelf ? (
                 <ButtonLink href="/settings" variant="outline" size="sm">
-                  Edit profile
+                  {t("Edit profile")}
                 </ButtonLink>
               ) : (
                 <>
                   {auth && (
                     <ButtonLink href={`/messages?to=${user.handle}`} size="sm">
                       <MessageSquare className="size-4" aria-hidden />
-                      Message
+                      {t("Message")}
                     </ButtonLink>
                   )}
-                  <ReportButton entityType="USER" entityId={user.id} label="Report" />
+                  <ReportButton entityType="USER" entityId={user.id} label={t("Report")} />
                 </>
               )}
             </div>
@@ -157,7 +158,7 @@ export default async function ProfilePage({
           <div className="mt-4 flex flex-wrap gap-2">
             <Badge tone={trust.score >= 60 ? "success" : trust.score >= 30 ? "brand" : "neutral"}>
               <ShieldCheck className="me-1 size-3.5" aria-hidden />
-              Trust {trust.score} · {TRUST_TIER_LABEL[trust.tier as TrustTier] ?? trust.tier}
+              {t("Trust {score}", { score: trust.score })} · {t(TRUST_TIER_LABEL[trust.tier as TrustTier] ?? trust.tier)}
             </Badge>
             {user.verifications.map((v) =>
               VERIFICATION_BADGE[v.type] ? (
@@ -184,33 +185,33 @@ export default async function ProfilePage({
             )}
             <span className="flex items-center gap-1.5">
               <CalendarDays className="size-3.5" aria-hidden />
-              Member since {formatDate(user.createdAt, "long")}
+              {t("Member since {date}", { date: fmt.date(user.createdAt, "long") })}
             </span>
           </div>
         </div>
       </Card>
 
       <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Stat label="Trust score" value={String(trust.score)} />
-        <Stat label="Completed sales" value={String(user.completedSales)} />
+        <Stat label={t("Trust score")} value={String(trust.score)} />
+        <Stat label={t("Completed sales")} value={String(user.completedSales)} />
         <Stat
-          label="Rating"
+          label={t("Rating")}
           value={user.ratingCount > 0 ? `${rating.toFixed(1)} / 5` : "—"}
-          hint={user.ratingCount > 0 ? `${user.ratingCount} reviews` : "No reviews yet"}
+          hint={user.ratingCount > 0 ? t.plural(user.ratingCount, { one: "{count} review", other: "{count} reviews" }) : t("No reviews yet")}
         />
-        <Stat label="Public pets" value={String(petCount)} />
+        <Stat label={t("Public pets")} value={String(petCount)} />
       </div>
 
       <section className="mt-10">
         <h2 className="font-display text-xl font-semibold tracking-tight text-fg">
-          Active listings
+          {t("Active listings")}
         </h2>
         {listings.items.length === 0 ? (
           <EmptyState
             className="mt-4"
             icon={<PawPrint className="size-5" aria-hidden />}
-            title="Nothing listed right now"
-            description={`${user.name} has no active listings. Reviews and trust history below still apply.`}
+            title={t("Nothing listed right now")}
+            description={t("{name} has no active listings. Reviews and trust history below still apply.", { name: user.name })}
           />
         ) : (
           <>
@@ -221,12 +222,12 @@ export default async function ProfilePage({
             </ListingGrid>
             {listings.total > listings.items.length && (
               <p className="mt-4 text-sm text-fg-muted">
-                Showing {listings.items.length} of {listings.total}.{" "}
+                {t("Showing {shown} of {total}.", { shown: listings.items.length, total: listings.total })}{" "}
                 <Link
                   href={`/pets?seller=${user.handle}`}
                   className="font-medium text-brand hover:underline"
                 >
-                  See all
+                  {t("See all")}
                 </Link>
               </p>
             )}
@@ -235,10 +236,9 @@ export default async function ProfilePage({
       </section>
 
       <section className="mt-10">
-        <h2 className="font-display text-xl font-semibold tracking-tight text-fg">Reviews</h2>
+        <h2 className="font-display text-xl font-semibold tracking-tight text-fg">{t("Reviews")}</h2>
         <p className="mt-1 text-sm text-fg-muted">
-          Every review here is tied to a transaction that actually completed on PetMate. There is
-          no way to leave one otherwise.
+          {t("Every review here is tied to a transaction that actually completed on PetMate. There is no way to leave one otherwise.")}
         </p>
 
         {reviews.total > 0 && (
@@ -258,7 +258,7 @@ export default async function ProfilePage({
 
       <p className="mt-10 flex items-center gap-2 text-xs text-fg-subtle">
         <Flag className="size-3.5" aria-hidden />
-        Something wrong with this profile? Report it — we read every one.
+        {t("Something wrong with this profile? Report it — we read every one.")}
       </p>
 
       {user.status === "ACTIVE" && (

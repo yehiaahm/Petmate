@@ -5,30 +5,34 @@ import { PawPrint, Plus, Syringe, AlertTriangle } from "lucide-react";
 import { requireAuth } from "@/lib/auth/rbac";
 import { listPetsForOwner } from "@/lib/services/pet.service";
 import { healthScoreLabel } from "@/lib/services/health.service";
-import { formatAge, formatDate } from "@/lib/utils";
 import { Card, EmptyState, PageHeader, Badge, StatusPill } from "@/components/ui/primitives";
 import { ButtonLink } from "@/components/ui/button";
 import { SPECIES_LABEL, VERIFICATION_LEVEL_LABEL, type Species, type VerificationLevel } from "@/lib/constants";
+import { getI18n } from "@/lib/i18n/server";
 
-export const metadata: Metadata = {
-  title: "My pets",
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return {
+  title: t("My pets"),
   robots: { index: false, follow: false },
 };
+}
 
 export default async function MyPetsPage() {
+  const { t, fmt } = await getI18n();
   const auth = await requireAuth();
   const pets = await listPetsForOwner(auth.user.id);
 
   return (
     <div className="container-page py-8">
       <PageHeader
-        eyebrow="Your animals"
-        title="My pets"
-        description="Each pet has a permanent record: health history, documents, lineage and reminders. It stays with the animal even if they change hands."
+        eyebrow={t("Your animals")}
+        title={t("My pets")}
+        description={t("Each pet has a permanent record: health history, documents, lineage and reminders. It stays with the animal even if they change hands.")}
         action={
           <ButtonLink href="/dashboard/pets/new">
             <Plus className="size-4" aria-hidden />
-            Add a pet
+            {t("Add a pet")}
           </ButtonLink>
         }
       />
@@ -37,12 +41,12 @@ export default async function MyPetsPage() {
         <div className="mt-8">
           <EmptyState
             icon={<PawPrint className="size-6" aria-hidden />}
-            title="No pets yet"
-            description="Adding a pet takes a minute and unlocks everything else: vet booking, health reminders, listings and breeding matches."
+            title={t("No pets yet")}
+            description={t("Adding a pet takes a minute and unlocks everything else: vet booking, health reminders, listings and breeding matches.")}
             action={
               <ButtonLink href="/dashboard/pets/new">
                 <Plus className="size-4" aria-hidden />
-                Add your first pet
+                {t("Add your first pet")}
               </ButtonLink>
             }
           />
@@ -76,7 +80,7 @@ export default async function MyPetsPage() {
                       {pet.verificationLevel !== "NONE" && (
                         <div className="absolute start-3 top-3">
                           <Badge tone="success" size="sm">
-                            {VERIFICATION_LEVEL_LABEL[pet.verificationLevel as VerificationLevel]}
+                            {t(VERIFICATION_LEVEL_LABEL[pet.verificationLevel as VerificationLevel])}
                           </Badge>
                         </div>
                       )}
@@ -90,21 +94,21 @@ export default async function MyPetsPage() {
                       </h2>
                     </Link>
                     <p className="mt-0.5 text-sm text-fg-muted">
-                      {pet.breed?.name ?? pet.breedText ?? SPECIES_LABEL[pet.species as Species]} ·{" "}
-                      {formatAge(pet.birthDate)}
+                      {pet.breed?.name ?? pet.breedText ?? t(SPECIES_LABEL[pet.species as Species])} ·{" "}
+                      {fmt.age(pet.birthDate)}
                     </p>
 
                     <p className="mt-2 font-mono text-[11px] text-fg-subtle">{pet.passportNo}</p>
 
                     <div className="mt-3 flex flex-wrap gap-1.5">
-                      <StatusPill tone={health.tone}>{health.label}</StatusPill>
+                      <StatusPill tone={health.tone}>{t(health.label)}</StatusPill>
                       {pet.availability !== "NOT_AVAILABLE" && (
                         <Badge tone="brand" size="sm">
                           {pet.availability === "FOR_SALE"
-                            ? "For sale"
+                            ? t("For sale")
                             : pet.availability === "FOR_ADOPTION"
-                              ? "For adoption"
-                              : "For breeding"}
+                              ? t("For adoption")
+                              : t("For breeding")}
                         </Badge>
                       )}
                     </div>
@@ -125,8 +129,7 @@ export default async function MyPetsPage() {
                         <span className="min-w-0">
                           <span className="block truncate font-medium">{reminder.title}</span>
                           <span className="block">
-                            {overdue ? "Overdue since " : "Due "}
-                            {formatDate(reminder.dueAt)}
+                            {overdue ? t("Overdue since {date}", { date: fmt.date(reminder.dueAt) }) : t("Due {date}", { date: fmt.date(reminder.dueAt) })}
                           </span>
                         </span>
                       </div>
@@ -139,7 +142,7 @@ export default async function MyPetsPage() {
                         size="sm"
                         className="flex-1"
                       >
-                        Health
+                        {t("Health")}
                         <span className="tabular text-fg-subtle">{pet._count.healthRecords}</span>
                       </ButtonLink>
                       <ButtonLink
@@ -148,7 +151,7 @@ export default async function MyPetsPage() {
                         size="sm"
                         className="flex-1"
                       >
-                        Open
+                        {t("Open")}
                       </ButtonLink>
                     </div>
                   </div>

@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { cn, initials } from "@/lib/utils";
 
 /* ---------------------------------------------------------------------------
@@ -291,36 +290,9 @@ export function PageHeader({
   );
 }
 
-export function Breadcrumbs({
-  items,
-}: {
-  items: { label: string; href?: string }[];
-}) {
-  return (
-    <nav aria-label="Breadcrumb" className="mb-4 text-sm">
-      <ol className="flex flex-wrap items-center gap-1.5 text-fg-muted">
-        {items.map((item, i) => (
-          <li key={`${item.label}-${i}`} className="flex items-center gap-1.5">
-            {i > 0 && (
-              <span aria-hidden className="text-fg-subtle">
-                /
-              </span>
-            )}
-            {item.href && i < items.length - 1 ? (
-              <Link href={item.href} className="hover:text-fg hover:underline">
-                {item.label}
-              </Link>
-            ) : (
-              <span className={i === items.length - 1 ? "text-fg" : undefined} aria-current={i === items.length - 1 ? "page" : undefined}>
-                {item.label}
-              </span>
-            )}
-          </li>
-        ))}
-      </ol>
-    </nav>
-  );
-}
+// Breadcrumb labels are translated where they render, so every page can
+// pass plain English (or a pet's name) without declaring a translator.
+export { Breadcrumbs } from "./breadcrumbs";
 
 export function Divider({ label, className }: { label?: string; className?: string }) {
   if (!label) return <hr className={cn("border-t border-[var(--border)]", className)} />;

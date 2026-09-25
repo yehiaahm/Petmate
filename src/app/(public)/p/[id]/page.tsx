@@ -11,9 +11,9 @@ import { db } from "@/lib/db";
 import { LineageTree } from "@/components/pets/lineage-tree";
 import { Card, Badge, Avatar, Alert, DataRow } from "@/components/ui/primitives";
 import { ButtonLink } from "@/components/ui/button";
-import { formatAge, formatDate } from "@/lib/utils";
 import { SPECIES_LABEL, type Species } from "@/lib/constants";
 import { clientEnv } from "@/lib/env";
+import { getI18n } from "@/lib/i18n/server";
 
 /**
  * The public passport for an animal.
@@ -51,12 +51,16 @@ export async function generateMetadata({
     },
   });
 
-  if (!pet) return { title: "Pet not found", robots: { index: false, follow: false } };
+    const { t } = await getI18n();
+  if (!pet) return { title: t("Pet not found"), robots: { index: false, follow: false } };
 
-  const breed = pet.breed?.name ?? pet.breedText ?? SPECIES_LABEL[pet.species as Species];
+  const breed = pet.breed?.name ?? pet.breedText ?? t(SPECIES_LABEL[pet.species as Species]);
   return {
     title: `${pet.name} — ${breed}`,
-    description: `PetMate passport ${pet.passportNo}: ownership history, documentation level and recorded lineage for ${pet.name}.`,
+    description: t("PetMate passport {passport}: ownership history, documentation level and recorded lineage for {name}.", {
+      passport: pet.passportNo,
+      name: pet.name,
+    }),
     alternates: { canonical: `/p/${id}` },
     // UNLISTED is reachable by direct link but must stay out of the index.
     ...(pet.visibility === "PUBLIC" ? {} : { robots: { index: false, follow: false } }),
@@ -64,6 +68,7 @@ export async function generateMetadata({
 }
 
 export default async function PetPassportPage({ params }: { params: Promise<{ id: string }> }) {
+  const { t, fmt } = await getI18n();
   const [{ id }, auth] = await Promise.all([params, getAuth()]);
 
   let pet;
@@ -88,7 +93,7 @@ export default async function PetPassportPage({ params }: { params: Promise<{ id
 
   const score = healthScoreLabel(pet.healthScore);
   const primaryPhoto = pet.photos.find((p) => p.isPrimary) ?? pet.photos[0];
-  const breed = pet.breed?.name ?? pet.breedText ?? SPECIES_LABEL[pet.species as Species];
+    const breed = pet.breed?.name ?? pet.breedText ?? t(SPECIES_LABEL[pet.species as Species]);
 
   return (
     <div className="container-page max-w-4xl py-10 lg:py-14">
@@ -116,8 +121,8 @@ export default async function PetPassportPage({ params }: { params: Promise<{ id
               {pet.name}
             </h1>
             <p className="mt-1 text-[15px] text-fg-muted">
-              {breed} · {SPECIES_LABEL[pet.species as Species]}
-              {pet.birthDate ? ` · ${formatAge(pet.birthDate)}` : ""}
+              {breed} · {t(SPECIES_LABEL[pet.species as Species])}
+              {pet.birthDate ? ` · ${fmt.age(pet.birthDate)}` : ""}
             </p>
 
             <div className="mt-4 flex flex-wrap gap-2">
@@ -129,16 +134,16 @@ export default async function PetPassportPage({ params }: { params: Promise<{ id
                   ) : undefined
                 }
               >
-                {VERIFICATION_LABEL[pet.verificationLevel] ?? pet.verificationLevel}
+                {t(VERIFICATION_LABEL[pet.verificationLevel] ?? pet.verificationLevel)}
               </Badge>
               {health.vaccinated && (
                 <Badge tone={health.vaccinationsCurrent ? "success" : "warning"}>
                   <Syringe className="me-1 size-3.5" aria-hidden />
-                  {health.vaccinationsCurrent ? "Vaccinations current" : "Vaccinations overdue"}
+                  {health.vaccinationsCurrent ? t("Vaccinations current") : t("Vaccinations overdue")}
                 </Badge>
               )}
-              {pet.isNeutered && <Badge tone="neutral">Neutered</Badge>}
-              {pet.status === "DECEASED" && <Badge tone="neutral">Deceased</Badge>}
+              {pet.isNeutered && <Badge tone="neutral">{t("Neutered")}</Badge>}
+              {pet.status === "DECEASED" && <Badge tone="neutral">{t("Deceased")}</Badge>}
             </div>
 
             {(pet.city || pet.country) && (
@@ -154,11 +159,11 @@ export default async function PetPassportPage({ params }: { params: Promise<{ id
           <div className="border-t border-[var(--border)] bg-brand-soft/40 px-6 py-4 sm:px-8">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <p className="text-sm text-fg">
-                <span className="font-semibold">{pet.name} is currently listed.</span>{" "}
+                <span className="font-semibold">{t("{name} is currently listed.", { name: pet.name })}</span>{" "}
                 {activeListing.title}
               </p>
               <ButtonLink href={`/pets/${activeListing.slug}`} size="sm">
-                View the listing
+                {t("View the listing")}
               </ButtonLink>
             </div>
           </div>
@@ -169,7 +174,7 @@ export default async function PetPassportPage({ params }: { params: Promise<{ id
         <div className="space-y-5">
           {pet.description && (
             <Card className="p-6">
-              <h2 className="font-display text-lg font-semibold text-fg">About {pet.name}</h2>
+              <h2 className="font-display text-lg font-semibold text-fg">{t("About {name}", { name: pet.name })}</h2>
               <p className="mt-2 whitespace-pre-wrap text-[15px] leading-relaxed text-fg-muted">
                 {pet.description}
               </p>
@@ -177,7 +182,7 @@ export default async function PetPassportPage({ params }: { params: Promise<{ id
                 <div className="mt-4 flex flex-wrap gap-1.5">
                   {pet.temperamentTags.map((tag) => (
                     <Badge key={tag} tone="neutral" size="sm">
-                      {tag}
+                      {t(tag)}
                     </Badge>
                   ))}
                 </div>
@@ -188,13 +193,12 @@ export default async function PetPassportPage({ params }: { params: Promise<{ id
           <Card className="p-6">
             <h2 className="flex items-center gap-2 font-display text-lg font-semibold text-fg">
               <Dna className="size-4.5 text-brand" aria-hidden />
-              Recorded lineage
+              {t("Recorded lineage")}
             </h2>
             {lineage && (lineage.dam || lineage.sire) ? (
               <>
                 <p className="mt-2 text-sm text-fg-muted">
-                  Each ancestor links to its own passport, so a pedigree can be followed rather
-                  than taken on trust.
+                  {t("Each ancestor links to its own passport, so a pedigree can be followed rather than taken on trust.")}
                 </p>
                 <div className="mt-4">
                   <LineageTree node={lineage} />
@@ -202,15 +206,13 @@ export default async function PetPassportPage({ params }: { params: Promise<{ id
               </>
             ) : (
               <p className="mt-2 text-sm text-fg-muted">
-                No parents recorded. A pedigree only means something when both sides are on the
-                system, so an owner has to add them deliberately.
+                {t("No parents recorded. A pedigree only means something when both sides are on the system, so an owner has to add them deliberately.")}
               </p>
             )}
 
             {pet.offspringCount > 0 && (
               <p className="mt-4 border-t border-[var(--border)] pt-4 text-sm text-fg-muted">
-                {pet.offspringCount} recorded{" "}
-                {pet.offspringCount === 1 ? "offspring" : "offspring"} on PetMate.
+                {t.plural(pet.offspringCount, { one: "{count} recorded offspring on PetMate.", other: "{count} recorded offspring on PetMate." })}
               </p>
             )}
           </Card>
@@ -220,7 +222,7 @@ export default async function PetPassportPage({ params }: { params: Promise<{ id
           <Card className="p-5">
             <h2 className="flex items-center gap-2 text-sm font-semibold text-fg">
               <Stethoscope className="size-4 text-brand" aria-hidden />
-              Documentation
+              {t("Documentation")}
             </h2>
 
             <div className="mt-3 flex items-baseline gap-2">
@@ -228,28 +230,27 @@ export default async function PetPassportPage({ params }: { params: Promise<{ id
                 {pet.healthScore}
               </span>
               <Badge tone={score.tone === "neutral" ? "neutral" : score.tone} size="sm">
-                {score.label}
+                {t(score.label)}
               </Badge>
             </div>
 
             <dl className="mt-4">
-              <DataRow label="Health entries" value={health.recordCount} />
-              <DataRow label="Clinic verified" value={health.clinicVerifiedCount} />
+              <DataRow label={t("Health entries")} value={health.recordCount} />
+              <DataRow label={t("Clinic verified")} value={health.clinicVerifiedCount} />
               <DataRow
-                label="Last check-up"
-                value={health.lastCheckupAt ? formatDate(health.lastCheckupAt) : "—"}
+                label={t("Last check-up")}
+                value={health.lastCheckupAt ? fmt.date(health.lastCheckupAt) : "—"}
               />
-              <DataRow label="Microchip" value={pet.microchipId ?? "Not recorded"} />
+              <DataRow label={t("Microchip")} value={pet.microchipId ?? "Not recorded"} />
             </dl>
 
             <p className="mt-4 text-xs leading-relaxed text-fg-subtle">
-              This score measures how well documented {pet.name} is, not how healthy. The medical
-              file itself is private to the owner and transfers with the animal.
+              {t("This score measures how well documented {name} is, not how healthy. The medical file itself is private to the owner and transfers with the animal.", { name: pet.name })}
             </p>
           </Card>
 
           <Card className="p-5">
-            <h2 className="text-sm font-semibold text-fg">Registered to</h2>
+            <h2 className="text-sm font-semibold text-fg">{t("Registered to")}</h2>
             <Link
               href={`/u/${pet.owner.handle}`}
               className="mt-3 flex items-center gap-3 rounded-[var(--radius-field)] p-1 -m-1 hover:bg-bg-sunken"
@@ -260,8 +261,8 @@ export default async function PetPassportPage({ params }: { params: Promise<{ id
                   {pet.owner.name}
                 </span>
                 <span className="block text-xs text-fg-subtle">
-                  Trust {pet.owner.trustScore} · member since{" "}
-                  {formatDate(pet.owner.createdAt)}
+                  {t("Trust {score}", { score: pet.owner.trustScore })} ·{" "}
+                  {t("member since {date}", { date: fmt.date(pet.owner.createdAt) })}
                 </span>
               </span>
             </Link>
@@ -270,11 +271,11 @@ export default async function PetPassportPage({ params }: { params: Promise<{ id
           {pet.isOwner && (
             <Alert tone="info">
               <p>
-                This is the public view of {pet.name}.{" "}
+                {t("This is the public view of {name}.", { name: pet.name })}{" "}
                 <Link href={`/dashboard/pets/${pet.id}`} className="font-medium underline">
-                  Manage the record
+                  {t("Manage the record")}
                 </Link>{" "}
-                to see the full health file and change what is visible.
+                {t("to see the full health file and change what is visible.")}
               </p>
             </Alert>
           )}

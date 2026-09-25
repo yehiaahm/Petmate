@@ -8,8 +8,10 @@ import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/field";
 import { Alert } from "@/components/ui/primitives";
 import { api, ApiError } from "@/lib/api-client";
+import { useI18n } from "@/components/i18n/i18n-provider";
 
 export function ResetPasswordForm({ token }: { token: string }) {
+  const { t } = useI18n();
   const router = useRouter();
 
   const [password, setPassword] = useState("");
@@ -50,14 +52,14 @@ export function ResetPasswordForm({ token }: { token: string }) {
   if (expired) {
     return (
       <div className="space-y-4">
-        <Alert tone="danger" title="That link is no longer valid">
+        <Alert tone="danger" title={t("That link is no longer valid")}>
           {error}
         </Alert>
         <Link
           href="/forgot-password"
           className="block text-center text-sm font-semibold text-brand hover:underline"
         >
-          Request a new reset link
+          {t("Request a new reset link")}
         </Link>
       </div>
     );
@@ -68,9 +70,9 @@ export function ResetPasswordForm({ token }: { token: string }) {
       {error && <Alert tone="danger">{error}</Alert>}
 
       <Field
-        label="New password"
+        label={t("New password")}
         required
-        hint="At least 10 characters."
+        hint={t("At least 10 characters.")}
         error={fieldErrors.password}
       >
         {({ id, describedBy, invalid }) => (
@@ -89,7 +91,7 @@ export function ResetPasswordForm({ token }: { token: string }) {
                 type="button"
                 onClick={() => setShow((s) => !s)}
                 className="rounded p-0.5 hover:text-fg"
-                aria-label={show ? "Hide password" : "Show password"}
+                aria-label={show ? t("Hide password") : t("Show password")}
               >
                 {show ? <EyeOff className="size-4" aria-hidden /> : <Eye className="size-4" aria-hidden />}
               </button>
@@ -99,9 +101,9 @@ export function ResetPasswordForm({ token }: { token: string }) {
       </Field>
 
       <Field
-        label="Confirm new password"
+        label={t("Confirm new password")}
         required
-        error={mismatch ? "Those passwords do not match." : null}
+        error={mismatch ? t("Those passwords do not match.") : null}
       >
         {({ id, describedBy, invalid }) => (
           <Input
@@ -122,10 +124,10 @@ export function ResetPasswordForm({ token }: { token: string }) {
         fullWidth
         size="lg"
         loading={submitting}
-        loadingText="Saving…"
+        loadingText={t("Saving…")}
         disabled={mismatch || password.length < 10}
       >
-        Change password
+        {t("Change password")}
       </Button>
     </form>
   );

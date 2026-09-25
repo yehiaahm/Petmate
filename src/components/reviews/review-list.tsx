@@ -1,7 +1,7 @@
 import { BadgeCheck, Star } from "lucide-react";
 import { Avatar, Card, Badge } from "@/components/ui/primitives";
-import { relativeTime } from "@/lib/utils";
 import { cn } from "@/lib/utils";
+import { getI18n } from "@/lib/i18n/server";
 
 interface Review {
   id: string;
@@ -22,9 +22,10 @@ interface Review {
   };
 }
 
-export function Stars({ rating, size = 14 }: { rating: number; size?: number }) {
+export async function Stars({ rating, size = 14 }: { rating: number; size?: number }) {
+  const { t } = await getI18n();
   return (
-    <span className="inline-flex items-center gap-0.5" role="img" aria-label={`${rating} out of 5 stars`}>
+    <span className="inline-flex items-center gap-0.5" role="img" aria-label={t("{rating} out of 5 stars", { rating })}>
       {[1, 2, 3, 4, 5].map((star) => (
         <Star
           key={star}
@@ -41,11 +42,12 @@ export function Stars({ rating, size = 14 }: { rating: number; size?: number }) 
   );
 }
 
-export function ReviewList({ reviews }: { reviews: Review[] }) {
+export async function ReviewList({ reviews }: { reviews: Review[] }) {
+  const { t, fmt } = await getI18n();
   if (!reviews.length) {
     return (
       <p className="rounded-[var(--radius-card)] border border-dashed border-[var(--border-strong)] px-5 py-8 text-center text-sm text-fg-muted">
-        No reviews yet.
+        {t("No reviews yet.")}
       </p>
     );
   }
@@ -62,10 +64,10 @@ export function ReviewList({ reviews }: { reviews: Review[] }) {
                   <span className="text-sm font-semibold text-fg">{review.author.name}</span>
                   {review.isVerified && (
                     <Badge tone="success" size="sm" icon={<BadgeCheck className="size-3" aria-hidden />}>
-                      Verified purchase
+                      {t("Verified purchase")}
                     </Badge>
                   )}
-                  <span className="text-xs text-fg-subtle">{relativeTime(review.createdAt)}</span>
+                  <span className="text-xs text-fg-subtle">{fmt.relative(review.createdAt)}</span>
                 </div>
 
                 <div className="mt-1.5">
@@ -81,7 +83,7 @@ export function ReviewList({ reviews }: { reviews: Review[] }) {
 
                 {review.sellerResponse && (
                   <div className="mt-3 rounded-[var(--radius-field)] border-s-2 border-brand bg-bg-sunken px-3.5 py-2.5">
-                    <p className="text-xs font-semibold text-fg">Seller replied</p>
+                    <p className="text-xs font-semibold text-fg">{t("Seller replied")}</p>
                     <p className="mt-1 text-sm leading-relaxed text-fg-muted">
                       {review.sellerResponse}
                     </p>
@@ -96,7 +98,7 @@ export function ReviewList({ reviews }: { reviews: Review[] }) {
   );
 }
 
-export function RatingSummary({
+export async function RatingSummary({
   average,
   count,
   distribution,
@@ -105,6 +107,7 @@ export function RatingSummary({
   count: number;
   distribution: { star: number; count: number }[];
 }) {
+  const { t } = await getI18n();
   return (
     <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
       <div className="text-center sm:text-start">
@@ -115,7 +118,7 @@ export function RatingSummary({
           <Stars rating={Math.round(average)} size={16} />
         </div>
         <p className="mt-1 text-xs text-fg-muted tabular">
-          {count} {count === 1 ? "review" : "reviews"}
+          {t.plural(count, { one: "{count} review", other: "{count} reviews" })}
         </p>
       </div>
 

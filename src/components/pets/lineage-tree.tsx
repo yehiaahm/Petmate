@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { BadgeCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getI18n } from "@/lib/i18n/server";
 
 interface LineageNode {
   id: string;
@@ -32,7 +33,7 @@ export function LineageTree({ node }: { node: LineageNode | null }) {
   );
 }
 
-function LineageBranch({
+async function LineageBranch({
   node,
   depth,
   relation,
@@ -41,6 +42,7 @@ function LineageBranch({
   depth: number;
   relation: string;
 }) {
+  const { t } = await getI18n();
   const verified =
     node.verificationLevel === "CLINIC_VERIFIED" || node.verificationLevel === "DOCUMENTED";
 
@@ -72,7 +74,7 @@ function LineageBranch({
               </Link>
             )}
             {verified && (
-              <BadgeCheck className="size-3.5 shrink-0 text-[var(--success)]" aria-label="Verified" />
+              <BadgeCheck className="size-3.5 shrink-0 text-[var(--success)]" aria-label={t("Verified")} />
             )}
           </span>
           <span className="block text-xs text-fg-subtle">
