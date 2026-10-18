@@ -5,7 +5,7 @@ export const shell: Messages = {
   "Find a pet": "ابحث عن حيوان",
   Adopt: "تبنَّ",
   Breeding: "التزاوج",
-  Vets: "الأطباء البيطريون",
+  Vets: "البيطريون",
   Store: "المتجر",
   Community: "المجتمع",
   "PetMate home": "الصفحة الرئيسية لـ PetMate",
@@ -31,4 +31,9 @@ export const shell: Messages = {
   Admin: "الإدارة",
   Language: "اللغة",
   Appearance: "المظهر",
+  Home: "الرئيسية",
+  // Footer
+  "Escrow on every sale": "ضمان على كل عملية بيع",
+  "Free to join": "التسجيل مجاني",
+  "Every pet gets a verified identity and a health record that follows them for life — so buying, adopting, breeding and caring for an animal is something you can actually check.": "يحصل كل حيوان على هوية موثّقة وسجل صحي يرافقه مدى الحياة — فيصبح شراء الحيوان أو تبنّيه أو تزويجه أو رعايته أمرًا يمكنك التحقق منه فعلًا.",
 };

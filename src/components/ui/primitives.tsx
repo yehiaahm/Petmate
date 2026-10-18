@@ -16,7 +16,7 @@ export function Card({
 }) {
   return (
     <Tag
-      className={cn("surface", interactive && "surface-lift", className)}
+      className={cn("surface shadow-[var(--shadow-subtle)]", interactive && "surface-lift", className)}
       {...props}
     >
       {children}
@@ -204,16 +204,16 @@ export function EmptyState({
   return (
     <div
       className={cn(
-        "flex flex-col items-center justify-center rounded-[var(--radius-panel)] border border-dashed border-[var(--border-strong)] px-6 py-14 text-center",
+        "flex flex-col items-center justify-center rounded-[var(--radius-panel)] border border-dashed border-[var(--border-strong)] bg-bg-elevated/50 px-6 py-14 text-center",
         className,
       )}
     >
       {icon && (
-        <div className="mb-4 flex size-12 items-center justify-center rounded-full bg-bg-sunken text-fg-subtle">
+        <div className="animate-float mb-5 flex size-16 items-center justify-center rounded-[1.25rem] bg-brand-soft text-brand shadow-[var(--shadow-card)] [&_svg]:size-7">
           {icon}
         </div>
       )}
-      <h3 className="text-base font-semibold text-fg">{title}</h3>
+      <h3 className="text-lg font-bold text-fg">{title}</h3>
       {description && <p className="mt-1.5 max-w-sm text-sm text-fg-muted">{description}</p>}
       {action && <div className="mt-5">{action}</div>}
     </div>
@@ -271,14 +271,12 @@ export function PageHeader({
   className?: string;
 }) {
   return (
-    <header className={cn("flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between", className)}>
+    <header className={cn("animate-in-up flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between", className)}>
       <div className="min-w-0">
         {eyebrow && (
-          <p className="mb-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-brand">
-            {eyebrow}
-          </p>
+          <p className="eyebrow mb-2">{eyebrow}</p>
         )}
-        <h1 className="font-display text-2xl font-semibold tracking-tight text-fg sm:text-3xl">
+        <h1 className="font-display text-[1.75rem] font-bold leading-tight tracking-tight text-fg sm:text-4xl">
           {title}
         </h1>
         {description && (
@@ -337,12 +335,16 @@ export function Stat({
   icon?: React.ReactNode;
 }) {
   return (
-    <div className="surface p-5">
+    <div className="surface surface-lift p-5 shadow-[var(--shadow-subtle)]">
       <div className="flex items-center justify-between gap-2">
         <p className="text-sm font-medium text-fg-muted">{label}</p>
-        {icon && <span className="text-fg-subtle">{icon}</span>}
+        {icon && (
+          <span className="flex size-9 items-center justify-center rounded-xl bg-brand-soft text-brand [&_svg]:size-[18px]">
+            {icon}
+          </span>
+        )}
       </div>
-      <p className="mt-2 font-display text-2xl font-semibold tabular text-fg">{value}</p>
+      <p className="mt-2 font-display text-[1.75rem] font-bold tabular text-fg">{value}</p>
       {(delta || hint) && (
         <p className="mt-1 flex items-center gap-1.5 text-xs">
           {delta && (

@@ -29,6 +29,9 @@ export function FavoriteButton({
   const router = useRouter();
   const toast = useToast();
   const [favorited, setFavorited] = useState(initial);
+  // Counts the user's own saves, so the heart only bursts when they tap it —
+  // not for listings that load already saved.
+  const [bursts, setBursts] = useState(0);
   const [pending, startTransition] = useTransition();
 
   async function toggle(event: React.MouseEvent) {
@@ -37,6 +40,7 @@ export function FavoriteButton({
 
     const next = !favorited;
     setFavorited(next);
+    if (next) setBursts((n) => n + 1);
 
     try {
       const result = await api.post<{ favorited: boolean }>(`/api/listings/${listingId}`, {
@@ -63,14 +67,26 @@ export function FavoriteButton({
       aria-pressed={favorited}
       aria-label={favorited ? t("Remove from saved") : t("Save this listing")}
       className={cn(
-        "inline-flex items-center justify-center gap-2 rounded-full border border-[var(--border)] bg-bg-elevated/90 text-fg-muted shadow-[var(--shadow-subtle)] backdrop-blur transition-all hover:text-fg active:scale-95",
-        size === "sm" ? "size-8" : "h-11 px-4",
+        "relative inline-flex items-center justify-center gap-2 rounded-full border border-[var(--glass-border)] bg-[var(--glass)] text-fg-muted shadow-[var(--shadow-card)] backdrop-blur-md transition-[color,background-color,transform] duration-200 hover:text-[var(--color-coral-500)] active:scale-90",
+        size === "sm" ? "size-9" : "h-11 px-4",
         withLabel && "w-auto px-4",
-        favorited && "border-transparent bg-accent-soft text-accent-soft-fg",
+        favorited && "text-[var(--color-coral-500)]",
       )}
     >
+      {bursts > 0 && favorited && (
+        <span
+          key={bursts}
+          className="pointer-events-none absolute inset-0 rounded-full border-2 border-[var(--color-coral-400)] [animation:heart-burst_600ms_var(--ease-out-soft)_forwards]"
+          aria-hidden
+        />
+      )}
       <Heart
-        className={cn(size === "sm" ? "size-4" : "size-[18px]", favorited && "fill-current")}
+        key={favorited && bursts > 0 ? `on-${bursts}` : "idle"}
+        className={cn(
+          "size-[18px]",
+          favorited && "fill-current",
+          favorited && bursts > 0 && "animate-pop",
+        )}
         aria-hidden
       />
       {withLabel && (

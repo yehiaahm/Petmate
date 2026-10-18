@@ -22,7 +22,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const unread = await totalUnread(auth.user.id);
 
   return (
-    <div className="flex min-h-dvh flex-col bg-bg">
+    <div className="flex min-h-dvh flex-col">
       <Header />
 
       {auth.user.status === "SUSPENDED" && (
@@ -48,7 +48,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         </div>
       )}
 
-      <main id="main" className="flex-1 pb-20 md:pb-8">
+      <main id="main" className="flex-1 pb-28 md:pb-8">
         {children}
       </main>
 

@@ -208,7 +208,7 @@ export function ApplicationReview({
                   label={
                     <span className="flex items-center gap-1.5">
                       <Home className="size-3.5" aria-hidden />
-                      {t("Home")}
+                      {t("Home type")}
                     </span>
                   }
                   value={

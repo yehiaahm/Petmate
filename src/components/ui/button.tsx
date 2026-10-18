@@ -14,31 +14,30 @@ type Variant =
 type Size = "sm" | "md" | "lg" | "icon" | "icon-sm";
 
 const VARIANTS: Record<Variant, string> = {
-  primary:
-    "bg-brand text-brand-fg hover:bg-brand-hover shadow-[var(--shadow-subtle)] active:translate-y-px",
+  primary: "btn-gradient",
   accent:
-    "bg-accent text-accent-fg hover:bg-accent-hover shadow-[var(--shadow-subtle)] active:translate-y-px",
+    "bg-accent text-accent-fg hover:bg-accent-hover shadow-[0_10px_24px_-12px_var(--accent)]",
   secondary:
     "bg-bg-sunken text-fg hover:bg-bg-inset border border-[var(--border)]",
   outline:
-    "border border-[var(--border-strong)] bg-transparent text-fg hover:bg-bg-sunken",
+    "border border-[var(--border-strong)] bg-bg-elevated/60 text-fg backdrop-blur hover:border-[var(--brand)] hover:text-brand",
   ghost: "text-fg-muted hover:bg-bg-sunken hover:text-fg",
   danger:
     "bg-[var(--danger)] text-white hover:brightness-110 shadow-[var(--shadow-subtle)]",
-  link: "text-brand underline-offset-4 hover:underline p-0 h-auto",
+  link: "text-brand underline-offset-4 hover:underline p-0 h-auto active:scale-100",
 };
 
 const SIZES: Record<Size, string> = {
   // 44px tall: the minimum comfortable touch target, not 32px.
-  sm: "h-9 px-3 text-sm gap-1.5 rounded-[var(--radius-field)]",
-  md: "h-11 px-4 text-sm gap-2 rounded-[var(--radius-field)]",
-  lg: "h-12 px-6 text-base gap-2 rounded-xl",
-  icon: "size-11 rounded-[var(--radius-field)]",
-  "icon-sm": "size-9 rounded-[var(--radius-field)]",
+  sm: "h-9 px-4 text-sm gap-1.5 rounded-full",
+  md: "h-11 px-5 text-sm gap-2 rounded-full",
+  lg: "h-13 px-7 text-base gap-2 rounded-full",
+  icon: "size-11 rounded-full",
+  "icon-sm": "size-9 rounded-full",
 };
 
 const BASE =
-  "inline-flex items-center justify-center font-semibold whitespace-nowrap transition-all duration-150 disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ring)]";
+  "inline-flex items-center justify-center font-semibold whitespace-nowrap transition-[color,background-color,background-position,border-color,box-shadow,transform,filter] duration-200 ease-[var(--ease-out-soft)] active:scale-[0.97] disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ring)]";
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: Variant;

@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
-import { Fraunces, Plus_Jakarta_Sans, IBM_Plex_Sans_Arabic, Noto_Kufi_Arabic } from "next/font/google";
+import { Montserrat, Outfit, Plus_Jakarta_Sans, IBM_Plex_Sans_Arabic, Noto_Kufi_Arabic } from "next/font/google";
 import "./globals.css";
 import { ThemeScript } from "@/components/theme-script";
 import { ToastProvider } from "@/components/ui/toast";
@@ -12,16 +12,16 @@ import { ErrorReporter } from "@/components/monitoring/error-reporter";
 import { Analytics } from "@/components/analytics/analytics";
 
 /**
- * Fraunces carries the headlines: a soft serif with real character, which reads
- * as editorial and established rather than another geometric-sans startup.
- * Plus Jakarta Sans handles UI text — friendly, but with the tight numerals a
- * marketplace full of prices needs.
+ * Outfit carries the headlines: a rounded geometric sans that sits naturally
+ * next to the logo's ribbon line — friendly without being childish. Plus
+ * Jakarta Sans handles UI text, with the tight numerals a marketplace full of
+ * prices needs. Montserrat is loaded at one weight, only for the wide-tracked
+ * PETMATE wordmark, which is set in it in the brand artwork.
  */
-const fraunces = Fraunces({
+const outfit = Outfit({
   subsets: ["latin"],
   display: "swap",
-  variable: "--font-fraunces",
-  axes: ["SOFT", "WONK", "opsz"],
+  variable: "--font-outfit",
 });
 
 const jakarta = Plus_Jakarta_Sans({
@@ -29,6 +29,13 @@ const jakarta = Plus_Jakarta_Sans({
   display: "swap",
   variable: "--font-jakarta",
   weight: ["400", "500", "600", "700", "800"],
+});
+
+const montserrat = Montserrat({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-montserrat",
+  weight: ["600"],
 });
 
 /**
@@ -104,8 +111,8 @@ export const viewport: Viewport = {
   initialScale: 1,
   viewportFit: "cover",
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#fbf9f5" },
-    { media: "(prefers-color-scheme: dark)", color: "#121110" },
+    { media: "(prefers-color-scheme: light)", color: "#f3f8f8" },
+    { media: "(prefers-color-scheme: dark)", color: "#0b161c" },
   ],
 };
 
@@ -118,7 +125,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       lang={locale}
       dir={dir}
       suppressHydrationWarning
-      className={`${fraunces.variable} ${jakarta.variable} ${kufi.variable} ${plexArabic.variable}`}
+      className={`${outfit.variable} ${jakarta.variable} ${montserrat.variable} ${kufi.variable} ${plexArabic.variable}`}
     >
       <head>
         <ThemeScript nonce={nonce} />

@@ -127,4 +127,9 @@ export const listings: Messages = {
   "Newest first": "الأحدث أولًا",
   "Best documented": "الأفضل توثيقًا",
   "Closest first": "الأقرب أولًا",
+  // Listing card
+  "Seller trust score": "درجة ثقة البائع",
+  "{amount} fee": "رسوم {amount}",
+  "{amount} stud fee": "{amount} للتزاوج",
+  "{name}, a {breed}": "{name}، {breed}",
 };

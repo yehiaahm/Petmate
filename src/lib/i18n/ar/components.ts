@@ -10,7 +10,7 @@ export const components: Messages = {
   "member since {date}": "عضو منذ {date}",
   "Applied {when}": "تقدّم {when}",
   "fit score": "درجة التوافق",
-  "Home": "المنزل",
+  "Home type": "نوع المنزل",
   "Alone each day": "وحده يوميًا",
   "Children": "الأطفال",
   "Experience": "الخبرة",

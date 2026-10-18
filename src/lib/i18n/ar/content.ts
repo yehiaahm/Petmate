@@ -76,7 +76,7 @@ export const content: Messages = {
   "Save this listing": "احفظ هذا الإعلان",
   "{name}, photo {n} of {total}": "{name}، الصورة {n} من {total}",
   "{name}, photo {n}": "{name}، الصورة {n}",
-  "Vet verified": "موثّق من طبيب بيطري",
+  "Vet verified": "موثّق بيطريًا",
   "Documented": "موثّق",
   "Unknown": "غير معروف",
   "Renew listing": "تجديد الإعلان",

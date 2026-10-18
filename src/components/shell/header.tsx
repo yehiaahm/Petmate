@@ -13,6 +13,7 @@ import { ThemeToggle } from "./theme-toggle";
 import { MobileNav } from "./mobile-nav";
 import { LocaleSwitcher } from "@/components/i18n/locale-switcher";
 import { getI18n } from "@/lib/i18n/server";
+import { NavLinks, MobileSearchRow } from "./nav-links";
 
 /**
  * Site header.
@@ -42,25 +43,14 @@ export async function Header() {
   ];
 
   return (
-    <header className="sticky top-0 z-40 border-b border-[var(--border)] bg-bg/85 backdrop-blur-md">
+    <header className="glass sticky top-0 z-40 border-x-0 border-t-0 border-b border-[var(--border)]">
       <div className="container-wide">
         <div className="flex h-16 items-center gap-3 lg:gap-6">
-          <Link href="/" className="shrink-0" aria-label={t("PetMate home")}>
-            <Logo size="md" className="hidden sm:inline-flex" />
-            <Logo size="md" showWordmark={false} className="sm:hidden" />
+          <Link href="/" className="shrink-0 rounded-xl" aria-label={t("PetMate home")}>
+            <Logo size="md" />
           </Link>
 
-          <nav aria-label={t("Main")} className="hidden items-center gap-1 lg:flex">
-            {primaryLinks.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className="rounded-[var(--radius-field)] px-3 py-2 text-sm font-medium text-fg-muted transition-colors hover:bg-bg-sunken hover:text-fg"
-              >
-                {link.label}
-              </Link>
-            ))}
-          </nav>
+          <NavLinks links={primaryLinks} label={t("Main")} />
 
           <SearchBar className="hidden min-w-0 flex-1 md:block lg:max-w-md" />
 
@@ -111,10 +101,11 @@ export async function Header() {
           </div>
         </div>
 
-        {/* Search drops to its own row on small screens rather than being hidden. */}
-        <div className="pb-3 md:hidden">
+        {/* Search drops to its own row on small screens rather than being
+            hidden — except on the home page, whose hero is a search box. */}
+        <MobileSearchRow>
           <SearchBar />
-        </div>
+        </MobileSearchRow>
       </div>
     </header>
   );
@@ -135,12 +126,12 @@ async function IconLink({
   return (
     <Link
       href={href}
-      className="relative inline-flex size-9 items-center justify-center rounded-[var(--radius-field)] text-fg-muted transition-colors hover:bg-bg-sunken hover:text-fg"
+      className="relative inline-flex size-10 items-center justify-center rounded-full text-fg-muted transition-[color,background-color,transform] duration-200 hover:bg-bg-sunken hover:text-brand active:scale-90"
       aria-label={count > 0 ? t("{label}, {count} unread", { label, count }) : label}
     >
       {icon}
       {count > 0 && (
-        <span className="absolute end-0.5 top-0.5 flex min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[10px] font-bold leading-4 text-accent-fg">
+        <span className="animate-pop absolute end-0.5 top-0.5 flex min-w-[18px] items-center justify-center rounded-full bg-accent px-1 text-[10px] font-bold leading-[18px] text-accent-fg ring-2 ring-[var(--bg)]">
           {count > 99 ? "99+" : count}
         </span>
       )}

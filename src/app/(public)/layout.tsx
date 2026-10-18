@@ -12,7 +12,7 @@ export default async function PublicLayout({ children }: { children: React.React
     <div className="flex min-h-dvh flex-col">
       <Header />
       {/* Bottom padding clears the mobile tab bar so nothing is ever hidden. */}
-      <main id="main" className="flex-1 pb-20 md:pb-0">
+      <main id="main" className="flex-1 pb-4 md:pb-0">
         {children}
       </main>
       <Footer />

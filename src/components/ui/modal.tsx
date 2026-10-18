@@ -92,7 +92,7 @@ export function Modal({
   return (
     <div className="fixed inset-0 z-[70] flex items-end justify-center sm:items-center sm:p-4">
       <div
-        className="animate-fade absolute inset-0 bg-[var(--overlay)]"
+        className="animate-fade absolute inset-0 bg-[var(--overlay)] backdrop-blur-sm"
         onClick={onClose}
         aria-hidden
       />
@@ -105,13 +105,15 @@ export function Modal({
         aria-describedby={description ? "modal-description" : undefined}
         tabIndex={-1}
         className={cn(
-          "animate-in-up relative max-h-[90dvh] w-full overflow-y-auto rounded-t-[var(--radius-panel)] border border-[var(--border)] bg-bg-elevated shadow-[var(--shadow-pop)] focus:outline-none sm:rounded-[var(--radius-panel)]",
+          "animate-sheet relative max-h-[90dvh] w-full overflow-y-auto rounded-t-[var(--radius-panel)] border border-[var(--border)] bg-bg-elevated shadow-[var(--shadow-pop)] focus:outline-none sm:rounded-[var(--radius-panel)]",
           widths[size],
         )}
       >
+        {/* Grab handle: on a phone this is a bottom sheet, and should look like one. */}
+        <div className="mx-auto mt-2.5 h-1.5 w-10 rounded-full bg-[var(--border-strong)] sm:hidden" aria-hidden />
         <div className="flex items-start justify-between gap-4 border-b border-[var(--border)] p-5">
           <div className="min-w-0">
-            <h2 id="modal-title" className="font-display text-lg font-semibold text-fg">
+            <h2 id="modal-title" className="font-display text-xl font-bold text-fg">
               {title}
             </h2>
             {description && (
@@ -123,7 +125,7 @@ export function Modal({
           <button
             type="button"
             onClick={onClose}
-            className="-m-1.5 shrink-0 rounded-[var(--radius-field)] p-1.5 text-fg-subtle transition-colors hover:bg-bg-sunken hover:text-fg"
+            className="-m-1.5 shrink-0 rounded-full p-1.5 text-fg-subtle transition-[color,background-color,transform] duration-300 hover:rotate-90 hover:bg-bg-sunken hover:text-fg"
             aria-label={t("Close dialog")}
           >
             <X className="size-5" aria-hidden />

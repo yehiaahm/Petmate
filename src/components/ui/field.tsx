@@ -14,7 +14,7 @@ import { useI18n } from "@/components/i18n/i18n-provider";
  */
 
 const CONTROL_BASE =
-  "w-full rounded-[var(--radius-field)] border bg-bg-elevated px-3.5 text-[15px] text-fg placeholder:text-fg-subtle transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-[var(--ring)] focus:ring-offset-0 focus:border-transparent disabled:cursor-not-allowed disabled:bg-bg-sunken disabled:opacity-70";
+  "w-full rounded-[var(--radius-field)] border bg-bg-elevated px-3.5 text-[15px] text-fg placeholder:text-fg-subtle shadow-[var(--shadow-subtle)] transition-[border-color,box-shadow] duration-200 hover:border-[color-mix(in_srgb,var(--brand)_45%,var(--border-strong))] focus:border-[var(--brand)] focus:outline-none focus:shadow-[0_0_0_4px_color-mix(in_srgb,var(--brand)_18%,transparent)] disabled:cursor-not-allowed disabled:bg-bg-sunken disabled:opacity-70";
 
 export interface FieldProps {
   label?: string;
