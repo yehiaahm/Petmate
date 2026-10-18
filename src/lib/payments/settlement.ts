@@ -53,6 +53,8 @@ export async function settlePayment(intentId: string): Promise<void> {
       return settlePetPurchase(intent);
     case "APPOINTMENT":
       return settleAppointment(intent);
+    case "CARE_BOOKING":
+      return settleCareBooking(intent);
     case "SUBSCRIPTION":
       return settleSubscription(intent);
     case "FEATURED_LISTING":
@@ -536,6 +538,222 @@ async function settleAppointment(intent: SettlementIntent): Promise<void> {
     url: `/clinic/appointments`,
     entityType: "APPOINTMENT",
     entityId: result.id,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Pet care — hotel stays and training programmes
+// ---------------------------------------------------------------------------
+
+async function settleCareBooking(intent: SettlementIntent): Promise<void> {
+  const result = await db.$transaction(async (tx) => {
+    const booking = await tx.careBooking.findUnique({
+      where: { id: intent.referenceId! },
+      select: {
+        id: true,
+        reference: true,
+        kind: true,
+        status: true,
+        userId: true,
+        providerId: true,
+        startAt: true,
+        totalCents: true,
+        commissionCents: true,
+        currency: true,
+        provider: { select: { name: true, ownerUserId: true, isOfficial: true } },
+        pet: { select: { name: true } },
+        unit: { select: { name: true } },
+        program: { select: { name: true } },
+      },
+    });
+    if (!booking) throw notFound("That booking");
+
+    const claimed = await tx.careBooking.updateMany({
+      where: { id: booking.id, status: "PENDING_PAYMENT" },
+      data: { status: "CONFIRMED", paidAt: new Date(), paymentIntentId: intent.id },
+    });
+
+    if (claimed.count === 0) {
+      // Paid after the hold lapsed: the room may already be someone else's.
+      // The money is real, so it is recorded and then refunded in full below,
+      // rather than silently confirming a booking that no longer has a room.
+      if (booking.status === "CANCELLED") {
+        await postTransaction(
+          {
+            kind: "CHARGE",
+            description: `Late payment for released booking ${booking.reference}`,
+            currency: booking.currency,
+            paymentIntentId: intent.id,
+            referenceType: "CARE_BOOKING",
+            referenceId: booking.id,
+            entries: [
+              { account: accounts.external(booking.currency), amountCents: -intent.amountCents },
+              { account: accounts.platformRevenue(booking.currency), amountCents: intent.amountCents },
+            ],
+          },
+          tx,
+        );
+        return { late: true as const, booking };
+      }
+      return null;
+    }
+
+    const earnings = booking.totalCents - booking.commissionCents;
+    await postTransaction(
+      {
+        kind: "CHARGE",
+        description: `Pet care booking ${booking.reference}`,
+        currency: booking.currency,
+        paymentIntentId: intent.id,
+        referenceType: "CARE_BOOKING",
+        referenceId: booking.id,
+        // PetMate's own provider earns nothing separately: the whole amount is
+        // the commission, so its pending account is never written to.
+        entries: [
+          { account: accounts.external(booking.currency), amountCents: -booking.totalCents },
+          { account: accounts.platformRevenue(booking.currency), amountCents: booking.commissionCents },
+          { account: accounts.providerPending(booking.providerId, booking.currency), amountCents: earnings },
+        ].filter((e) => e.amountCents !== 0),
+      },
+      tx,
+    );
+
+    await tx.careProvider.update({
+      where: { id: booking.providerId },
+      data: { bookingCount: { increment: 1 } },
+    });
+
+    const what = booking.unit?.name ?? booking.program?.name ?? "Pet care";
+    await createInvoice(
+      {
+        paymentIntentId: intent.id,
+        userId: booking.userId,
+        totalCents: booking.totalCents,
+        currency: booking.currency,
+        lines: [{ description: `${what} — ${booking.provider.name}`, amountCents: booking.totalCents }],
+        billingName: intent.user?.name ?? "PetMate member",
+      },
+      tx,
+    );
+
+    await tx.careEvent.create({
+      data: { bookingId: booking.id, type: "STATUS", title: "Confirmed", body: "Payment received." },
+    });
+
+    const reminderAt = new Date(booking.startAt.getTime() - 24 * 3_600_000);
+    if (reminderAt > new Date()) {
+      await enqueueJob(
+        {
+          type: "care.remind",
+          payload: { bookingId: booking.id },
+          runAt: reminderAt,
+          uniqueKey: `care.remind:${booking.id}`,
+        },
+        tx,
+      );
+    }
+
+    return { late: false as const, booking };
+  });
+
+  if (!result) return;
+  const { booking } = result;
+
+  if (result.late) {
+    const { refundPayment } = await import("./service");
+    await refundPayment({
+      intentId: intent.id,
+      amountCents: intent.amountCents,
+      reason: "CANCELLED_ORDER",
+      approvedById: intent.userId,
+      note: `Booking ${booking.reference} was released before payment arrived`,
+      idempotencyKey: `care-late:${intent.id}`,
+    });
+    return;
+  }
+
+  const when = booking.startAt.toLocaleString("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+
+  await notify({
+    userId: booking.userId,
+    category: "CARE",
+    type: "care.confirmed",
+    title: "Booking confirmed",
+    body: `${booking.pet.name} at ${booking.provider.name} — ${when}`,
+    url: `/dashboard/bookings/${booking.id}`,
+    entityType: "CARE_BOOKING",
+    entityId: booking.id,
+    email: () =>
+      emailTemplates.careBookingConfirmed({
+        providerName: booking.provider.name,
+        petName: booking.pet.name,
+        what: booking.unit?.name ?? booking.program?.name ?? "Pet care",
+        when,
+        reference: booking.reference,
+        url: url(`/dashboard/bookings/${booking.id}`),
+      }),
+  });
+
+  await notify({
+    userId: booking.provider.ownerUserId,
+    category: "CARE",
+    type: "care.booked",
+    title: "New booking",
+    body: `${booking.unit?.name ?? booking.program?.name} for ${booking.pet.name} — ${when}`,
+    url: `/provider/${booking.providerId}`,
+    entityType: "CARE_BOOKING",
+    entityId: booking.id,
+  });
+}
+
+/** Moves a provider's earnings from pending to available once the job is done. */
+export async function releaseCareEarnings(bookingId: string): Promise<void> {
+  await db.$transaction(async (tx) => {
+    const booking = await tx.careBooking.findUnique({
+      where: { id: bookingId },
+      select: {
+        id: true,
+        reference: true,
+        status: true,
+        providerId: true,
+        totalCents: true,
+        commissionCents: true,
+        currency: true,
+        paidAt: true,
+      },
+    });
+    if (!booking || !booking.paidAt || !["COMPLETED", "NO_SHOW"].includes(booking.status)) return;
+
+    // The guard column makes a replayed job a no-op.
+    const claimed = await tx.careBooking.updateMany({
+      where: { id: booking.id, earningsReleasedAt: null },
+      data: { earningsReleasedAt: new Date() },
+    });
+    if (claimed.count === 0) return;
+
+    const earnings = booking.totalCents - booking.commissionCents;
+    if (earnings <= 0) return;
+
+    await postTransaction(
+      {
+        kind: "ESCROW_RELEASE",
+        description: `Earnings cleared for ${booking.reference}`,
+        currency: booking.currency,
+        referenceType: "CARE_BOOKING",
+        referenceId: booking.id,
+        entries: [
+          { account: accounts.providerPending(booking.providerId, booking.currency), amountCents: -earnings },
+          { account: accounts.providerAvailable(booking.providerId, booking.currency), amountCents: earnings },
+        ],
+      },
+      tx,
+    );
   });
 }
 

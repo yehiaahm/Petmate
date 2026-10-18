@@ -30,7 +30,7 @@ import { REPORT_REASON, DISPUTE_REASON, VERIFICATION_TYPE } from "@/lib/constant
 // ---------------------------------------------------------------------------
 
 export const reportSchema = z.object({
-  entityType: z.enum(["LISTING", "USER", "MESSAGE", "PRODUCT", "POST", "COMMENT", "REVIEW", "CLINIC"]),
+  entityType: z.enum(["LISTING", "USER", "MESSAGE", "PRODUCT", "POST", "COMMENT", "REVIEW", "CLINIC", "CARE_PROVIDER"]),
   entityId: cuidSchema,
   reason: z.enum(REPORT_REASON),
   details: safeParagraph(2000, 0).optional(),
@@ -204,6 +204,11 @@ async function resolveOwner(entityType: string, entityId: string): Promise<strin
       return (await db.review.findUnique({ where: { id: entityId }, select: { authorId: true } }))?.authorId ?? null;
     case "CLINIC":
       return (await db.clinic.findUnique({ where: { id: entityId }, select: { ownerUserId: true } }))?.ownerUserId ?? null;
+    case "CARE_PROVIDER":
+      return (
+        (await db.careProvider.findUnique({ where: { id: entityId }, select: { ownerUserId: true } }))?.ownerUserId ??
+        null
+      );
     default:
       return null;
   }
@@ -312,7 +317,7 @@ export async function reinstateUser(auth: AuthContext, userId: string, note: str
 // ---------------------------------------------------------------------------
 
 export const verificationSchema = z.object({
-  subjectType: z.enum(["USER", "PET", "CLINIC", "SHOP"]),
+  subjectType: z.enum(["USER", "PET", "CLINIC", "SHOP", "CARE_PROVIDER"]),
   subjectId: cuidSchema,
   type: z.enum(VERIFICATION_TYPE),
   documents: z.array(cuidSchema).min(1, "Attach at least one document.").max(5),
@@ -395,6 +400,14 @@ async function assertOwnsSubject(auth: AuthContext, subjectType: string, subject
       if (!shop) throw notFound("That shop");
       return;
     }
+    case "CARE_PROVIDER": {
+      const provider = await db.careProvider.findFirst({
+        where: { id: subjectId, ownerUserId: auth.user.id, deletedAt: null },
+        select: { id: true },
+      });
+      if (!provider) throw notFound("That provider");
+      return;
+    }
     default:
       throw badRequest("Unsupported verification subject.");
   }
@@ -453,6 +466,14 @@ export async function decideVerification(
             data: { verifiedAt: new Date(), status: "ACTIVE" },
           });
           break;
+        case "CARE_PROVIDER":
+          // Approval is what makes a pet hotel or school bookable. A suspended
+          // provider stays suspended: approving paperwork is not an appeal.
+          await tx.careProvider.updateMany({
+            where: { id: verification.subjectId, status: "PENDING" },
+            data: { verifiedAt: new Date(), status: "ACTIVE" },
+          });
+          break;
       }
     }
   });
@@ -467,7 +488,9 @@ export async function decideVerification(
             ? "BREEDER_VERIFIED"
             : verification.type === "CLINIC_LICENSE"
               ? "CLINIC_VERIFIED"
-              : "PET_DOCUMENTED";
+              : verification.type === "CARE_LICENSE"
+                ? "CARE_PROVIDER_VERIFIED"
+                : "PET_DOCUMENTED";
 
     await awardTrustSignal(verification.userId, signal, { reference: verificationId });
   }

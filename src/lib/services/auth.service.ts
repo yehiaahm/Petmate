@@ -62,7 +62,7 @@ export interface RegisterInput {
   email: string;
   password: string;
   name: string;
-  role?: Extract<Role, "USER" | "BREEDER" | "SELLER" | "CLINIC_ADMIN">;
+  role?: Extract<Role, "USER" | "BREEDER" | "SELLER" | "CLINIC_ADMIN" | "CARE_PROVIDER">;
   acceptedTerms: boolean;
   ip?: string | null;
   userAgent?: string | null;

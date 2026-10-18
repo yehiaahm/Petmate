@@ -26,10 +26,10 @@ import { cuidSchema, centsSchema, safeText, currencySchema } from "@/lib/validat
  * transfer happens in the banking system a human operates.
  */
 
-export type PayoutOwnerType = "USER" | "SHOP" | "CLINIC";
+export type PayoutOwnerType = "USER" | "SHOP" | "CLINIC" | "PROVIDER";
 
 export const payoutRequestSchema = z.object({
-  ownerType: z.enum(["USER", "SHOP", "CLINIC"]),
+  ownerType: z.enum(["USER", "SHOP", "CLINIC", "PROVIDER"]),
   ownerId: cuidSchema.optional(),
   amountCents: centsSchema,
   currency: currencySchema.default("USD"),
@@ -46,6 +46,7 @@ function payableAccount(ownerType: PayoutOwnerType, ownerId: string, currency: s
 function availableAccount(ownerType: PayoutOwnerType, ownerId: string, currency: string) {
   if (ownerType === "SHOP") return accounts.sellerAvailable(ownerId, currency);
   if (ownerType === "CLINIC") return accounts.clinicAvailable(ownerId, currency);
+  if (ownerType === "PROVIDER") return accounts.providerAvailable(ownerId, currency);
   return accounts.userAvailable(ownerId, currency);
 }
 
@@ -68,6 +69,18 @@ async function assertPayoutAccess(
     });
     if (!shop) throw notFound("That shop");
     return { notifyUserId: shop.ownerUserId, label: shop.name };
+  }
+
+  if (ownerType === "PROVIDER") {
+    // Owner only, as with clinics. PetMate's own provider never pays out: its
+    // earnings were posted to platform revenue at settlement and its balance
+    // is always zero, so the account it would draw on does not hold money.
+    const provider = await db.careProvider.findFirst({
+      where: { id: ownerId, ownerUserId: auth.user.id, deletedAt: null, isOfficial: false },
+      select: { id: true, name: true, ownerUserId: true },
+    });
+    if (!provider) throw notFound("That provider");
+    return { notifyUserId: provider.ownerUserId, label: provider.name };
   }
 
   // A clinic payout is the owner's call, not any staff member's: a vet with
@@ -354,6 +367,13 @@ async function resolveRecipient(
       select: { ownerUserId: true },
     });
     return shop?.ownerUserId ?? null;
+  }
+  if (ownerType === "PROVIDER") {
+    const provider = await db.careProvider.findUnique({
+      where: { id: ownerId },
+      select: { ownerUserId: true },
+    });
+    return provider?.ownerUserId ?? null;
   }
   const clinic = await db.clinic.findUnique({
     where: { id: ownerId },

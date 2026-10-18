@@ -57,6 +57,7 @@ export const ROLES = [
   "SELLER",
   "VET",
   "CLINIC_ADMIN",
+  "CARE_PROVIDER",
   "COURIER",
   "MODERATOR",
   "ADMIN",
@@ -70,6 +71,7 @@ export const ROLE_LABEL: Record<Role, string> = {
   SELLER: "Seller",
   VET: "Veterinarian",
   CLINIC_ADMIN: "Clinic admin",
+  CARE_PROVIDER: "Pet care provider",
   COURIER: "Courier",
   MODERATOR: "Moderator",
   ADMIN: "Admin",
@@ -290,6 +292,120 @@ export const APPOINTMENT_STATUS = [
 export type AppointmentStatus = (typeof APPOINTMENT_STATUS)[number];
 
 // ---------------------------------------------------------------------------
+// Pet care — boarding, training, pickup and drop-off
+// ---------------------------------------------------------------------------
+
+export const CARE_PROVIDER_STATUS = ["PENDING", "ACTIVE", "SUSPENDED", "CLOSED"] as const;
+export type CareProviderStatus = (typeof CARE_PROVIDER_STATUS)[number];
+
+export const CARE_MEMBER_ROLE = ["OWNER", "MANAGER", "STAFF"] as const;
+export type CareMemberRole = (typeof CARE_MEMBER_ROLE)[number];
+
+export const CARE_BOOKING_KIND = ["BOARDING", "TRAINING"] as const;
+export type CareBookingKind = (typeof CARE_BOOKING_KIND)[number];
+
+export const CARE_BOOKING_KIND_LABEL: Record<CareBookingKind, string> = {
+  BOARDING: "Pet hotel stay",
+  TRAINING: "Training programme",
+};
+
+export const CARE_BOOKING_STATUS = [
+  "PENDING_PAYMENT",
+  "CONFIRMED",
+  "IN_CARE",
+  "COMPLETED",
+  "CANCELLED",
+  "NO_SHOW",
+] as const;
+export type CareBookingStatus = (typeof CARE_BOOKING_STATUS)[number];
+
+/** Statuses that still hold a room-night or a trainer's slot. */
+export const CARE_ACTIVE_STATUSES: CareBookingStatus[] = ["PENDING_PAYMENT", "CONFIRMED", "IN_CARE"];
+
+export const CARE_BOOKING_STATUS_LABEL: Record<CareBookingStatus, string> = {
+  PENDING_PAYMENT: "Awaiting payment",
+  CONFIRMED: "Confirmed",
+  IN_CARE: "In our care",
+  COMPLETED: "Completed",
+  CANCELLED: "Cancelled",
+  NO_SHOW: "No-show",
+};
+
+export const CANCELLATION_POLICY = ["FLEXIBLE", "MODERATE", "STRICT"] as const;
+export type CancellationPolicy = (typeof CANCELLATION_POLICY)[number];
+
+export const CANCELLATION_POLICY_LABEL: Record<CancellationPolicy, string> = {
+  FLEXIBLE: "Flexible",
+  MODERATE: "Moderate",
+  STRICT: "Strict",
+};
+
+export const CANCELLATION_POLICY_SUMMARY: Record<CancellationPolicy, string> = {
+  FLEXIBLE: "Full refund up to 24 hours before the start. No refund after that.",
+  MODERATE: "Full refund up to 3 days before the start, 50% up to 24 hours before.",
+  STRICT: "50% refund up to 7 days before the start. No refund after that.",
+};
+
+export const TRAINING_LEVEL = ["PUPPY", "FOUNDATION", "ADVANCED", "BEHAVIOUR", "SPECIALIST"] as const;
+export type TrainingLevel = (typeof TRAINING_LEVEL)[number];
+
+export const TRAINING_LEVEL_LABEL: Record<TrainingLevel, string> = {
+  PUPPY: "Puppy school",
+  FOUNDATION: "Foundation obedience",
+  ADVANCED: "Advanced obedience",
+  BEHAVIOUR: "Behaviour modification",
+  SPECIALIST: "Specialist skills",
+};
+
+export const TRAINING_FORMAT = ["AT_FACILITY", "IN_HOME"] as const;
+export type TrainingFormat = (typeof TRAINING_FORMAT)[number];
+
+export const TRAINING_FORMAT_LABEL: Record<TrainingFormat, string> = {
+  AT_FACILITY: "At the training centre",
+  IN_HOME: "At your home",
+};
+
+export const TRANSPORT_DIRECTION = ["PICKUP", "DROPOFF"] as const;
+export type TransportDirection = (typeof TRANSPORT_DIRECTION)[number];
+
+export const TRANSPORT_STATUS = ["SCHEDULED", "EN_ROUTE", "COMPLETED", "CANCELLED"] as const;
+export type TransportStatus = (typeof TRANSPORT_STATUS)[number];
+
+export const TRANSPORT_STATUS_LABEL: Record<TransportStatus, string> = {
+  SCHEDULED: "Scheduled",
+  EN_ROUTE: "Driver on the way",
+  COMPLETED: "Done",
+  CANCELLED: "Cancelled",
+};
+
+/** What a provider's team can post to a booking's timeline. */
+export const CARE_UPDATE_TYPE = ["UPDATE", "MEAL", "WALK", "MEDICATION", "TRAINING"] as const;
+export type CareUpdateType = (typeof CARE_UPDATE_TYPE)[number];
+
+export const CARE_UPDATE_TYPE_LABEL: Record<CareUpdateType, string> = {
+  UPDATE: "Update",
+  MEAL: "Meal",
+  WALK: "Walk and play",
+  MEDICATION: "Medication given",
+  TRAINING: "Training progress",
+};
+
+export const BOARDING_AMENITIES = [
+  "24/7 supervision",
+  "Live camera",
+  "Air conditioning",
+  "Outdoor play yard",
+  "Indoor play area",
+  "Grooming on site",
+  "Swimming pool",
+  "Daily photo report",
+  "Vet on call",
+  "Private suites",
+  "Separate cat area",
+  "Special diets",
+] as const;
+
+// ---------------------------------------------------------------------------
 // Commerce
 // ---------------------------------------------------------------------------
 
@@ -346,6 +462,7 @@ export const PAYMENT_PURPOSE = [
   "PET_PURCHASE",
   "PRODUCT_ORDER",
   "APPOINTMENT",
+  "CARE_BOOKING",
   "SUBSCRIPTION",
   "FEATURED_LISTING",
   "AD_CAMPAIGN",
@@ -380,6 +497,7 @@ export const LEDGER_OWNER_TYPE = [
   "USER",
   "SHOP",
   "CLINIC",
+  "PROVIDER",
   "PLATFORM",
   "ESCROW",
   "EXTERNAL",
@@ -430,6 +548,7 @@ export const VERIFICATION_TYPE = [
   "ADDRESS",
   "BREEDER",
   "CLINIC_LICENSE",
+  "CARE_LICENSE",
   "BUSINESS",
   "PET_DOCUMENTS",
   "HEALTH",
@@ -487,12 +606,14 @@ export const TRUST_WEIGHTS = {
   ADDRESS_VERIFIED: 6,
   BREEDER_VERIFIED: 15,
   CLINIC_VERIFIED: 15,
+  CARE_PROVIDER_VERIFIED: 12,
   PROFILE_COMPLETE: 5,
   FIRST_PET_ADDED: 3,
   PET_DOCUMENTED: 4,
   SALE_COMPLETED: 5,
   PURCHASE_COMPLETED: 2,
   APPOINTMENT_COMPLETED: 2,
+  CARE_BOOKING_COMPLETED: 2,
   REVIEW_RECEIVED_POSITIVE: 3,
   REVIEW_RECEIVED_NEGATIVE: -6,
   ACCOUNT_AGE_90D: 5,
@@ -510,12 +631,14 @@ export const TRUST_SIGNAL_LABEL: Record<TrustSignalKind, string> = {
   ADDRESS_VERIFIED: "Address verified",
   BREEDER_VERIFIED: "Verified breeder",
   CLINIC_VERIFIED: "Verified clinic",
+  CARE_PROVIDER_VERIFIED: "Verified pet care business",
   PROFILE_COMPLETE: "Complete profile",
   FIRST_PET_ADDED: "Pet profile created",
   PET_DOCUMENTED: "Pet documents uploaded",
   SALE_COMPLETED: "Completed sale",
   PURCHASE_COMPLETED: "Completed purchase",
   APPOINTMENT_COMPLETED: "Completed vet appointment",
+  CARE_BOOKING_COMPLETED: "Completed pet care booking",
   REVIEW_RECEIVED_POSITIVE: "Positive review",
   REVIEW_RECEIVED_NEGATIVE: "Negative review",
   ACCOUNT_AGE_90D: "Established account",
@@ -553,6 +676,7 @@ export const CONVERSATION_TYPE = [
   "BREEDING",
   "ORDER",
   "APPOINTMENT",
+  "CARE",
   "ADOPTION",
   "SUPPORT",
   "DISPUTE",
@@ -565,6 +689,7 @@ export const NOTIFICATION_CATEGORY = [
   "ORDER",
   "PAYMENT",
   "APPOINTMENT",
+  "CARE",
   "BREEDING",
   "ADOPTION",
   "HEALTH",
@@ -581,6 +706,7 @@ export const NOTIFICATION_CATEGORY_LABEL: Record<NotificationCategory, string> =
   ORDER: "Orders",
   PAYMENT: "Payments",
   APPOINTMENT: "Appointments",
+  CARE: "Pet hotel and training",
   BREEDING: "Breeding",
   ADOPTION: "Adoption",
   HEALTH: "Pet health",

@@ -227,6 +227,49 @@ export const emailTemplates = {
     };
   },
 
+  careBookingConfirmed(params: {
+    providerName: string;
+    petName: string;
+    what: string;
+    when: string;
+    reference: string;
+    url: string;
+  }): RenderedEmail {
+    return {
+      subject: `Booking confirmed — ${params.petName} at ${params.providerName}`,
+      html: layout({
+        preheader: `${params.petName} is booked in for ${params.when}.`,
+        heading: "Booking confirmed",
+        body:
+          p(`${escapeHtml(params.petName)} is booked with <strong>${escapeHtml(params.providerName)}</strong>.`) +
+          `<table role="presentation" style="margin:0 0 12px;font:400 14px/1.6 -apple-system,Segoe UI,Roboto,Arial,sans-serif;">
+            <tr><td style="color:#8a8274;padding-right:16px;">Booking</td><td style="color:${INK};">${escapeHtml(params.what)}</td></tr>
+            <tr><td style="color:#8a8274;padding-right:16px;">Starts</td><td style="color:${INK};"><strong>${escapeHtml(params.when)}</strong></td></tr>
+            <tr><td style="color:#8a8274;padding-right:16px;">Reference</td><td style="color:${INK};">${escapeHtml(params.reference)}</td></tr>
+          </table>`,
+        cta: { label: "View booking", url: params.url },
+        footerNote:
+          "If the team collects your pet, you will be asked for a handover code. Only give it to the driver in person.",
+      }),
+      text: `Booking confirmed: ${params.petName} at ${params.providerName}.\n${params.what}\n${params.when}\nRef ${params.reference}\n\n${params.url}`,
+    };
+  },
+
+  careBookingReminder(params: { providerName: string; petName: string; when: string; url: string }): RenderedEmail {
+    return {
+      subject: `Tomorrow: ${params.petName} at ${params.providerName}`,
+      html: layout({
+        preheader: `Starts ${params.when}.`,
+        heading: "See you tomorrow",
+        body:
+          p(`${escapeHtml(params.petName)}'s booking at <strong>${escapeHtml(params.providerName)}</strong> starts ${escapeHtml(params.when)}.`) +
+          p("Pack their usual food, any medication with written doses, and a familiar blanket or toy."),
+        cta: { label: "View booking", url: params.url },
+      }),
+      text: `${params.petName} at ${params.providerName} starts ${params.when}.\n${params.url}`,
+    };
+  },
+
   healthReminder(params: { petName: string; title: string; dueDate: string; url: string }): RenderedEmail {
     return {
       subject: `${params.petName}: ${params.title} is due`,

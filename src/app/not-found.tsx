@@ -56,7 +56,8 @@ export default function NotFound() {
             <ul className="mt-3 flex flex-wrap justify-center gap-x-5 gap-y-2 text-sm">
               {[
                 { href: "/pets?intent=ADOPTION", label: "Pets for adoption" },
-                { href: "/clinics", label: "Find a vet" },
+                { href: "/boarding", label: "Pet hotels" },
+                { href: "/training", label: "Dog training" },
                 { href: "/store", label: "Pet store" },
                 { href: "/breeds", label: "Breed guide" },
               ].map((link) => (

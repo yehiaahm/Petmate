@@ -1,4 +1,5 @@
 import { normalizeSearchText } from "@/lib/search/text";
+import { isDisabledModulePath } from "@/lib/features";
 
 /**
  * The care assistant when no AI provider is configured.
@@ -105,7 +106,16 @@ function who(facts?: CareFacts, species?: PetSpecies): string {
   return facts?.petName ?? (species ? `your ${SPECIES_NOUN[species]}` : "your pet");
 }
 
+/**
+ * A link into a switched-off module would be a 404 at the worst possible
+ * moment, so it is dropped. The advice itself — "see a vet now" — stands.
+ */
 export function careRulesAnswer(question: string, facts?: CareFacts): CareAnswer {
+  const answer = rulesAnswer(question, facts);
+  return { ...answer, links: answer.links.filter((l) => !isDisabledModulePath(l.href.split("?")[0]!)) };
+}
+
+function rulesAnswer(question: string, facts?: CareFacts): CareAnswer {
   // Apostrophes are dropped, not spaced, so "can't" and "won't" become "cant" and "wont".
   const text = ` ${normalizeSearchText(question.replace(/['’]/g, ""))} `;
   const species = detectSpecies(text, facts);

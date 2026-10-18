@@ -8,6 +8,7 @@ import { Breadcrumbs, PageHeader, Card, StatusPill, Alert } from "@/components/u
 import { ButtonLink } from "@/components/ui/button";
 import { HealthTimeline } from "@/components/pets/health-timeline";
 import type { Species } from "@/lib/constants";
+import { features } from "@/lib/features";
 
 type Params = Promise<{ id: string }>;
 
@@ -48,10 +49,12 @@ export default async function PetHealthPage({ params }: { params: Params }) {
         title={`${timeline.pet.name}'s health record`}
         description="This record follows the animal for life. If they are ever rehomed or sold through PetMate, it goes with them."
         action={
-          <ButtonLink href="/clinics" variant="outline">
-            <Stethoscope className="size-4" aria-hidden />
-            Book a vet
-          </ButtonLink>
+          features.clinics ? (
+            <ButtonLink href="/clinics" variant="outline">
+              <Stethoscope className="size-4" aria-hidden />
+              Book a vet
+            </ButtonLink>
+          ) : undefined
         }
       />
 

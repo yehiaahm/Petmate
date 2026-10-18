@@ -22,7 +22,7 @@ export function ReportButton({
   entityId,
   label = "Report this listing",
 }: {
-  entityType: "LISTING" | "USER" | "MESSAGE" | "PRODUCT" | "POST" | "COMMENT" | "REVIEW" | "CLINIC";
+  entityType: "LISTING" | "USER" | "MESSAGE" | "PRODUCT" | "POST" | "COMMENT" | "REVIEW" | "CLINIC" | "CARE_PROVIDER";
   entityId: string;
   label?: string;
 }) {

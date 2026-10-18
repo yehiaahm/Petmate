@@ -13,7 +13,7 @@ import { cuidSchema, safeParagraph } from "@/lib/validation/common";
 
 export const GET = route({
   query: z.object({
-    targetType: z.enum(["SELLER", "SHOP", "CLINIC", "VET", "PRODUCT", "BREEDER"]).optional(),
+    targetType: z.enum(["SELLER", "SHOP", "CLINIC", "VET", "PRODUCT", "BREEDER", "CARE_PROVIDER"]).optional(),
     targetId: cuidSchema.optional(),
     pending: z.coerce.boolean().optional(),
     page: z.coerce.number().int().min(1).max(200).default(1),

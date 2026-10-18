@@ -5,6 +5,7 @@ import { searchTextClauses, parseSearchTerms, relevanceScore } from "@/lib/searc
 import { interpretQuery } from "@/lib/search/intent";
 import { LIMITS, PUBLIC_LISTING_STATUSES, type Species } from "@/lib/constants";
 import { logger } from "@/lib/logger";
+import { features } from "@/lib/features";
 
 /**
  * Listing discovery.
@@ -517,7 +518,7 @@ export async function getPopularBreeds(species?: Species, limit = 12) {
 export async function searchSuggestions(query: string, limit = 8) {
   if (query.trim().length < 2) return [];
 
-  const [breeds, listings, clinics] = await Promise.all([
+  const [breeds, listings, clinics, providers] = await Promise.all([
     db.breed.findMany({
       where: { name: { contains: query.trim() } },
       take: limit,
@@ -530,10 +531,17 @@ export async function searchSuggestions(query: string, limit = 8) {
       orderBy: { publishedAt: "desc" },
       select: { id: true, slug: true, title: true, intent: true },
     }),
-    db.clinic.findMany({
+    features.clinics
+      ? db.clinic.findMany({
+          where: { status: "ACTIVE", deletedAt: null, AND: searchTextClauses(query) },
+          take: 3,
+          select: { id: true, slug: true, name: true, city: true },
+        })
+      : Promise.resolve([]),
+    db.careProvider.findMany({
       where: { status: "ACTIVE", deletedAt: null, AND: searchTextClauses(query) },
       take: 3,
-      select: { id: true, slug: true, name: true, city: true },
+      select: { id: true, slug: true, name: true, city: true, offersBoarding: true },
     }),
   ]);
 
@@ -555,6 +563,12 @@ export async function searchSuggestions(query: string, limit = 8) {
       label: c.name,
       sublabel: c.city ?? "Clinic",
       href: `/clinics/${c.slug}`,
+    })),
+    ...providers.map((p) => ({
+      type: "care" as const,
+      label: p.name,
+      sublabel: `${p.offersBoarding ? "Pet hotel" : "Dog training"}${p.city ? ` · ${p.city}` : ""}`,
+      href: `/care/${p.slug}`,
     })),
   ].slice(0, limit);
 }

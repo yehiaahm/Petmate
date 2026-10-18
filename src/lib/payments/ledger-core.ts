@@ -179,7 +179,7 @@ export interface EarningsSummary {
 
 /** What a seller or clinic sees on their earnings page. */
 export async function getEarnings(
-  ownerType: Extract<LedgerOwnerType, "SHOP" | "CLINIC" | "USER">,
+  ownerType: Extract<LedgerOwnerType, "SHOP" | "CLINIC" | "PROVIDER" | "USER">,
   ownerId: string,
   currency = "USD",
 ): Promise<EarningsSummary> {
@@ -318,6 +318,18 @@ export const accounts = {
   clinicAvailable: (clinicId: string, currency = "USD"): AccountRef => ({
     ownerType: "CLINIC",
     ownerId: clinicId,
+    kind: "AVAILABLE",
+    currency,
+  }),
+  providerPending: (providerId: string, currency = "USD"): AccountRef => ({
+    ownerType: "PROVIDER",
+    ownerId: providerId,
+    kind: "PENDING",
+    currency,
+  }),
+  providerAvailable: (providerId: string, currency = "USD"): AccountRef => ({
+    ownerType: "PROVIDER",
+    ownerId: providerId,
     kind: "AVAILABLE",
     currency,
   }),

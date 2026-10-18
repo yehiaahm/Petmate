@@ -28,7 +28,7 @@ const bodySchema = z.discriminatedUnion("action", [
     email: emailSchema,
     password: passwordSchema,
     name: safeText(80, 2),
-    role: z.enum(["USER", "BREEDER", "SELLER", "CLINIC_ADMIN"]).optional(),
+    role: z.enum(["USER", "BREEDER", "SELLER", "CLINIC_ADMIN", "CARE_PROVIDER"]).optional(),
     acceptedTerms: z.boolean(),
   }),
   z.object({

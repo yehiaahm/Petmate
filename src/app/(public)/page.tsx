@@ -16,8 +16,9 @@ import {
   Rat,
   ShoppingBag,
   Sparkles,
-  Stethoscope,
   Turtle,
+  BedDouble,
+  GraduationCap,
   type LucideIcon,
 } from "lucide-react";
 import { db } from "@/lib/db";
@@ -36,7 +37,7 @@ export const metadata: Metadata = {
     absolute: "PetMate — Verified pets, verified people, one lifelong record",
   },
   description:
-    "Find, buy, adopt and breed pets from people you can actually check. Every pet gets a health record that follows them for life, plus vet booking and a pet store in one place.",
+    "Find, buy, adopt and breed pets from people you can actually check. Every pet gets a health record that follows them for life, plus pet hotels with pickup and drop-off, dog training and a pet store in one place.",
   alternates: { canonical: "/" },
 };
 
@@ -129,13 +130,13 @@ export default async function HomePage() {
 // ---------------------------------------------------------------------------
 
 async function getPlatformStats() {
-  const [pets, listings, clinics, members] = await Promise.all([
+  const [pets, listings, providers, members] = await Promise.all([
     db.pet.count({ where: { deletedAt: null } }),
     db.listing.count({ where: { status: "ACTIVE", deletedAt: null } }),
-    db.clinic.count({ where: { status: "ACTIVE", deletedAt: null } }),
+    db.careProvider.count({ where: { status: "ACTIVE", deletedAt: null } }),
     db.user.count({ where: { deletedAt: null } }),
   ]);
-  return { pets, listings, clinics, members };
+  return { pets, listings, providers, members };
 }
 
 /** Each part of the product has its own colour, used on its tile and icon. */
@@ -143,7 +144,8 @@ const QUICK_ACTIONS: { href: string; label: string; icon: LucideIcon; tint: stri
   { href: "/pets?intent=SALE", label: "Buy", icon: PawPrint, tint: "var(--color-lagoon-500)" },
   { href: "/pets?intent=ADOPTION", label: "Adopt", icon: Heart, tint: "var(--color-rose)" },
   { href: "/breeding", label: "Breeding", icon: Dna, tint: "var(--color-grape)" },
-  { href: "/clinics", label: "Vets", icon: Stethoscope, tint: "var(--color-sky)" },
+  { href: "/boarding", label: "Pet hotels", icon: BedDouble, tint: "var(--color-sky)" },
+  { href: "/training", label: "Training", icon: GraduationCap, tint: "var(--color-lagoon-500)" },
   { href: "/store", label: "Store", icon: ShoppingBag, tint: "var(--color-sun)" },
 ];
 
@@ -151,7 +153,7 @@ function Hero({
   stats,
   firstName,
 }: {
-  stats: { pets: number; listings: number; clinics: number; members: number };
+  stats: { pets: number; listings: number; providers: number; members: number };
   firstName: string | null;
 }) {
   return (
@@ -216,8 +218,8 @@ function Hero({
               className="enter mx-auto mt-3 max-w-xl text-[15px] leading-relaxed text-fg-muted sm:mt-4 sm:text-lg lg:mx-0"
               style={{ "--d": "240ms" } as React.CSSProperties}
             >
-              Verified health records, payments held safely until you meet the pet, and real vets —
-              all in one place.
+              Verified health records, payments held safely until you meet the pet, and trusted pet
+              hotels and trainers — all in one place.
             </p>
 
             <div
@@ -258,7 +260,7 @@ function Hero({
           {[
             { label: "Pet profiles", value: stats.pets, icon: PawPrint, tint: "var(--color-lagoon-500)" },
             { label: "Live listings", value: stats.listings, icon: Sparkles, tint: "var(--color-sun)" },
-            { label: "Verified clinics", value: stats.clinics, icon: Stethoscope, tint: "var(--color-sky)" },
+            { label: "Hotels & trainers", value: stats.providers, icon: BedDouble, tint: "var(--color-sky)" },
             { label: "Members", value: stats.members, icon: Heart, tint: "var(--color-rose)" },
           ].map((stat) => (
             <div
@@ -424,12 +426,12 @@ function Ecosystem() {
       cta: "Find a match",
     },
     {
-      icon: Stethoscope,
+      icon: BedDouble,
       tint: "var(--color-sky)",
-      title: "Your vet, bookable",
-      body: "Real availability. Visit results land straight in your pet's timeline.",
-      href: "/clinics",
-      cta: "Find a clinic",
+      title: "Care while you're away",
+      body: "Pet hotels and trainers with real availability, photo updates and pickup from your door.",
+      href: "/boarding",
+      cta: "Find a pet hotel",
     },
     {
       icon: ShoppingBag,
@@ -446,7 +448,7 @@ function Ecosystem() {
       <div className="reveal max-w-2xl">
         <p className="eyebrow">One app, the whole journey</p>
         <h2 className="mt-2 text-3xl tracking-tight sm:text-4xl">
-          From the first search to the last vet visit
+          From the first search to every stay away
         </h2>
       </div>
 

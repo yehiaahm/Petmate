@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { careRulesAnswer } from "@/lib/ai/care-rules";
+import { features, isDisabledModulePath } from "@/lib/features";
 
 describe("care assistant rules", () => {
   it("treats emergencies as urgent and never offers home treatment", () => {
@@ -12,7 +13,10 @@ describe("care assistant rules", () => {
     ]) {
       const answer = careRulesAnswer(q);
       expect(answer.urgent, q).toBe(true);
-      expect(answer.links.some((l) => l.href.includes("emergency=true"))).toBe(true);
+      // The emergency-clinic link only exists while the clinics module is on;
+      // either way the answer never links to a page that would 404.
+      expect(answer.links.some((l) => l.href.includes("emergency=true"))).toBe(features.clinics);
+      expect(answer.links.every((l) => !isDisabledModulePath(l.href.split("?")[0]!))).toBe(true);
     }
   });
 

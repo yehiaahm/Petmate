@@ -10,7 +10,7 @@ import { Alert } from "@/components/ui/primitives";
 export const metadata: Metadata = {
   title: "Create your free account",
   description:
-    "Join PetMate to find, adopt and care for pets with verified health records, escrow-protected purchases and vet booking in one place.",
+    "Join PetMate to find, adopt and care for pets with verified health records, escrow-protected purchases, pet hotels and dog training in one place.",
   alternates: { canonical: "/register" },
 };
 

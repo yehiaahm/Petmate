@@ -25,6 +25,8 @@ export interface SettingsShape {
   commissionAppointmentBps: number;
   /** Commission on a paid breeding arrangement, basis points. */
   commissionBreedingBps: number;
+  /** Commission on a pet hotel stay or training programme, basis points. */
+  commissionCareBps: number;
 
   /** Flat fee added to every transaction, minor units. */
   transactionFeeCents: number;
@@ -71,6 +73,7 @@ export const DEFAULT_SETTINGS: SettingsShape = {
   commissionProductBps: 1000, // 10%
   commissionAppointmentBps: 800, // 8%
   commissionBreedingBps: 500, // 5%
+  commissionCareBps: 1500, // 15%
   transactionFeeCents: 0,
 
   escrowAutoReleaseHours: 168, // 7 days
@@ -102,6 +105,7 @@ export const SETTING_DESCRIPTIONS: Record<keyof SettingsShape, string> = {
   commissionProductBps: "Commission taken from each product order, in basis points.",
   commissionAppointmentBps: "Commission taken from each vet booking, in basis points.",
   commissionBreedingBps: "Commission taken from paid breeding arrangements, in basis points.",
+  commissionCareBps: "Commission taken from pet hotel and training bookings, in basis points.",
   transactionFeeCents: "Flat fee added to every transaction, in cents.",
   escrowAutoReleaseHours: "Hours a pet sale is held in escrow before releasing automatically.",
   disputeWindowDays: "Days a buyer has to open a dispute after completion.",
@@ -199,13 +203,15 @@ export function settingCategory(key: keyof SettingsShape): string {
  * rate; `null` on that row means "use the platform default".
  */
 export async function resolveCommissionBps(
-  kind: "PET_SALE" | "PRODUCT" | "APPOINTMENT" | "BREEDING",
+  kind: "PET_SALE" | "PRODUCT" | "APPOINTMENT" | "BREEDING" | "CARE",
   override?: number | null,
 ): Promise<number> {
   if (typeof override === "number" && override >= 0 && override <= 5000) return override;
 
   const s = await getSettings();
   switch (kind) {
+    case "CARE":
+      return s.commissionCareBps;
     case "PET_SALE":
       return s.commissionPetSaleBps;
     case "PRODUCT":

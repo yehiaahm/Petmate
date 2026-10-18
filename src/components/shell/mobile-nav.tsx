@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Menu, X, LogOut, Shield, Stethoscope, Store, ChevronRight } from "lucide-react";
+import { Menu, X, LogOut, Shield, Stethoscope, Store, ChevronRight, CalendarHeart, BedDouble } from "lucide-react";
+import { features } from "@/lib/features";
 import { Avatar, Badge } from "@/components/ui/primitives";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { ThemeToggle } from "./theme-toggle";
@@ -157,7 +158,21 @@ export function MobileNav({
 
               {user && (
                 <div className="border-t border-[var(--border)] p-2">
-                  {user.roles.includes("CLINIC_ADMIN") || user.roles.includes("VET") ? (
+                  <Link
+                    href="/dashboard/bookings"
+                    className="flex items-center gap-3 rounded-2xl px-3.5 py-2.5 text-sm text-fg-muted hover:bg-bg-sunken hover:text-fg"
+                  >
+                    <CalendarHeart className="size-4" aria-hidden /> Hotel & training bookings
+                  </Link>
+                  {user.roles.includes("CARE_PROVIDER") && (
+                    <Link
+                      href="/provider"
+                      className="flex items-center gap-3 rounded-2xl px-3.5 py-2.5 text-sm text-fg-muted hover:bg-bg-sunken hover:text-fg"
+                    >
+                      <BedDouble className="size-4" aria-hidden /> Provider console
+                    </Link>
+                  )}
+                  {features.clinics && (user.roles.includes("CLINIC_ADMIN") || user.roles.includes("VET")) ? (
                     <Link
                       href="/clinic"
                       className="flex items-center gap-3 rounded-2xl px-3.5 py-2.5 text-sm text-fg-muted hover:bg-bg-sunken hover:text-fg"

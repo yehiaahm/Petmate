@@ -8,7 +8,7 @@ import {
   MessageSquare,
   PawPrint,
   User,
-  Stethoscope,
+  BedDouble,
   ShoppingBag,
   type LucideIcon,
 } from "lucide-react";
@@ -35,7 +35,7 @@ const SIGNED_IN: Item[] = [
 const SIGNED_OUT: Item[] = [
   { href: "/", label: "Home", icon: House, exact: true },
   { href: "/pets", label: "Find", icon: Search },
-  { href: "/clinics", label: "Vets", icon: Stethoscope },
+  { href: "/boarding", label: "Hotels", icon: BedDouble },
   { href: "/store", label: "Store", icon: ShoppingBag },
   { href: "/login", label: "Sign in", icon: User },
 ];

@@ -14,7 +14,8 @@ import { pruneAnalytics } from "@/lib/services/analytics.service";
 import { autoReleaseEscrow } from "@/lib/services/petorder.service";
 import { cancelOrder } from "@/lib/services/commerce.service";
 import { expireSubscription } from "@/lib/services/subscription.service";
-import { releaseSellerHold, releaseClinicHold } from "@/lib/payments/settlement";
+import { releaseSellerHold, releaseClinicHold, releaseCareEarnings } from "@/lib/payments/settlement";
+import { expireUnpaidCareBooking } from "@/lib/services/care-booking.service";
 import { clientEnv } from "@/lib/env";
 import type { ClaimedJob, JobType } from "./queue";
 
@@ -123,6 +124,70 @@ const handlers: Record<JobType, Handler> = {
     const appointmentId = String(payload.appointmentId ?? "");
     if (!appointmentId) return "missing appointmentId";
     await releaseClinicHold(appointmentId);
+    return "released";
+  },
+
+  async "care.expireUnpaid"(payload) {
+    const bookingId = String(payload.bookingId ?? "");
+    if (!bookingId) return "missing bookingId";
+    const released = await expireUnpaidCareBooking(bookingId);
+    return released ? "released unpaid booking" : "booking already progressed";
+  },
+
+  async "care.remind"(payload) {
+    const bookingId = String(payload.bookingId ?? "");
+    if (!bookingId) return "missing bookingId";
+
+    const booking = await db.careBooking.findUnique({
+      where: { id: bookingId },
+      select: {
+        id: true,
+        status: true,
+        startAt: true,
+        userId: true,
+        reminderSentAt: true,
+        pet: { select: { name: true } },
+        provider: { select: { name: true, timezone: true } },
+      },
+    });
+    if (!booking) return "booking gone";
+    if (booking.status !== "CONFIRMED") return `skipped (${booking.status})`;
+    if (booking.reminderSentAt) return "already sent";
+
+    const when = booking.startAt.toLocaleString("en-US", {
+      weekday: "long",
+      hour: "numeric",
+      minute: "2-digit",
+      timeZone: booking.provider.timezone,
+    });
+    const link = `${clientEnv.NEXT_PUBLIC_APP_URL}/dashboard/bookings/${booking.id}`;
+
+    await notify({
+      userId: booking.userId,
+      category: "CARE",
+      type: "care.reminder",
+      title: `Tomorrow: ${booking.pet.name} at ${booking.provider.name}`,
+      body: when,
+      url: `/dashboard/bookings/${booking.id}`,
+      entityType: "CARE_BOOKING",
+      entityId: booking.id,
+      email: () =>
+        emailTemplates.careBookingReminder({
+          providerName: booking.provider.name,
+          petName: booking.pet.name,
+          when,
+          url: link,
+        }),
+    });
+
+    await db.careBooking.update({ where: { id: bookingId }, data: { reminderSentAt: new Date() } });
+    return "reminded";
+  },
+
+  async "care.releaseHold"(payload) {
+    const bookingId = String(payload.bookingId ?? "");
+    if (!bookingId) return "missing bookingId";
+    await releaseCareEarnings(bookingId);
     return "released";
   },
 

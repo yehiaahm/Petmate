@@ -8,6 +8,7 @@ import { nextRatingAvgBps } from "@/lib/money";
 import { awardTrustSignal } from "./trust.service";
 import { notify } from "./notification.service";
 import { safeText, safeParagraph, cuidSchema } from "@/lib/validation/common";
+import { features } from "@/lib/features";
 
 /**
  * Reviews.
@@ -21,7 +22,7 @@ import { safeText, safeParagraph, cuidSchema } from "@/lib/validation/common";
  */
 
 export const reviewSchema = z.object({
-  targetType: z.enum(["SELLER", "SHOP", "CLINIC", "VET", "PRODUCT", "BREEDER"]),
+  targetType: z.enum(["SELLER", "SHOP", "CLINIC", "VET", "PRODUCT", "BREEDER", "CARE_PROVIDER"]),
   targetId: cuidSchema,
   rating: z.number().int().min(1).max(5),
   title: safeText(120, 0).optional(),
@@ -29,6 +30,7 @@ export const reviewSchema = z.object({
   orderId: cuidSchema.optional(),
   petOrderId: cuidSchema.optional(),
   appointmentId: cuidSchema.optional(),
+  careBookingId: cuidSchema.optional(),
 });
 
 export async function createReview(auth: AuthContext, input: z.infer<typeof reviewSchema>) {
@@ -65,6 +67,7 @@ export async function createReview(auth: AuthContext, input: z.infer<typeof revi
         orderId: input.orderId ?? null,
         petOrderId: input.petOrderId ?? null,
         appointmentId: input.appointmentId ?? null,
+        careBookingId: input.careBookingId ?? null,
         isVerified: true,
       },
       select: { id: true, rating: true },
@@ -117,6 +120,19 @@ async function verifyTransaction(
         select: { id: true, clinic: { select: { ownerUserId: true } } },
       });
       return { verified: Boolean(appointment), targetUserId: appointment?.clinic.ownerUserId ?? null };
+    }
+
+    case "CARE_PROVIDER": {
+      const booking = await db.careBooking.findFirst({
+        where: {
+          userId: auth.user.id,
+          providerId: input.targetId,
+          status: "COMPLETED",
+          ...(input.careBookingId ? { id: input.careBookingId } : {}),
+        },
+        select: { id: true, provider: { select: { ownerUserId: true } } },
+      });
+      return { verified: Boolean(booking), targetUserId: booking?.provider.ownerUserId ?? null };
     }
 
     case "SHOP":
@@ -194,6 +210,21 @@ async function updateAggregate(tx: Tx, targetType: string, targetId: string, rat
         where: { id: targetId },
         data: {
           ratingAvgBps: nextRatingAvgBps(vet.ratingAvgBps, vet.ratingCount, rating),
+          ratingCount: { increment: 1 },
+        },
+      });
+      break;
+    }
+    case "CARE_PROVIDER": {
+      const provider = await tx.careProvider.findUnique({
+        where: { id: targetId },
+        select: { ratingAvgBps: true, ratingCount: true },
+      });
+      if (!provider) return;
+      await tx.careProvider.update({
+        where: { id: targetId },
+        data: {
+          ratingAvgBps: nextRatingAvgBps(provider.ratingAvgBps, provider.ratingCount, rating),
           ratingCount: { increment: 1 },
         },
       });
@@ -288,6 +319,16 @@ async function ownsTarget(auth: AuthContext, targetType: string, targetId: strin
           select: { id: true },
         }),
       );
+    case "CARE_PROVIDER":
+      return Boolean(
+        await db.careProvider.findFirst({
+          where: {
+            id: targetId,
+            OR: [{ ownerUserId: auth.user.id }, { members: { some: { userId: auth.user.id, role: { in: ["OWNER", "MANAGER"] } } } }],
+          },
+          select: { id: true },
+        }),
+      );
     case "SHOP":
       return Boolean(
         await db.shop.findFirst({ where: { id: targetId, ownerUserId: auth.user.id }, select: { id: true } }),
@@ -354,9 +395,10 @@ export async function listReviews(
 
 /** Things the user has completed but not yet reviewed. Drives the prompt. */
 export async function getPendingReviews(auth: AuthContext) {
-  const [appointments, orders, purchases] = await Promise.all([
+  const [appointments, orders, purchases, careBookings] = await Promise.all([
     db.appointment.findMany({
-      where: { userId: auth.user.id, status: "COMPLETED" },
+      // A switched-off module does not prompt for reviews nobody can submit.
+      where: { userId: auth.user.id, status: "COMPLETED", ...(features.clinics ? {} : { id: "__none__" }) },
       orderBy: { startAt: "desc" },
       take: 5,
       select: {
@@ -387,6 +429,19 @@ export async function getPendingReviews(auth: AuthContext) {
         listing: { select: { title: true, pet: { select: { name: true } } } },
       },
     }),
+    db.careBooking.findMany({
+      where: { userId: auth.user.id, status: "COMPLETED" },
+      orderBy: { completedAt: "desc" },
+      take: 5,
+      select: {
+        id: true,
+        providerId: true,
+        provider: { select: { name: true } },
+        pet: { select: { name: true } },
+        unit: { select: { name: true } },
+        program: { select: { name: true } },
+      },
+    }),
   ]);
 
   const reviewed = await db.review.findMany({
@@ -407,6 +462,19 @@ export async function getPendingReviews(auth: AuthContext) {
         label: a.clinic.name,
         context: `Visit for ${a.pet.name}`,
         refId: a.id,
+      });
+    }
+  }
+  for (const b of careBookings) {
+    if (!done.has(`CARE_PROVIDER:${b.providerId}`)) {
+      done.add(`CARE_PROVIDER:${b.providerId}`);
+      pending.push({
+        type: "care",
+        targetType: "CARE_PROVIDER",
+        targetId: b.providerId,
+        label: b.provider.name,
+        context: `${b.unit?.name ?? b.program?.name ?? "Booking"} for ${b.pet.name}`,
+        refId: b.id,
       });
     }
   }

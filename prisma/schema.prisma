@@ -90,6 +90,9 @@ model User {
   ownedClinics        Clinic[]                  @relation("ClinicOwner")
   ownedShops          Shop[]                    @relation("ShopOwner")
   appointments        Appointment[]             @relation("AppointmentCustomer")
+  ownedCareProviders  CareProvider[]            @relation("CareProviderOwner")
+  careMemberships     CareProviderMember[]
+  careBookings        CareBooking[]             @relation("CareBookingCustomer")
   cartItems           CartItem[]
   orders              Order[]                   @relation("OrderBuyer")
   reviewsWritten      Review[]                  @relation("ReviewAuthor")
@@ -310,6 +313,7 @@ model Pet {
   listings                Listing[]
   breedingProfile         BreedingProfile?
   appointments            Appointment[]
+  careBookings            CareBooking[]
   transfers               PetTransfer[]
   littersAsDam            Litter[]          @relation("LitterDam")
   littersAsSire           Litter[]          @relation("LitterSire")
@@ -994,6 +998,317 @@ model Appointment {
 }
 
 // ============================================================================
+// PET CARE — boarding (pet hotels), dog training, pickup and drop-off
+// ============================================================================
+
+/// A business that looks after animals: a pet hotel, a training school, or
+/// both. `isOfficial` marks PetMate's own operation, run by staff; everything
+/// it earns is platform revenue rather than a balance to pay out.
+model CareProvider {
+  id          String  @id @default(cuid())
+  ownerUserId String
+  name        String
+  slug        String  @unique
+  tagline     String?
+  description String?
+  email       String
+  phone       String?
+  website     String?
+
+  addressLine String?
+  city        String?
+  region      String?
+  country     String?
+  postalCode  String?
+  lat         Float?
+  lng         Float?
+  // IANA zone the desk hours and training hours are written in.
+  timezone    String  @default("UTC")
+
+  logoUrl   String?
+  bannerUrl String?
+
+  status        String    @default("PENDING") // PENDING | ACTIVE | SUSPENDED | CLOSED
+  verifiedAt    DateTime?
+  licenseNumber String?
+  isOfficial    Boolean   @default(false)
+
+  offersBoarding Boolean @default(false)
+  offersTraining Boolean @default(false)
+
+  // Hotel desk: earliest check-in and latest check-out, minutes since midnight.
+  checkInMinute  Int @default(540) // 09:00
+  checkOutMinute Int @default(1080) // 18:00
+
+  // Pickup and drop-off, run by the provider's own team. A leg is priced as
+  // base + per-km x straight-line distance, and refused beyond the radius.
+  offersTransport     Boolean @default(false)
+  transportRadiusKm   Int     @default(15)
+  transportBaseCents  Int     @default(0)
+  transportPerKmCents Int     @default(0)
+
+  // How many training sessions can run at the same time (trainers on shift).
+  trainerCount Int @default(1)
+
+  amenities           String? // comma-delimited, display only
+  requiresVaccination Boolean @default(true)
+  cancellationPolicy  String  @default("MODERATE") // FLEXIBLE | MODERATE | STRICT
+  bookingLeadHours    Int     @default(12)
+  currency            String  @default("USD")
+
+  // Per-provider override of the platform care commission, in basis points.
+  commissionBps Int?
+
+  ratingAvgBps Int @default(0)
+  ratingCount  Int @default(0)
+  bookingCount Int @default(0)
+
+  searchText String @default("")
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  owner    User                 @relation("CareProviderOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
+  members  CareProviderMember[]
+  units    BoardingUnit[]
+  programs TrainingProgram[]
+  hours    CareProviderHours[]
+  bookings CareBooking[]
+  sessions TrainingSession[]
+
+  @@index([status, offersBoarding, city])
+  @@index([status, offersTraining, city])
+  @@index([ownerUserId])
+}
+
+model CareProviderMember {
+  id         String   @id @default(cuid())
+  providerId String
+  userId     String
+  role       String // OWNER | MANAGER | STAFF
+  joinedAt   DateTime @default(now())
+
+  provider CareProvider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  user     User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([providerId, userId])
+  @@index([userId])
+}
+
+/// Weekly training hours. Minutes since midnight in the provider's zone.
+model CareProviderHours {
+  id          String @id @default(cuid())
+  providerId  String
+  weekday     Int // 0 = Sunday
+  startMinute Int
+  endMinute   Int
+  slotMinutes Int    @default(60)
+
+  provider CareProvider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@index([providerId, weekday])
+}
+
+/// A room type in a pet hotel. `capacity` identical rooms exist; each booked
+/// night claims one of them through BoardingNight.
+model BoardingUnit {
+  id           String  @id @default(cuid())
+  providerId   String
+  name         String
+  description  String?
+  species      String? // comma-delimited, empty means all
+  maxWeightKg  Float?
+  nightlyCents Int
+  capacity     Int     @default(1)
+  amenities    String? // comma-delimited, display only
+  photoUrl     String?
+  isActive     Boolean @default(true)
+  position     Int     @default(0)
+
+  provider CareProvider   @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  nights   BoardingNight[]
+  bookings CareBooking[]
+
+  @@index([providerId, isActive])
+}
+
+/// One room-night held by one booking. `slot` is which of the unit's identical
+/// rooms it occupies, so the unique index is what makes overbooking impossible:
+/// a hotel with three suites has exactly three (unit, night) rows to give out.
+model BoardingNight {
+  id        String   @id @default(cuid())
+  unitId    String
+  bookingId String
+  night     DateTime // midnight UTC of the provider's local calendar date
+  slot      Int
+
+  unit    BoardingUnit @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  booking CareBooking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@unique([unitId, night, slot])
+  @@index([bookingId])
+}
+
+model TrainingProgram {
+  id                  String  @id @default(cuid())
+  providerId          String
+  name                String
+  description         String?
+  level               String // PUPPY | FOUNDATION | ADVANCED | BEHAVIOUR | SPECIALIST
+  format              String // AT_FACILITY | IN_HOME
+  species             String  @default("DOG") // comma-delimited
+  sessionsCount       Int
+  sessionMinutes      Int     @default(60)
+  sessionIntervalDays Int     @default(7)
+  priceCents          Int // the whole programme, not per session
+  minAgeMonths        Int?
+  outcomes            String? // comma-delimited "what your dog will learn"
+  isActive            Boolean @default(true)
+  position            Int     @default(0)
+
+  provider CareProvider  @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  bookings CareBooking[]
+
+  @@index([providerId, isActive])
+}
+
+/// One booked training session. `seat` is which trainer's diary it occupies;
+/// the unique index stops two bookings taking the same trainer at once.
+model TrainingSession {
+  id           String    @id @default(cuid())
+  bookingId    String
+  providerId   String
+  sequence     Int
+  startAt      DateTime
+  endAt        DateTime
+  seat         Int
+  status       String    @default("SCHEDULED") // SCHEDULED | COMPLETED | MISSED
+  trainerNotes String?
+  completedAt  DateTime?
+
+  booking  CareBooking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  provider CareProvider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@unique([providerId, startAt, seat])
+  @@index([bookingId, sequence])
+}
+
+model CareBooking {
+  id         String @id @default(cuid())
+  reference  String @unique
+  providerId String
+  userId     String
+  petId      String
+  kind       String // BOARDING | TRAINING
+
+  status String @default("PENDING_PAYMENT") // PENDING_PAYMENT | CONFIRMED | IN_CARE | COMPLETED | CANCELLED | NO_SHOW
+
+  unitId    String?
+  programId String?
+
+  // Boarding: check-in to check-out. Training: first session to last.
+  startAt  DateTime
+  endAt    DateTime
+  nights   Int      @default(0)
+  sessions Int      @default(0)
+
+  // Every amount is computed server-side at booking time and frozen here.
+  serviceCents    Int
+  transportCents  Int    @default(0)
+  totalCents      Int
+  commissionCents Int    @default(0)
+  currency        String @default("USD")
+  // The policy the customer agreed to, not whatever the provider has today.
+  cancellationPolicy String
+
+  paymentIntentId    String?
+  paidAt             DateTime?
+  refundedCents      Int       @default(0)
+  earningsReleasedAt DateTime?
+
+  // Pickup / drop-off, and in-home training: where the team goes.
+  serviceAddress    String?
+  serviceLat        Float?
+  serviceLng        Float?
+  serviceDistanceKm Float?
+  contactPhone      String?
+
+  careInstructions String? // feeding, medication, habits
+  emergencyContact String?
+
+  checkedInAt        DateTime?
+  completedAt        DateTime?
+  cancelledAt        DateTime?
+  cancelledById      String?
+  cancellationReason String?
+  reminderSentAt     DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  provider         CareProvider      @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  user             User              @relation("CareBookingCustomer", fields: [userId], references: [id], onDelete: Cascade)
+  pet              Pet               @relation(fields: [petId], references: [id], onDelete: Cascade)
+  unit             BoardingUnit?     @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  program          TrainingProgram?  @relation(fields: [programId], references: [id], onDelete: SetNull)
+  paymentIntent    PaymentIntent?    @relation(fields: [paymentIntentId], references: [id], onDelete: SetNull)
+  boardingNights   BoardingNight[]
+  trainingSessions TrainingSession[]
+  transports       CareTransport[]
+  events           CareEvent[]
+
+  @@index([providerId, startAt])
+  @@index([userId, startAt])
+  @@index([petId, startAt])
+  @@index([status, startAt])
+}
+
+/// A pickup or drop-off leg. Handover is proven by the owner's one-time code,
+/// which is derived (HMAC) rather than stored, so the database never holds it.
+model CareTransport {
+  id            String    @id @default(cuid())
+  bookingId     String
+  direction     String // PICKUP | DROPOFF
+  status        String    @default("SCHEDULED") // SCHEDULED | EN_ROUTE | COMPLETED | CANCELLED
+  scheduledAt   DateTime
+  address       String
+  lat           Float
+  lng           Float
+  driverName    String?
+  otpIssuedAt   DateTime?
+  otpAttempts   Int       @default(0)
+  startedAt     DateTime?
+  completedAt   DateTime?
+  completedById String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  booking CareBooking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId])
+  @@index([status, scheduledAt])
+}
+
+/// The booking's timeline: status changes, transport, and the updates and
+/// photos the team posts while the pet is in their care.
+model CareEvent {
+  id        String   @id @default(cuid())
+  bookingId String
+  type      String // STATUS | TRANSPORT | UPDATE | MEAL | WALK | MEDICATION | TRAINING
+  title     String
+  body      String?
+  photoUrl  String?
+  actorId   String?
+  createdAt DateTime @default(now())
+
+  booking CareBooking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId, createdAt])
+}
+
+// ============================================================================
 // COMMERCE
 // ============================================================================
 
@@ -1339,7 +1654,7 @@ model PaymentIntent {
   provider    String // stripe | ledger
   providerRef String? @unique
 
-  purpose     String // PET_PURCHASE | PRODUCT_ORDER | APPOINTMENT | SUBSCRIPTION | FEATURED_LISTING | AD_CAMPAIGN | WALLET_TOPUP
+  purpose     String // PET_PURCHASE | PRODUCT_ORDER | APPOINTMENT | CARE_BOOKING | SUBSCRIPTION | FEATURED_LISTING | AD_CAMPAIGN | WALLET_TOPUP
   amountCents Int
   currency    String @default("USD")
 
@@ -1367,6 +1682,7 @@ model PaymentIntent {
   orders        Order[]
   petOrders     PetOrder[]
   appointments  Appointment[]
+  careBookings  CareBooking[]
   refunds       Refund[]
   invoice       Invoice?
   transactions  LedgerTransaction[]
@@ -1783,7 +2099,7 @@ model Review {
   id       String @id @default(cuid())
   authorId String
 
-  targetType String // SELLER | SHOP | CLINIC | VET | PRODUCT | BREEDER
+  targetType String // SELLER | SHOP | CLINIC | VET | PRODUCT | BREEDER | CARE_PROVIDER
   targetId   String
 
   rating Int // 1-5
@@ -1795,6 +2111,7 @@ model Review {
   orderId       String?
   petOrderId    String?
   appointmentId String?
+  careBookingId String?
   isVerified    Boolean @default(false)
 
   status            String    @default("PUBLISHED") // PUBLISHED | HIDDEN | REMOVED

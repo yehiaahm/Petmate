@@ -14,8 +14,11 @@ import {
   Stethoscope,
   ShieldCheck,
   Dna,
+  BedDouble,
+  GraduationCap,
 } from "lucide-react";
 import { db } from "@/lib/db";
+import { features } from "@/lib/features";
 import { requireAuth } from "@/lib/auth/rbac";
 import { getTrustBreakdown } from "@/lib/services/trust.service";
 import { getRecommendedListings } from "@/lib/services/search.service";
@@ -50,6 +53,7 @@ export default async function DashboardPage() {
     trust,
     recommended,
     pendingReviews,
+    careBookings,
   ] = await Promise.all([
     db.pet.findMany({
       where: { ownerId: userId, deletedAt: null },
@@ -78,23 +82,25 @@ export default async function DashboardPage() {
       take: 5,
       select: { id: true, title: true, dueAt: true, pet: { select: { id: true, name: true } } },
     }),
-    db.appointment.findMany({
-      where: {
-        userId,
-        startAt: { gte: now },
-        status: { in: ["CONFIRMED", "PENDING_PAYMENT", "CHECKED_IN"] },
-      },
-      orderBy: { startAt: "asc" },
-      take: 3,
-      select: {
-        id: true,
-        startAt: true,
-        status: true,
-        service: { select: { name: true } },
-        clinic: { select: { name: true, slug: true } },
-        pet: { select: { name: true } },
-      },
-    }),
+    features.clinics
+      ? db.appointment.findMany({
+          where: {
+            userId,
+            startAt: { gte: now },
+            status: { in: ["CONFIRMED", "PENDING_PAYMENT", "CHECKED_IN"] },
+          },
+          orderBy: { startAt: "asc" },
+          take: 3,
+          select: {
+            id: true,
+            startAt: true,
+            status: true,
+            service: { select: { name: true } },
+            clinic: { select: { name: true, slug: true } },
+            pet: { select: { name: true } },
+          },
+        })
+      : Promise.resolve([]),
     db.listing.count({
       where: { sellerId: userId, status: { in: ["ACTIVE", "RESERVED"] }, deletedAt: null },
     }),
@@ -126,6 +132,21 @@ export default async function DashboardPage() {
       country: auth.user.country,
     }),
     getPendingReviews(auth),
+    db.careBooking.findMany({
+      where: { userId, status: { in: ["PENDING_PAYMENT", "CONFIRMED", "IN_CARE"] } },
+      orderBy: { startAt: "asc" },
+      take: 3,
+      select: {
+        id: true,
+        kind: true,
+        status: true,
+        startAt: true,
+        pet: { select: { name: true } },
+        unit: { select: { name: true } },
+        program: { select: { name: true } },
+        provider: { select: { name: true, timezone: true } },
+      },
+    }),
   ]);
 
   const firstName = auth.user.name.split(" ")[0];
@@ -319,12 +340,51 @@ export default async function DashboardPage() {
                     );
                   })}
                 </ul>
-                <div className="border-t border-[var(--border)] p-3">
-                  <ButtonLink href="/clinics" variant="ghost" size="sm" fullWidth>
-                    <Stethoscope className="size-4" aria-hidden />
-                    Book a clinic visit
-                  </ButtonLink>
-                </div>
+                {features.clinics && (
+                  <div className="border-t border-[var(--border)] p-3">
+                    <ButtonLink href="/clinics" variant="ghost" size="sm" fullWidth>
+                      <Stethoscope className="size-4" aria-hidden />
+                      Book a clinic visit
+                    </ButtonLink>
+                  </div>
+                )}
+              </Card>
+            </section>
+          )}
+
+          {careBookings.length > 0 && (
+            <section>
+              <div className="mb-4 flex items-baseline justify-between gap-3">
+                <h2 className="font-display text-xl font-semibold text-fg">Hotel and training</h2>
+                <Link href="/dashboard/bookings" className="text-sm font-medium text-brand hover:underline">
+                  All bookings
+                </Link>
+              </div>
+              <Card>
+                <ul className="divide-y divide-[var(--border)]">
+                  {careBookings.map((b) => (
+                    <li key={b.id}>
+                      <Link
+                        href={`/dashboard/bookings/${b.id}`}
+                        className="flex items-center gap-3 p-4 transition-colors hover:bg-bg-sunken"
+                      >
+                        <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-brand-soft text-brand-soft-fg">
+                          {b.kind === "BOARDING" ? <BedDouble className="size-4" aria-hidden /> : <GraduationCap className="size-4" aria-hidden />}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium text-fg">
+                            {b.pet.name} · {b.unit?.name ?? b.program?.name}
+                          </p>
+                          <p className="truncate text-xs text-fg-muted">
+                            {b.provider.name} · {formatDate(b.startAt, "long")}
+                          </p>
+                        </div>
+                        {b.status === "PENDING_PAYMENT" && <Badge tone="warning" size="sm">Unpaid</Badge>}
+                        {b.status === "IN_CARE" && <Badge tone="brand" size="sm">{b.kind === "BOARDING" ? "In care" : "In progress"}</Badge>}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
               </Card>
             </section>
           )}
@@ -409,7 +469,9 @@ export default async function DashboardPage() {
             <div className="mt-3 space-y-2">
               {[
                 { href: "/dashboard/listings/new", label: "List a pet", icon: TrendingUp },
-                { href: "/clinics", label: "Book a vet", icon: Stethoscope },
+                { href: "/boarding", label: "Book a pet hotel", icon: BedDouble },
+                { href: "/training", label: "Book dog training", icon: GraduationCap },
+                ...(features.clinics ? [{ href: "/clinics", label: "Book a vet", icon: Stethoscope }] : []),
                 { href: "/dashboard/breeding", label: "Find a breeding match", icon: Dna },
                 { href: "/store", label: "Shop supplies", icon: ShoppingBag },
               ].map((action) => (

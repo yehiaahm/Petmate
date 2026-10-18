@@ -10,15 +10,22 @@ import { Alert } from "@/components/ui/primitives";
 import { api, ApiError } from "@/lib/api-client";
 import { PasswordStrength, assessPasswordClient } from "@/components/auth/password-strength";
 import { cn } from "@/lib/utils";
+import { features } from "@/lib/features";
 
-type Role = "USER" | "BREEDER" | "SELLER" | "CLINIC_ADMIN";
+type Role = "USER" | "BREEDER" | "SELLER" | "CLINIC_ADMIN" | "CARE_PROVIDER";
 
 const ROLE_OPTIONS: { value: Role; label: string; description: string }[] = [
-  { value: "USER", label: "I own or want a pet", description: "Buy, adopt, book vets, keep records" },
+  { value: "USER", label: "I own or want a pet", description: "Buy, adopt, book hotels and training" },
   { value: "BREEDER", label: "I breed", description: "Listings, breeding matches, litters" },
   { value: "SELLER", label: "I sell products", description: "Open a shop on the store" },
-  { value: "CLINIC_ADMIN", label: "I run a clinic", description: "Take bookings, write records" },
+  { value: "CARE_PROVIDER", label: "I run a pet hotel or train dogs", description: "Take bookings, pickups, updates" },
+  ...(features.clinics
+    ? [{ value: "CLINIC_ADMIN" as const, label: "I run a clinic", description: "Take bookings, write records" }]
+    : []),
 ];
+
+/** Where a business account goes after signing in for the first time. */
+const ONBOARDING: Partial<Record<Role, string>> = { CARE_PROVIDER: "/provider/new", CLINIC_ADMIN: "/clinic/new" };
 
 /**
  * Registration.
@@ -61,7 +68,8 @@ export function RegisterForm({ next }: { next: string }) {
         acceptedTerms,
       });
 
-      router.push(`/login?registered=1${next !== "/dashboard" ? `&next=${encodeURIComponent(next)}` : ""}`);
+      const destination = next === "/dashboard" ? (ONBOARDING[role] ?? next) : next;
+      router.push(`/login?registered=1${destination !== "/dashboard" ? `&next=${encodeURIComponent(destination)}` : ""}`);
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message);

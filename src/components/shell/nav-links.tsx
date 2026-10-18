@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
  */
 export function NavLinks({ links }: { links: { href: string; label: string }[] }) {
   return (
-    <nav aria-label="Main" className="hidden items-center gap-1 lg:flex">
+    <nav aria-label="Main" className="hidden items-center gap-0.5 lg:flex xl:gap-1">
       {/* useSearchParams needs a Suspense boundary; the fallback is the same
           links without the active state. */}
       <Suspense fallback={<Links links={links} active={null} />}>
@@ -59,7 +59,9 @@ function Links({
             href={link.href}
             aria-current={isActive ? "page" : undefined}
             className={cn(
-              "relative rounded-full px-3.5 py-2 text-sm font-semibold transition-colors duration-200",
+              // Tighter between lg and xl, where seven sections and the search
+              // box share one row; a label never breaks onto two lines.
+              "relative whitespace-nowrap rounded-full px-2.5 py-2 text-sm font-semibold transition-colors duration-200 xl:px-3.5",
               isActive
                 ? "bg-brand-soft text-brand-soft-fg"
                 : "text-fg-muted hover:bg-bg-sunken hover:text-fg",

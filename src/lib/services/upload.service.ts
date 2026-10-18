@@ -27,7 +27,8 @@ export type UploadPurpose =
   | "VERIFICATION"
   | "EVIDENCE"
   | "DELIVERY_PROOF"
-  | "MESSAGE_ATTACHMENT";
+  | "MESSAGE_ATTACHMENT"
+  | "CARE_PHOTO";
 
 interface TypeSpec {
   mime: string;
@@ -72,6 +73,9 @@ const PURPOSE_RULES: Record<
   AVATAR: { types: IMAGE_TYPES, maxBytes: 3 * 1024 * 1024, public: true },
   BANNER: { types: IMAGE_TYPES, maxBytes: LIMITS.maxUploadBytes, public: true },
   MESSAGE_ATTACHMENT: { types: IMAGE_TYPES, maxBytes: LIMITS.maxUploadBytes, public: false },
+  // Photos a pet hotel or trainer posts to a booking. Served like pet photos:
+  // an unguessable URL, shown only on the owner's and the team's booking pages.
+  CARE_PHOTO: { types: IMAGE_TYPES, maxBytes: LIMITS.maxUploadBytes, public: true },
   // Documents are private by default: a vaccination card carries a name, an
   // address and a microchip number.
   PET_DOCUMENT: {

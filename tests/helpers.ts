@@ -255,12 +255,92 @@ export async function makeClinicWithService(ownerUserId: string) {
   return { clinicId: clinic.id, vetId: vet.id, serviceId: service.id, service };
 }
 
+/**
+ * A live pet hotel and training school in Cairo, on UTC so slot arithmetic in
+ * tests is plain. Vaccination is off unless a test asks for it.
+ */
+export async function makeCareProvider(
+  ownerUserId: string,
+  overrides: {
+    capacity?: number;
+    trainerCount?: number;
+    official?: boolean;
+    requiresVaccination?: boolean;
+    cancellationPolicy?: "FLEXIBLE" | "MODERATE" | "STRICT";
+  } = {},
+) {
+  const id = unique();
+  const provider = await db.careProvider.create({
+    data: {
+      ownerUserId,
+      name: `Care ${id}`,
+      slug: `care-${id}`,
+      email: `care-${id}@example.test`,
+      addressLine: "1 Nile Street",
+      city: "Cairo",
+      country: "Egypt",
+      lat: 30.0444,
+      lng: 31.2357,
+      timezone: "UTC",
+      status: "ACTIVE",
+      verifiedAt: new Date(),
+      isOfficial: overrides.official ?? false,
+      commissionBps: overrides.official ? 10_000 : null,
+      offersBoarding: true,
+      offersTraining: true,
+      offersTransport: true,
+      transportRadiusKm: 20,
+      transportBaseCents: 5_000,
+      transportPerKmCents: 500,
+      trainerCount: overrides.trainerCount ?? 1,
+      requiresVaccination: overrides.requiresVaccination ?? false,
+      cancellationPolicy: overrides.cancellationPolicy ?? "MODERATE",
+      bookingLeadHours: 2,
+      currency: "USD",
+      members: { create: { userId: ownerUserId, role: "OWNER" } },
+      hours: {
+        create: [0, 1, 2, 3, 4, 5, 6].map((weekday) => ({
+          weekday,
+          startMinute: 9 * 60,
+          endMinute: 17 * 60,
+          slotMinutes: 60,
+        })),
+      },
+    },
+    select: { id: true },
+  });
+
+  const unit = await db.boardingUnit.create({
+    data: { providerId: provider.id, name: "Suite", nightlyCents: 10_000, capacity: overrides.capacity ?? 1 },
+    select: { id: true },
+  });
+
+  const program = await db.trainingProgram.create({
+    data: {
+      providerId: provider.id,
+      name: "Foundation obedience",
+      level: "FOUNDATION",
+      format: "AT_FACILITY",
+      species: "DOG",
+      sessionsCount: 3,
+      sessionMinutes: 60,
+      sessionIntervalDays: 7,
+      priceCents: 30_000,
+    },
+    select: { id: true },
+  });
+
+  return { providerId: provider.id, unitId: unit.id, programId: program.id };
+}
+
 /** Wipes every table between suites, in FK-safe order. */
 export async function resetDatabase() {
   const tables = [
     "LedgerEntry", "LedgerTransaction", "LedgerAccount", "Refund", "Invoice",
     "DeliveryEvent", "Delivery", "OrderItem", "Order", "PetOrder", "CartItem",
     "ProductVariant", "ProductImage", "Product", "Shop",
+    "CareEvent", "CareTransport", "TrainingSession", "BoardingNight", "CareBooking",
+    "TrainingProgram", "BoardingUnit", "CareProviderHours", "CareProviderMember", "CareProvider",
     "Appointment", "Service", "ClinicHours", "AvailabilityException", "Vet", "ClinicMember", "Clinic",
     "DisputeMessage", "Dispute", "Report", "Verification", "TrustSignal", "RiskEvent", "Block",
     "Message", "ConversationParticipant", "Conversation",

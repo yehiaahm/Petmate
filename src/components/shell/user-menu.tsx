@@ -15,9 +15,12 @@ import {
   Shield,
   CreditCard,
   ChevronDown,
+  CalendarHeart,
+  BedDouble,
 } from "lucide-react";
 import { Avatar, Badge } from "@/components/ui/primitives";
 import { api } from "@/lib/api-client";
+import { features } from "@/lib/features";
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 import type { SessionUser } from "@/lib/auth/session";
@@ -60,7 +63,8 @@ export function UserMenu({ user }: { user: SessionUser }) {
     user.roles.includes("ADMIN") ||
     user.roles.includes("SUPER_ADMIN") ||
     user.roles.includes("MODERATOR");
-  const isClinic = user.roles.includes("CLINIC_ADMIN") || user.roles.includes("VET");
+  const isClinic = features.clinics && (user.roles.includes("CLINIC_ADMIN") || user.roles.includes("VET"));
+  const isProvider = user.roles.includes("CARE_PROVIDER");
   const isSeller = user.roles.includes("SELLER");
 
   const groups: { label?: string; items: { href: string; label: string; icon: typeof PawPrint }[] }[] = [
@@ -69,9 +73,13 @@ export function UserMenu({ user }: { user: SessionUser }) {
         { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
         { href: "/dashboard/pets", label: "My pets", icon: PawPrint },
         { href: "/dashboard/listings", label: "My listings", icon: Heart },
+        { href: "/dashboard/bookings", label: "Hotel & training bookings", icon: CalendarHeart },
         { href: "/dashboard/orders", label: "Orders & purchases", icon: ShoppingBag },
       ],
     },
+    ...(isProvider
+      ? [{ label: "Pet care business", items: [{ href: "/provider", label: "Provider console", icon: BedDouble }] }]
+      : []),
     ...(isClinic
       ? [{ label: "Clinic", items: [{ href: "/clinic", label: "Clinic console", icon: Stethoscope }] }]
       : []),

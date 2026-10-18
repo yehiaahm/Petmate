@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Heart, Lock } from "lucide-react";
 import { Logo, LogoMark } from "@/components/brand/logo";
 import { SPECIES_PLURAL, SPECIES } from "@/lib/constants";
+import { features } from "@/lib/features";
 
 const COLUMNS: { title: string; links: { href: string; label: string }[] }[] = [
   {
@@ -16,8 +17,9 @@ const COLUMNS: { title: string; links: { href: string; label: string }[] }[] = [
   {
     title: "Care",
     links: [
-      { href: "/clinics", label: "Find a vet" },
-      { href: "/clinics?emergency=true", label: "Emergency clinics" },
+      { href: "/boarding", label: "Pet hotels" },
+      { href: "/training", label: "Dog training" },
+      ...(features.clinics ? [{ href: "/clinics", label: "Find a vet" }] : []),
       { href: "/store", label: "Pet store" },
       { href: "/assistant", label: "Care assistant" },
     ],
@@ -27,7 +29,8 @@ const COLUMNS: { title: string; links: { href: string; label: string }[] }[] = [
     links: [
       { href: "/dashboard/listings/new", label: "List a pet" },
       { href: "/sell", label: "Open a shop" },
-      { href: "/for-clinics", label: "For veterinary clinics" },
+      { href: "/for-providers", label: "For pet hotels & trainers" },
+      ...(features.clinics ? [{ href: "/for-clinics", label: "For veterinary clinics" }] : []),
       { href: "/pricing", label: "Plans & pricing" },
     ],
   },

@@ -7,7 +7,7 @@ import { api, qs } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
 
 interface Suggestion {
-  type: "breed" | "listing" | "clinic";
+  type: "breed" | "listing" | "clinic" | "care";
   label: string;
   sublabel: string;
   href: string;
@@ -25,7 +25,7 @@ const EMPTY_SUGGESTIONS: Suggestion[] = [];
 
 export function SearchBar({
   className,
-  placeholder = "Search pets, breeds, clinics…",
+  placeholder = "Search pets, breeds, pet hotels…",
   autoFocus,
   onNavigate,
 }: {

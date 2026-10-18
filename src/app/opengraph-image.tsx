@@ -83,7 +83,7 @@ export default async function OpengraphImage() {
           <span>·</span>
           <span>Breeding</span>
           <span>·</span>
-          <span>Vet booking</span>
+          <span>Pet hotels & training</span>
           <span>·</span>
           <span>Pet store</span>
         </div>

@@ -29,7 +29,7 @@ export default async function WalletPage() {
   const auth = await requireAuth();
   const currency = auth.user.currency;
 
-  const [earnings, entries, payouts, settings, shops, clinics] = await Promise.all([
+  const [earnings, entries, payouts, settings, shops, clinics, providers] = await Promise.all([
     getEarnings("USER", auth.user.id, currency),
     listLedgerEntries("USER", auth.user.id, { currency, limit: 50 }),
     listPayouts("USER", auth.user.id),
@@ -42,9 +42,30 @@ export default async function WalletPage() {
       where: { ownerUserId: auth.user.id, deletedAt: null },
       select: { id: true, name: true },
     }),
+    // PetMate's own providers have no balance to withdraw: their takings are
+    // platform revenue.
+    db.careProvider
+      .findMany({
+        where: { ownerUserId: auth.user.id, deletedAt: null, isOfficial: false },
+        select: { id: true, name: true, currency: true },
+      })
+      .then((rows) =>
+        Promise.all(
+          rows.map(async (p) => ({ ...p, earnings: await getEarnings("PROVIDER", p.id, currency) })),
+        ),
+      ),
   ]);
 
-  const canRequest = earnings.availableCents >= settings.minPayoutCents;
+  const providerAccounts = providers
+    .filter((p) => p.earnings.availableCents >= settings.minPayoutCents)
+    .map((p) => ({
+      ownerType: "PROVIDER" as const,
+      ownerId: p.id,
+      label: p.name,
+      availableCents: p.earnings.availableCents,
+    }));
+  const personalCan = earnings.availableCents >= settings.minPayoutCents;
+  const canRequest = personalCan || providerAccounts.length > 0;
 
   return (
     <div className="container-page max-w-4xl py-8 lg:py-10">
@@ -154,17 +175,22 @@ export default async function WalletPage() {
                   currency={earnings.currency}
                   minCents={settings.minPayoutCents}
                   accounts={[
-                    { ownerType: "USER", ownerId: auth.user.id, label: "Personal balance" },
-                    ...shops.map((s) => ({
-                      ownerType: "SHOP" as const,
-                      ownerId: s.id,
-                      label: s.name,
-                    })),
-                    ...clinics.map((c) => ({
-                      ownerType: "CLINIC" as const,
-                      ownerId: c.id,
-                      label: c.name,
-                    })),
+                    ...(personalCan
+                      ? [
+                          { ownerType: "USER" as const, ownerId: auth.user.id, label: "Personal balance", availableCents: earnings.availableCents },
+                          ...shops.map((s) => ({
+                            ownerType: "SHOP" as const,
+                            ownerId: s.id,
+                            label: s.name,
+                          })),
+                          ...clinics.map((c) => ({
+                            ownerType: "CLINIC" as const,
+                            ownerId: c.id,
+                            label: c.name,
+                          })),
+                        ]
+                      : []),
+                    ...providerAccounts,
                   ]}
                 />
               ) : (

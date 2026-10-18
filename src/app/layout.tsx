@@ -41,7 +41,7 @@ export const metadata: Metadata = {
     template: "%s · PetMate",
   },
   description:
-    "PetMate is where pets get a verified identity. Buy, adopt and find breeding matches from people you can check, keep a lifelong health record, book your vet and shop what your pet needs — in one place.",
+    "PetMate is where pets get a verified identity. Buy, adopt and find breeding matches from people you can check, keep a lifelong health record, book a pet hotel or a trainer and shop what your pet needs — in one place.",
   applicationName: "PetMate",
   keywords: [
     "pets for sale",

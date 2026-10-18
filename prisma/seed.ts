@@ -213,6 +213,7 @@ async function seedDemoData() {
   });
   if (existing) {
     console.log("  Demo data already present, skipping.");
+    await seedDemoCare(await hashPassword(DEMO_PASSWORD));
     return;
   }
 
@@ -255,7 +256,7 @@ async function seedDemoData() {
         createdAt: addDays(new Date(), -120),
         roles: { create: params.roles.map((role) => ({ role })) },
         notifPrefs: {
-          create: ["MESSAGE", "LISTING", "ORDER", "PAYMENT", "APPOINTMENT", "BREEDING", "ADOPTION", "HEALTH", "DELIVERY", "SECURITY", "SYSTEM"].map(
+          create: ["MESSAGE", "LISTING", "ORDER", "PAYMENT", "APPOINTMENT", "CARE", "BREEDING", "ADOPTION", "HEALTH", "DELIVERY", "SECURITY", "SYSTEM"].map(
             (category) => ({ category, inApp: true, email: true }),
           ),
         },
@@ -682,6 +683,8 @@ async function seedDemoData() {
   }
   console.log(`  1 shop with ${products.length} products`);
 
+  await seedDemoCare(passwordHash);
+
   // ---- Community ----------------------------------------------------------
   const group = await db.group.create({
     data: {
@@ -725,8 +728,239 @@ async function seedDemoData() {
   console.log(`  second-chance@${DEMO_DOMAIN}   rescue with adoption listings`);
   console.log(`  dr-leila@${DEMO_DOMAIN}        clinic owner and vet`);
   console.log(`  pawsupply@${DEMO_DOMAIN}       shop owner`);
+  console.log(`  happy-paws@${DEMO_DOMAIN}      pet hotel owner`);
+  console.log(`  mariam-trains@${DEMO_DOMAIN}   dog trainer`);
   console.log(`  yusuf@${DEMO_DOMAIN}           pet owner`);
   console.log(`  nour@${DEMO_DOMAIN}            buyer`);
+}
+
+/**
+ * Demo pet hotels and trainers. Idempotent and independent of the rest of the
+ * demo data, so a database seeded before this module existed gets them too.
+ */
+async function seedDemoCare(passwordHash: string) {
+  if (await db.careProvider.findUnique({ where: { slug: "petmate-hotel-academy" }, select: { id: true } })) {
+    console.log("  Pet care demo data already present, skipping.");
+    return;
+  }
+
+  const admin = await db.user.findFirst({
+    where: { roles: { some: { role: "SUPER_ADMIN" } } },
+    orderBy: { createdAt: "asc" },
+    select: { id: true },
+  });
+  if (!admin) {
+    console.log("  No super admin to own PetMate's provider, skipping pet care demo data.");
+    return;
+  }
+
+  async function demoCareUser(params: { name: string; handle: string; bio: string; trustSignals: TrustSignalKind[] }) {
+    const existing = await db.user.findUnique({ where: { handle: params.handle }, select: { id: true } });
+    if (existing) return existing;
+    const place = pick(CITIES, 0);
+    const created = await db.user.create({
+      data: {
+        email: `${params.handle}@${DEMO_DOMAIN}`,
+        emailNormalized: `${params.handle}@${DEMO_DOMAIN}`,
+        emailVerifiedAt: new Date(),
+        passwordHash,
+        name: params.name,
+        handle: params.handle,
+        bio: params.bio,
+        city: place.city,
+        region: place.region,
+        country: place.country,
+        lat: place.lat,
+        lng: place.lng,
+        acceptedTermsAt: new Date(),
+        onboardedAt: new Date(),
+        createdAt: addDays(new Date(), -120),
+        roles: { create: [{ role: "USER" }, { role: "CARE_PROVIDER" }] },
+      },
+      select: { id: true },
+    });
+    for (const signal of params.trustSignals) {
+      await awardTrustSignal(created.id, signal, { reference: `seed:${created.id}` }, db);
+    }
+    return created;
+  }
+
+  const careOwner = await demoCareUser({
+    name: "Karim Mansour",
+    handle: "happy-paws",
+    bio: "Runs Happy Paws Hotel in Giza. Fifteen years with dogs, ten of them training them.",
+    trustSignals: ["EMAIL_VERIFIED", "PHONE_VERIFIED", "ID_VERIFIED", "CARE_PROVIDER_VERIFIED", "PROFILE_COMPLETE", "ACCOUNT_AGE_90D"],
+  });
+  const trainer = await demoCareUser({
+    name: "Mariam Adel",
+    handle: "mariam-trains",
+    bio: "Certified dog trainer. Force-free, reward-based, and honest about what a few weeks can change.",
+    trustSignals: ["EMAIL_VERIFIED", "PHONE_VERIFIED", "CARE_PROVIDER_VERIFIED", "PROFILE_COMPLETE", "ACCOUNT_AGE_90D"],
+  });
+
+  const weekHours = (days: number[], start: number, end: number) =>
+    days.map((weekday) => ({ weekday, startMinute: start * 60, endMinute: end * 60, slotMinutes: 60 }));
+
+  const careProviders: {
+    owner: string;
+    official: boolean;
+    name: string;
+    slug: string;
+    tagline: string;
+    description: string;
+    addressLine: string;
+    city: string;
+    lat: number;
+    lng: number;
+    boarding: boolean;
+    training: boolean;
+    transport: { radiusKm: number; baseCents: number; perKmCents: number } | null;
+    amenities: string[];
+    policy: string;
+    rating: [number, number];
+    units: { name: string; description: string; species?: string; maxWeightKg?: number; nightlyCents: number; capacity: number; amenities?: string }[];
+    programs: { name: string; description: string; level: string; format: string; sessionsCount: number; sessionMinutes: number; priceCents: number; minAgeMonths?: number; outcomes: string }[];
+    hours: ReturnType<typeof weekHours>;
+    trainers: number;
+  }[] = [
+    {
+      owner: admin.id,
+      official: true,
+      name: "PetMate Hotel & Academy",
+      slug: "petmate-hotel-academy",
+      tagline: "PetMate's own hotel and training centre. Door-to-door pickup, 24/7 staff and a daily photo report.",
+      description:
+        "Run by the PetMate team in New Cairo. Climate-controlled suites, separate cat rooms, a shaded garden and a trainer on site every day. We collect your pet from home, send a photo report every evening, and bring them back on check-out day.\n\nEvery guest needs up-to-date vaccinations on their PetMate health record.",
+      addressLine: "90th Street, Fifth Settlement, New Cairo",
+      city: "Cairo",
+      lat: 30.0074,
+      lng: 31.4913,
+      boarding: true,
+      training: true,
+      transport: { radiusKm: 30, baseCents: 1500, perKmCents: 80 },
+      amenities: ["24/7 supervision", "Live camera", "Air conditioning", "Outdoor play yard", "Daily photo report", "Vet on call", "Separate cat area", "Special diets"],
+      policy: "MODERATE",
+      rating: [490, 64],
+      units: [
+        { name: "Standard suite", description: "A quiet room with a raised bed, two walks a day and garden play.", species: "DOG", maxWeightKg: 25, nightlyCents: 3500, capacity: 12 },
+        { name: "Large-breed suite", description: "Double-size suite for big dogs, with direct access to the garden.", species: "DOG", nightlyCents: 4800, capacity: 6, amenities: "Orthopaedic bed,Private run" },
+        { name: "Cat condo", description: "Three-level condo in the cat wing, away from any barking.", species: "CAT", nightlyCents: 2200, capacity: 10, amenities: "Window perch,Scratching tower" },
+        { name: "Luxury suite", description: "Private suite with webcam, extra play sessions and a nightly treat.", nightlyCents: 7500, capacity: 3, amenities: "Webcam,Extra play,TV" },
+      ],
+      programs: [
+        { name: "Puppy school", description: "Socialisation, toilet training, bite inhibition and the first commands, while they are young enough for it to stick.", level: "PUPPY", format: "AT_FACILITY", sessionsCount: 4, sessionMinutes: 60, priceCents: 9000, minAgeMonths: 2, outcomes: "Toilet training,Gentle mouth,Name and recall,Calm handling" },
+        { name: "Six-week obedience", description: "The foundation course: lead walking, sit, down, stay and a recall you can trust in the park.", level: "FOUNDATION", format: "AT_FACILITY", sessionsCount: 6, sessionMinutes: 60, priceCents: 18000, minAgeMonths: 5, outcomes: "Loose-lead walking,Reliable recall,Sit down and stay,Leave it" },
+      ],
+      hours: weekHours([0, 1, 2, 3, 4, 6], 10, 18),
+      trainers: 2,
+    },
+    {
+      owner: careOwner.id,
+      official: false,
+      name: "Happy Paws Hotel",
+      slug: "happy-paws-hotel",
+      tagline: "Family-run dog hotel in Giza with a big garden and a pool.",
+      description:
+        "Happy Paws is a small, family-run hotel: no more than twenty dogs at a time, so every guest is known by name. We have a large garden, a shallow pool for the summer, and staff living on site.",
+      addressLine: "Mansoureya Road, Kerdasa",
+      city: "Giza",
+      lat: 30.0333,
+      lng: 31.1111,
+      boarding: true,
+      training: false,
+      transport: { radiusKm: 25, baseCents: 1000, perKmCents: 60 },
+      amenities: ["24/7 supervision", "Outdoor play yard", "Swimming pool", "Daily photo report", "Grooming on site"],
+      policy: "FLEXIBLE",
+      rating: [470, 31],
+      units: [
+        { name: "Garden kennel", description: "Covered kennel opening onto the garden.", species: "DOG", nightlyCents: 2500, capacity: 10 },
+        { name: "Indoor room", description: "Indoor room with air conditioning for dogs who prefer it.", species: "DOG", nightlyCents: 3200, capacity: 6, amenities: "Air conditioning" },
+      ],
+      programs: [],
+      hours: [],
+      trainers: 1,
+    },
+    {
+      owner: trainer.id,
+      official: false,
+      name: "Mariam Adel Dog Training",
+      slug: "mariam-adel-dog-training",
+      tagline: "Reward-based training at your home, from puppy manners to reactive dogs.",
+      description:
+        "I come to you, because that is where the problems happen. Every programme starts with an assessment of your dog and your routine, and you get written notes after every session.",
+      addressLine: "Road 9, Maadi",
+      city: "Cairo",
+      lat: 29.9602,
+      lng: 31.2569,
+      boarding: false,
+      training: true,
+      // In-home only: no pickup service, but the radius still bounds the visits.
+      transport: null,
+      amenities: [],
+      policy: "MODERATE",
+      rating: [495, 22],
+      units: [],
+      programs: [
+        { name: "Home manners", description: "Jumping up, door dashing, counter surfing and lead pulling, worked on where they happen.", level: "FOUNDATION", format: "IN_HOME", sessionsCount: 5, sessionMinutes: 60, priceCents: 15000, outcomes: "Calm greetings,Wait at doors,Loose-lead walking,Settle on a mat" },
+        { name: "Reactive dog programme", description: "For dogs who bark, lunge or panic at other dogs or people. Slow, structured and honest about progress.", level: "BEHAVIOUR", format: "IN_HOME", sessionsCount: 8, sessionMinutes: 75, priceCents: 32000, minAgeMonths: 8, outcomes: "Threshold awareness,Look at that,Emergency U-turn,Calmer walks" },
+      ],
+      hours: weekHours([0, 1, 2, 3, 4], 9, 17),
+      trainers: 1,
+    },
+  ];
+
+  for (const spec of careProviders) {
+    await db.careProvider.create({
+      data: {
+        ownerUserId: spec.owner,
+        name: spec.name,
+        slug: spec.slug,
+        tagline: spec.tagline,
+        description: spec.description,
+        email: `${spec.slug}@${DEMO_DOMAIN}`,
+        phone: "+20225550000",
+        addressLine: spec.addressLine,
+        city: spec.city,
+        region: spec.city === "Giza" ? "Giza Governorate" : "Cairo Governorate",
+        country: "Egypt",
+        lat: spec.lat,
+        lng: spec.lng,
+        timezone: "Africa/Cairo",
+        status: "ACTIVE",
+        verifiedAt: new Date(),
+        isOfficial: spec.official,
+        commissionBps: spec.official ? 10_000 : null,
+        offersBoarding: spec.boarding,
+        offersTraining: spec.training,
+        offersTransport: Boolean(spec.transport),
+        transportRadiusKm: spec.transport?.radiusKm ?? 20,
+        transportBaseCents: spec.transport?.baseCents ?? 0,
+        transportPerKmCents: spec.transport?.perKmCents ?? 0,
+        trainerCount: spec.trainers,
+        amenities: spec.amenities.length ? spec.amenities.join(",") : null,
+        requiresVaccination: spec.boarding,
+        cancellationPolicy: spec.policy,
+        bookingLeadHours: 12,
+        currency: "USD",
+        ratingAvgBps: spec.rating[0],
+        ratingCount: spec.rating[1],
+        bookingCount: spec.rating[1] * 3,
+        searchText: buildSearchText(
+          spec.name,
+          spec.tagline,
+          spec.city,
+          "Egypt",
+          spec.boarding ? "pet hotel boarding kennel cattery" : null,
+          spec.training ? "dog training obedience trainer" : null,
+        ),
+        members: { create: { userId: spec.owner, role: "OWNER" } },
+        hours: { create: spec.hours },
+        units: { create: spec.units.map((u, position) => ({ ...u, position })) },
+        programs: { create: spec.programs.map((p, position) => ({ ...p, species: "DOG", position })) },
+      },
+    });
+  }
+  console.log(`  ${careProviders.length} pet care providers (1 PetMate official)`);
 }
 
 async function main() {

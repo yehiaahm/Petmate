@@ -23,7 +23,7 @@ export const GET = route({
   query: z.object({
     mode: z.enum(["list", "one", "earnings", "ledger", "payouts"]).default("list"),
     id: cuidSchema.optional(),
-    ownerType: z.enum(["USER", "SHOP", "CLINIC"]).optional(),
+    ownerType: z.enum(["USER", "SHOP", "CLINIC", "PROVIDER"]).optional(),
     ownerId: cuidSchema.optional(),
   }),
   async handler({ query }) {
@@ -58,6 +58,14 @@ export const GET = route({
         });
         if (!clinic) throw notFound("That clinic");
       }
+      if (ownerType === "PROVIDER") {
+        // Earnings are the owner's to see, not every member of staff's.
+        const provider = await db.careProvider.findFirst({
+          where: { id: ownerId, ownerUserId: auth.user.id },
+          select: { id: true },
+        });
+        if (!provider) throw notFound("That provider");
+      }
 
       if (query.mode === "earnings") {
         const earnings = await getEarnings(ownerType, ownerId, auth.user.currency);
@@ -88,6 +96,13 @@ export const GET = route({
           select: { id: true },
         });
         if (!clinic) throw notFound("That clinic");
+      }
+      if (ownerType === "PROVIDER") {
+        const provider = await db.careProvider.findFirst({
+          where: { id: ownerId, ownerUserId: auth.user.id },
+          select: { id: true },
+        });
+        if (!provider) throw notFound("That provider");
       }
 
       return { payouts: await listPayouts(ownerType, ownerId) };

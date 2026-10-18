@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { issueCsrfTokenEdge } from "@/lib/auth/csrf-edge";
+import { isDisabledModulePath } from "@/lib/features";
 
 /**
  * Middleware.
@@ -72,6 +73,7 @@ const SIGNED_IN_PREFIXES = [
   "/sell",
   "/checkout",
   "/clinic/",
+  "/provider",
   "/store/cart",
   "/admin",
 ];
@@ -85,7 +87,19 @@ function needsSession(pathname: string): boolean {
 
 export async function middleware(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
-  if (needsSession(pathname) && !request.cookies.get("pm_session")) {
+
+  // A switched-off module answers exactly like a page that never existed, so
+  // the gate runs before the sign-in redirect: otherwise a signed-out visitor
+  // to /clinic would learn the route is real by being asked to sign in.
+  const disabled = isDisabledModulePath(pathname);
+  if (disabled && pathname.startsWith("/api/")) {
+    return NextResponse.json(
+      { error: { code: "NOT_FOUND", message: "That page could not be found." } },
+      { status: 404 },
+    );
+  }
+
+  if (!disabled && needsSession(pathname) && !request.cookies.get("pm_session")) {
     const login = new URL("/login", request.url);
     login.searchParams.set("next", `${pathname}${search}`);
     return NextResponse.redirect(login);
@@ -99,7 +113,13 @@ export async function middleware(request: NextRequest) {
   requestHeaders.set("x-nonce", nonce);
   requestHeaders.set("content-security-policy", contentSecurityPolicy(nonce));
 
-  const response = NextResponse.next({ request: { headers: requestHeaders } });
+  // A rewrite to a path no route matches renders the app's own not-found page
+  // with a real 404 status, under the same CSP as every other page.
+  const response = disabled
+    ? NextResponse.rewrite(new URL("/__module-unavailable", request.url), {
+        request: { headers: requestHeaders },
+      })
+    : NextResponse.next({ request: { headers: requestHeaders } });
   response.headers.set("content-security-policy", contentSecurityPolicy(nonce));
 
   if (!request.cookies.get(CSRF_COOKIE)) {

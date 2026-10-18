@@ -4,6 +4,7 @@ import { getAuth } from "@/lib/auth/session";
 import { totalUnread } from "@/lib/services/chat.service";
 import { unreadNotificationCount } from "@/lib/services/notification.service";
 import { cartCount } from "@/lib/services/commerce.service";
+import { features } from "@/lib/features";
 import { Logo } from "@/components/brand/logo";
 import { ButtonLink } from "@/components/ui/button";
 import { SearchBar } from "./search-bar";
@@ -33,8 +34,10 @@ export async function Header() {
   const primaryLinks = [
     { href: "/pets", label: "Find a pet" },
     { href: "/pets?intent=ADOPTION", label: "Adopt" },
+    { href: "/boarding", label: "Pet hotels" },
+    { href: "/training", label: "Training" },
     { href: "/breeding", label: "Breeding" },
-    { href: "/clinics", label: "Vets" },
+    ...(features.clinics ? [{ href: "/clinics", label: "Vets" }] : []),
     { href: "/store", label: "Store" },
   ];
 

@@ -47,7 +47,9 @@ export function ReviewComposer({
       ? "appointmentId"
       : refType === "purchase"
         ? "petOrderId"
-        : "orderId";
+        : refType === "care"
+          ? "careBookingId"
+          : "orderId";
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();

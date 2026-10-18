@@ -29,6 +29,7 @@ export const PERMISSIONS = [
   "breeding:request",
   "clinic:manage",
   "clinic:records",
+  "care:manage",
   "shop:manage",
   "delivery:fulfil",
   "admin:read",
@@ -46,6 +47,7 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
   SELLER: ["listing:create", "pet:create", "shop:manage"],
   VET: ["clinic:records", "pet:create"],
   CLINIC_ADMIN: ["clinic:manage", "clinic:records"],
+  CARE_PROVIDER: ["care:manage", "pet:create"],
   COURIER: ["delivery:fulfil"],
   MODERATOR: ["admin:read", "admin:moderation", "listing:moderate"],
   ADMIN: [
@@ -56,6 +58,7 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     "admin:settings",
     "listing:moderate",
     "clinic:manage",
+    "care:manage",
     "shop:manage",
   ],
   SUPER_ADMIN: [...PERMISSIONS],
@@ -214,6 +217,46 @@ export async function assertClinicAccess(
 
   if (!effective || rank[effective] < rank[minRole]) denyAsMissing("That clinic");
   return clinic;
+}
+
+/**
+ * Pet care providers have a team, like clinics. STAFF run the day (check-ins,
+ * updates, pickups), MANAGER edits rooms, programmes and prices, and only the
+ * OWNER moves money. PetMate's own provider is run by staff, who therefore
+ * act on it at OWNER level.
+ */
+export async function assertCareProviderAccess(
+  providerId: string,
+  auth: AuthContext,
+  minRole: "STAFF" | "MANAGER" | "OWNER" = "STAFF",
+) {
+  const provider = await db.careProvider.findFirst({
+    where: { id: providerId, deletedAt: null },
+    select: {
+      id: true,
+      ownerUserId: true,
+      name: true,
+      slug: true,
+      status: true,
+      isOfficial: true,
+      commissionBps: true,
+      timezone: true,
+      members: { where: { userId: auth.user.id }, select: { role: true } },
+    },
+  });
+  if (!provider) denyAsMissing("That provider");
+
+  const rank = { STAFF: 0, MANAGER: 1, OWNER: 2 } as const;
+  const membership = provider.members[0]?.role as keyof typeof rank | undefined;
+  const effective =
+    provider.ownerUserId === auth.user.id || (provider.isOfficial && hasRole(auth.user, "ADMIN", "SUPER_ADMIN"))
+      ? "OWNER"
+      : isStaff(auth.user)
+        ? "MANAGER"
+        : membership;
+
+  if (!effective || rank[effective] < rank[minRole]) denyAsMissing("That provider");
+  return { ...provider, role: effective };
 }
 
 export async function assertOwnsOrder(orderId: string, auth: AuthContext) {

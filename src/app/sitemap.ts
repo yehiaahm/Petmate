@@ -2,6 +2,7 @@ import type { MetadataRoute } from "next";
 import { db } from "@/lib/db";
 import { clientEnv } from "@/lib/env";
 import { PUBLIC_LISTING_STATUSES } from "@/lib/constants";
+import { features } from "@/lib/features";
 
 /**
  * Sitemap.
@@ -18,14 +19,22 @@ const BASE = clientEnv.NEXT_PUBLIC_APP_URL;
 export const revalidate = 3600;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const [listings, clinics, products, breeds] = await Promise.all([
+  const [listings, clinics, providers, products, breeds] = await Promise.all([
     db.listing.findMany({
       where: { status: { in: PUBLIC_LISTING_STATUSES }, deletedAt: null },
       select: { slug: true, updatedAt: true },
       orderBy: { publishedAt: "desc" },
       take: 10_000,
     }),
-    db.clinic.findMany({
+    // A switched-off module's pages answer 404; listing them would be a lie.
+    features.clinics
+      ? db.clinic.findMany({
+          where: { status: "ACTIVE", deletedAt: null },
+          select: { slug: true, updatedAt: true },
+          take: 5_000,
+        })
+      : Promise.resolve([]),
+    db.careProvider.findMany({
       where: { status: "ACTIVE", deletedAt: null },
       select: { slug: true, updatedAt: true },
       take: 5_000,
@@ -47,14 +56,17 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: BASE, changeFrequency: "daily", priority: 1 },
     { url: `${BASE}/pets`, changeFrequency: "hourly", priority: 0.9 },
     { url: `${BASE}/pets?intent=ADOPTION`, changeFrequency: "hourly", priority: 0.9 },
-    { url: `${BASE}/clinics`, changeFrequency: "daily", priority: 0.8 },
+    { url: `${BASE}/boarding`, changeFrequency: "daily", priority: 0.8 },
+    { url: `${BASE}/training`, changeFrequency: "daily", priority: 0.8 },
+    ...(features.clinics ? [{ url: `${BASE}/clinics`, changeFrequency: "daily" as const, priority: 0.8 }] : []),
     { url: `${BASE}/store`, changeFrequency: "daily", priority: 0.8 },
     { url: `${BASE}/breeds`, changeFrequency: "weekly", priority: 0.7 },
     { url: `${BASE}/breeding`, changeFrequency: "weekly", priority: 0.7 },
     { url: `${BASE}/pricing`, changeFrequency: "monthly", priority: 0.6 },
     { url: `${BASE}/trust`, changeFrequency: "monthly", priority: 0.6 },
     { url: `${BASE}/about`, changeFrequency: "monthly", priority: 0.5 },
-    { url: `${BASE}/for-clinics`, changeFrequency: "monthly", priority: 0.5 },
+    { url: `${BASE}/for-providers`, changeFrequency: "monthly", priority: 0.5 },
+    ...(features.clinics ? [{ url: `${BASE}/for-clinics`, changeFrequency: "monthly" as const, priority: 0.5 }] : []),
     { url: `${BASE}/terms`, changeFrequency: "yearly", priority: 0.3 },
     { url: `${BASE}/privacy`, changeFrequency: "yearly", priority: 0.3 },
   ];
@@ -70,6 +82,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...clinics.map((clinic) => ({
       url: `${BASE}/clinics/${clinic.slug}`,
       lastModified: clinic.updatedAt,
+      changeFrequency: "weekly" as const,
+      priority: 0.7,
+    })),
+    ...providers.map((provider) => ({
+      url: `${BASE}/care/${provider.slug}`,
+      lastModified: provider.updatedAt,
       changeFrequency: "weekly" as const,
       priority: 0.7,
     })),

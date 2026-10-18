@@ -15,6 +15,7 @@ const ALLOWED_PURPOSES: UploadPurpose[] = [
   "EVIDENCE",
   "DELIVERY_PROOF",
   "MESSAGE_ATTACHMENT",
+  "CARE_PHOTO",
 ];
 
 /**

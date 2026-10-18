@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BadgeCheck, Lock, Stethoscope } from "lucide-react";
+import { BadgeCheck, BedDouble, Lock } from "lucide-react";
 import { Logo, LogoBadge, Wordmark } from "@/components/brand/logo";
 import { ThemeToggle } from "@/components/shell/theme-toggle";
 
@@ -79,10 +79,10 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
                 body: "Money is held until you have met the animal and you both confirm the handover.",
               },
               {
-                icon: Stethoscope,
+                icon: BedDouble,
                 tint: "var(--color-sky)",
-                title: "Your vet, in the same place",
-                body: "Book a real appointment; results land in your pet's timeline automatically.",
+                title: "Care while you're away",
+                body: "Pet hotels and trainers with real availability, photo updates and pickup from your door.",
               },
             ].map((item, index) => (
               <li

@@ -11,9 +11,11 @@ import { api, ApiError } from "@/lib/api-client";
 import { formatMoney } from "@/lib/money";
 
 interface PayoutAccount {
-  ownerType: "USER" | "SHOP" | "CLINIC";
+  ownerType: "USER" | "SHOP" | "CLINIC" | "PROVIDER";
   ownerId: string;
   label: string;
+  /** The account's own available balance, when known; else the page total. */
+  availableCents?: number;
 }
 
 export function PayoutRequest({
@@ -31,17 +33,18 @@ export function PayoutRequest({
   const toast = useToast();
 
   const [accountIndex, setAccountIndex] = useState(0);
-  const [amount, setAmount] = useState((availableCents / 100).toFixed(2));
+  const [amount, setAmount] = useState(((accounts[0]?.availableCents ?? availableCents) / 100).toFixed(2));
   const [destination, setDestination] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const account = accounts[accountIndex]!;
+  const accountAvailable = account.availableCents ?? availableCents;
   const amountCents = Math.round(Number(amount) * 100);
   const valid =
     Number.isFinite(amountCents) &&
     amountCents >= minCents &&
-    amountCents <= availableCents &&
+    amountCents <= accountAvailable &&
     destination.trim().length >= 2;
 
   async function submit(event: React.FormEvent) {
@@ -81,7 +84,11 @@ export function PayoutRequest({
             <Select
               id={id}
               value={String(accountIndex)}
-              onChange={(e) => setAccountIndex(Number(e.target.value))}
+              onChange={(e) => {
+                const next = Number(e.target.value);
+                setAccountIndex(next);
+                setAmount(((accounts[next]?.availableCents ?? availableCents) / 100).toFixed(2));
+              }}
             >
               {accounts.map((a, i) => (
                 <option key={`${a.ownerType}:${a.ownerId}`} value={i}>
@@ -96,7 +103,7 @@ export function PayoutRequest({
       <Field
         label="Amount"
         required
-        hint={`Between ${formatMoney(minCents, currency)} and ${formatMoney(availableCents, currency)}`}
+        hint={`Between ${formatMoney(minCents, currency)} and ${formatMoney(accountAvailable, currency)}`}
       >
         {({ id, invalid }) => (
           <Input
@@ -106,7 +113,7 @@ export function PayoutRequest({
             inputMode="decimal"
             step="0.01"
             min={minCents / 100}
-            max={availableCents / 100}
+            max={accountAvailable / 100}
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
             className="tabular"

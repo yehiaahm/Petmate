@@ -22,6 +22,7 @@ import { ButtonLink } from "@/components/ui/button";
 import { LineageTree } from "@/components/pets/lineage-tree";
 import { PetActions } from "@/components/pets/pet-actions";
 import { SPECIES_LABEL, VERIFICATION_LEVEL_LABEL, type Species, type VerificationLevel } from "@/lib/constants";
+import { features } from "@/lib/features";
 
 type Params = Promise<{ id: string }>;
 
@@ -316,7 +317,7 @@ export default async function PetDetailPage({ params }: { params: Params }) {
             </Card>
           )}
 
-          {appointments.length > 0 && (
+          {features.clinics && appointments.length > 0 && (
             <Card className="p-5">
               <h2 className="font-display text-base font-semibold text-fg">Upcoming visits</h2>
               <ul className="mt-3 space-y-2.5">
