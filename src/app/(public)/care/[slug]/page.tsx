@@ -97,6 +97,9 @@ export default async function CareProviderPage({ params, searchParams }: { param
 
   const amenities = splitTags(provider.amenities);
   const policy = provider.cancellationPolicy as CancellationPolicy;
+  // Already public in the page's structured data; the booking map opens here.
+  const providerLocation =
+    provider.lat != null && provider.lng != null ? { lat: provider.lat, lng: provider.lng } : null;
   const average = provider.ratingCount > 0 ? provider.ratingAvgBps / 100 : 0;
   const both = provider.offersBoarding && provider.offersTraining && provider.units.length > 0 && provider.programs.length > 0;
 
@@ -412,6 +415,7 @@ export default async function CareProviderPage({ params, searchParams }: { param
               checkOutMinute={provider.checkOutMinute}
               offersTransport={provider.offersTransport}
               transportRadiusKm={provider.transportRadiusKm}
+              providerLocation={providerLocation}
             />
           ) : provider.programs.length > 0 ? (
             <TrainingBookingPanel
@@ -433,6 +437,7 @@ export default async function CareProviderPage({ params, searchParams }: { param
               emailVerified={auth?.user.emailVerified ?? false}
               offersTransport={provider.offersTransport}
               transportRadiusKm={provider.transportRadiusKm}
+              providerLocation={providerLocation}
             />
           ) : (
             <Card className="p-5 text-sm text-fg-muted">This business has not published anything bookable yet.</Card>

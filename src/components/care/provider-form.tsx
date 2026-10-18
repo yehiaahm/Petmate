@@ -252,7 +252,7 @@ export function ProviderForm({
           <div className="sm:col-span-2">
             <LocationPin
               label="Street address"
-              hint="Stand at the business when you pin it: the pin is what distances are measured from."
+              hint="Pin the business itself on the map: pickup distances, and so prices, are measured from it."
               address={v.addressLine}
               onAddressChange={(value) => set("addressLine", value)}
               coords={v.coords}

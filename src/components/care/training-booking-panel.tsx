@@ -49,6 +49,7 @@ export function TrainingBookingPanel({
   emailVerified,
   offersTransport,
   transportRadiusKm,
+  providerLocation,
   initialProgramId,
 }: {
   providerId: string;
@@ -62,6 +63,8 @@ export function TrainingBookingPanel({
   emailVerified: boolean;
   offersTransport: boolean;
   transportRadiusKm: number;
+  /** Where the provider is pinned; centres the map and draws the coverage circle. */
+  providerLocation?: Coords | null;
   initialProgramId?: string;
 }) {
   const router = useRouter();
@@ -285,6 +288,7 @@ export function TrainingBookingPanel({
             onCoordsChange={setCoords}
             label={inHome ? "Where the sessions happen" : "Your address"}
             hint={`The trainer covers up to ${transportRadiusKm} km. Pin your location so the distance can be checked.`}
+            area={providerLocation ? { ...providerLocation, radiusKm: transportRadiusKm } : null}
           />
         )}
 
