@@ -1,7 +1,8 @@
 import "server-only";
 import { db } from "@/lib/db";
 import { boundingBox, haversineKm, ageInMonths } from "@/lib/utils";
-import { searchTextClauses, relevanceScore } from "@/lib/search/text";
+import { searchTextClauses, parseSearchTerms, relevanceScore } from "@/lib/search/text";
+import { interpretQuery } from "@/lib/search/intent";
 import { LIMITS, PUBLIC_LISTING_STATUSES, type Species } from "@/lib/constants";
 import { logger } from "@/lib/logger";
 
@@ -87,13 +88,56 @@ export interface ListingCard {
   };
 }
 
-export async function searchListings(params: ListingSearchParams): Promise<{
+export interface ListingSearchResult {
   items: ListingCard[];
   total: number;
   page: number;
   limit: number;
   pages: number;
-}> {
+  /** What was read out of a free-text query ("dogs", "up to 1,200"). */
+  understood?: string[];
+  /** True when no listing matched every word, so any-word matches are shown. */
+  relaxed?: boolean;
+}
+
+/**
+ * Free-text entry point.
+ *
+ * "vaccinated labrador under 1200" is understood as filters (vaccinated, max
+ * price) plus the keyword "labrador"; "كلب" is understood as dogs. Explicit
+ * filters from the caller always win over what was read from the text. If the
+ * remaining keywords match nothing together, any-word matches are shown rather
+ * than an empty page, and the result says so.
+ */
+export async function searchListings(params: ListingSearchParams): Promise<ListingSearchResult> {
+  if (!params.query?.trim()) return runSearch(params);
+
+  const read = interpretQuery(params.query);
+  const merged: ListingSearchParams = {
+    ...params,
+    species: params.species?.length ? params.species : read.species ? [read.species] : params.species,
+    intent: params.intent ?? read.intent,
+    minPriceCents: params.minPriceCents ?? read.minPriceCents,
+    maxPriceCents: params.maxPriceCents ?? read.maxPriceCents,
+    vaccinatedOnly: params.vaccinatedOnly ?? read.vaccinatedOnly,
+  };
+
+  const understood = read.understood;
+  const result = await runSearch(merged, { text: read.residual, mode: "and" });
+  if (result.total > 0) return { ...result, understood };
+
+  const terms = parseSearchTerms(read.residual);
+  if (terms.length > 1) {
+    const relaxed = await runSearch(merged, { text: read.residual, mode: "or" });
+    if (relaxed.total > 0) return { ...relaxed, understood, relaxed: true };
+  }
+  return { ...result, understood };
+}
+
+async function runSearch(
+  params: ListingSearchParams,
+  textMatch?: { text: string; mode: "and" | "or" },
+): Promise<ListingSearchResult> {
   const limit = Math.min(params.limit ?? LIMITS.pageSizeDefault, LIMITS.pageSizeMax);
   const page = Math.max(1, params.page ?? 1);
   const now = new Date();
@@ -135,7 +179,7 @@ export async function searchListings(params: ListingSearchParams): Promise<{
     ...(params.intent ? { intent: params.intent } : {}),
     ...(params.sellerId ? { sellerId: params.sellerId } : {}),
     ...(params.excludeSellerId ? { sellerId: { not: params.excludeSellerId } } : {}),
-    ...(params.query ? { AND: searchTextClauses(params.query) } : {}),
+    ...textWhere(textMatch ?? (params.query ? { text: params.query, mode: "and" as const } : undefined)),
     ...(params.city ? { city: params.city } : {}),
     ...(params.country ? { country: params.country } : {}),
     ...(params.minPriceCents != null || params.maxPriceCents != null
@@ -353,6 +397,14 @@ export async function searchListings(params: ListingSearchParams): Promise<{
  * Selling visibility is fine; selling the ability to outrank quality is how a
  * marketplace rots.
  */
+/** Text predicate: every term (and) or at least one term (or). Empty text adds nothing. */
+function textWhere(match?: { text: string; mode: "and" | "or" }) {
+  if (!match) return {};
+  const clauses = searchTextClauses(match.text);
+  if (!clauses.length) return {};
+  return match.mode === "and" ? { AND: clauses } : { OR: clauses };
+}
+
 function rankScore(input: {
   featured: boolean;
   publishedAt: Date | null;

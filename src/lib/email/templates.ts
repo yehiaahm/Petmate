@@ -9,11 +9,11 @@ import { clientEnv } from "@/lib/env";
  * came from a different company.
  */
 
-const BRAND = "#1f4d3a";
-const INK = "#1a1714";
-const MUTED = "#665f55";
-const PAPER = "#fbf9f5";
-const LINE = "#e7e0d4";
+const BRAND = "#0e8283";
+const INK = "#0d1d24";
+const MUTED = "#475b64";
+const PAPER = "#f3f8f8";
+const LINE = "#d8e4e6";
 
 export interface RenderedEmail {
   subject: string;
@@ -41,7 +41,7 @@ function layout(opts: {
 <tr><td align="center">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border:1px solid ${LINE};border-radius:16px;overflow:hidden;">
   <tr><td style="padding:28px 32px 0;">
-    <a href="${appUrl}" style="text-decoration:none;color:${BRAND};font:700 20px/1 Georgia,serif;letter-spacing:-0.02em;">PetMate</a>
+    <a href="${appUrl}" style="text-decoration:none;color:${BRAND};font:600 18px/1 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;letter-spacing:0.2em;">PETMATE</a>
   </td></tr>
   <tr><td style="padding:20px 32px 0;">
     <h1 style="margin:0;font:600 24px/1.25 Georgia,serif;color:${INK};letter-spacing:-0.02em;">${escapeHtml(opts.heading)}</h1>
@@ -52,7 +52,7 @@ function layout(opts: {
   ${
     opts.cta
       ? `<tr><td style="padding:26px 32px 0;">
-    <a href="${opts.cta.url}" style="display:inline-block;background:${BRAND};color:#ffffff;text-decoration:none;font:600 15px/1 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;padding:14px 24px;border-radius:10px;">${escapeHtml(opts.cta.label)}</a>
+    <a href="${opts.cta.url}" style="display:inline-block;background:${BRAND};color:#ffffff;text-decoration:none;font:600 15px/1 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;padding:14px 26px;border-radius:999px;">${escapeHtml(opts.cta.label)}</a>
   </td></tr>
   <tr><td style="padding:14px 32px 0;font:400 12px/1.5 -apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#8a8274;word-break:break-all;">
     If the button does not work, paste this into your browser:<br>${escapeHtml(opts.cta.url)}

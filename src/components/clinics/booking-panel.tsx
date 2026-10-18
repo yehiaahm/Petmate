@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
+import { ResendVerification } from "@/components/auth/resend-verification";
 import { CalendarDays, Phone, Globe, Loader2, Info } from "lucide-react";
 import { Card, Alert } from "@/components/ui/primitives";
 import { Button, ButtonLink } from "@/components/ui/button";
@@ -46,6 +46,7 @@ export function BookingPanel({
   emailVerified,
   cancellationHours,
   bookingLeadHours,
+  timezone,
   phone,
   website,
 }: {
@@ -57,6 +58,8 @@ export function BookingPanel({
   emailVerified: boolean;
   cancellationHours: number;
   bookingLeadHours: number;
+  /** IANA zone of the clinic. Every time on this panel is shown in it. */
+  timezone: string;
   phone: string | null;
   website: string | null;
 }) {
@@ -111,7 +114,8 @@ export function BookingPanel({
 
   // Group by day so the picker reads like a diary, not a list of timestamps.
   const byDay = (slots?.items ?? []).reduce<Record<string, Slot[]>>((acc, slot) => {
-    const key = new Date(slot.startAt).toISOString().slice(0, 10);
+    // The clinic's calendar day, not the viewer's and not UTC's.
+    const key = new Date(slot.startAt).toLocaleDateString("en-CA", { timeZone: timezone });
     (acc[key] ??= []).push(slot);
     return acc;
   }, {});
@@ -220,6 +224,9 @@ export function BookingPanel({
 
           <div>
             <p className="mb-2 text-sm font-medium text-fg">Available times</p>
+            <p className="-mt-1 mb-2 text-xs text-fg-subtle">
+              Shown in the clinic&apos;s local time ({timezone.replace(/_/g, " ")}).
+            </p>
 
             {loadingSlots ? (
               <div className="flex items-center gap-2 py-6 text-sm text-fg-muted">
@@ -236,10 +243,11 @@ export function BookingPanel({
                 {days.map(([day, daySlots]) => (
                   <div key={day}>
                     <p className="text-xs font-semibold uppercase tracking-wider text-fg-subtle">
-                      {new Date(day).toLocaleDateString("en-US", {
+                      {new Date(`${day}T00:00:00Z`).toLocaleDateString("en-US", {
                         weekday: "long",
                         month: "short",
                         day: "numeric",
+                        timeZone: "UTC",
                       })}
                     </p>
                     <div className="mt-1.5 flex flex-wrap gap-1.5">
@@ -261,6 +269,7 @@ export function BookingPanel({
                             {new Date(slot.startAt).toLocaleTimeString("en-US", {
                               hour: "numeric",
                               minute: "2-digit",
+                              timeZone: timezone,
                             })}
                           </button>
                         );
@@ -301,6 +310,7 @@ export function BookingPanel({
                     day: "numeric",
                     hour: "numeric",
                     minute: "2-digit",
+                    timeZone: timezone,
                   })}{" "}
                   with {selectedSlot.vetName}
                 </p>
@@ -325,10 +335,10 @@ export function BookingPanel({
             </div>
           ) : !emailVerified ? (
             <Alert tone="warning">
-              Confirm your email address before booking.{" "}
-              <Link href="/settings" className="font-semibold underline">
-                Resend the link
-              </Link>
+              <p>Confirm your email address before booking.</p>
+              <div className="mt-2">
+                <ResendVerification variant="outline" label="Resend the link" />
+              </div>
             </Alert>
           ) : (
             <Button
@@ -350,7 +360,9 @@ export function BookingPanel({
             </li>
             <li className="flex items-start gap-1.5">
               <Info className="mt-0.5 size-3 shrink-0" aria-hidden />
-              {clinicName} needs {bookingLeadHours} hours notice.
+              {service?.category === "EMERGENCY"
+                ? "Emergency visits can be booked right away."
+                : `${clinicName} needs ${bookingLeadHours} hours notice.`}
             </li>
             <li className="flex items-start gap-1.5">
               <Info className="mt-0.5 size-3 shrink-0" aria-hidden />

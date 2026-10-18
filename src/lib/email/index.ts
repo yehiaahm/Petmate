@@ -42,6 +42,27 @@ export async function queueEmail(input: QueueEmailInput, client: DbClient = db):
       status: "QUEUED",
     },
   });
+  scheduleDrain();
+}
+
+/**
+ * Delivery should not depend solely on a separate worker process being up: a
+ * verification email that arrives a minute late, or never, loses the signup.
+ * After a row is written, nudge the queue shortly afterwards (long enough for
+ * the caller's transaction to commit). The worker and /api/cron/tick still
+ * run the same drain, so a missed nudge only delays mail.
+ */
+let drainTimer: ReturnType<typeof setTimeout> | null = null;
+
+function scheduleDrain(): void {
+  if (drainTimer || env().EMAIL_PROVIDER === "outbox") return;
+  drainTimer = setTimeout(() => {
+    drainTimer = null;
+    processEmailQueue(10).catch((e) =>
+      logger.error("email drain failed", { error: e instanceof Error ? e.message : String(e) }),
+    );
+  }, 750);
+  drainTimer.unref?.();
 }
 
 // ---------------------------------------------------------------------------
@@ -91,6 +112,38 @@ async function sendViaResend(message: {
   }
 }
 
+async function sendViaSmtp(message: {
+  to: string;
+  subject: string;
+  html: string;
+  text: string;
+}): Promise<SendResult> {
+  const { SMTP_HOST, SMTP_PORT, SMTP_SECURE, SMTP_USER, SMTP_PASSWORD, EMAIL_FROM } = env();
+  if (!SMTP_HOST) return { ok: false, error: "SMTP_HOST is not configured" };
+
+  try {
+    const { createTransport } = await import("nodemailer");
+    const transport = createTransport({
+      host: SMTP_HOST,
+      port: SMTP_PORT,
+      secure: SMTP_SECURE,
+      auth: SMTP_USER ? { user: SMTP_USER, pass: SMTP_PASSWORD } : undefined,
+      connectionTimeout: 15_000,
+      socketTimeout: 20_000,
+    });
+    const info = await transport.sendMail({
+      from: EMAIL_FROM,
+      to: message.to,
+      subject: message.subject,
+      html: message.html,
+      text: message.text,
+    });
+    return { ok: true, providerRef: info.messageId };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
 /**
  * Drains the outbox. Called by the worker; safe to run concurrently because
  * each row is claimed with a conditional update before it is sent.
@@ -120,6 +173,8 @@ export async function processEmailQueue(limit = 25): Promise<{ sent: number; fai
 
     if (provider === "resend") {
       result = await sendViaResend(message);
+    } else if (provider === "smtp") {
+      result = await sendViaSmtp(message);
     } else {
       // The outbox provider is the development default. It does not pretend to
       // deliver: the row stays in the database and is readable at /dev/mailbox,

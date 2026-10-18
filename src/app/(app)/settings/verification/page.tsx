@@ -75,7 +75,7 @@ export default async function VerificationSettingsPage() {
     <>
       <PageHeader
         title="Verification"
-        description="Verification is how a stranger decides whether to trust you with several hundred pounds and a living animal. Every badge here is checked by a person."
+        description="Verification is how a stranger decides whether to trust you with real money and a living animal. Every badge here is checked by a person."
       />
 
       <div className="mt-6 space-y-5">

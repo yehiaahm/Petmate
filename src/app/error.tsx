@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { RotateCw, Home, LifeBuoy } from "lucide-react";
-import { Logo } from "@/components/brand/logo";
+import { Logo, LogoMark } from "@/components/brand/logo";
 import { Button, ButtonLink } from "@/components/ui/button";
 
 /**
@@ -35,7 +35,8 @@ export default function GlobalError({
 
       <main id="main" className="container-page flex flex-1 items-center justify-center py-16">
         <div className="max-w-md text-center">
-          <h1 className="font-display text-2xl font-semibold tracking-tight text-fg">
+          <LogoMark animated className="animate-float mx-auto mb-8 w-36" />
+          <h1 className="font-display text-2xl font-bold tracking-tight text-fg">
             Something went wrong on our side
           </h1>
 

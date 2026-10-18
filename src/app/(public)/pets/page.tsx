@@ -133,6 +133,9 @@ export default async function PetsPage({ searchParams }: { searchParams: SearchP
           params.q ? (
             <>
               Showing results for <span className="font-medium text-fg">{params.q}</span>
+              {results.understood && results.understood.length > 0 && (
+                <span className="text-fg-subtle"> · understood as {results.understood.join(", ")}</span>
+              )}
             </>
           ) : (
             "Every listing shows the animal's health record and who recorded it, so you can tell a documented pet from a claimed one."
@@ -162,6 +165,12 @@ export default async function PetsPage({ searchParams }: { searchParams: SearchP
             <SortSelect hasLocation={params.lat != null} />
           </div>
 
+          {results.relaxed && results.total > 0 && (
+            <p className="mb-5 rounded-[var(--radius-field)] bg-bg-sunken px-3 py-2 text-sm text-fg-muted">
+              Nothing matched every word, so these match some of them.
+            </p>
+          )}
+
           <Suspense fallback={<LoadingGrid />}>
             {results.items.length > 0 ? (
               <>
@@ -180,8 +189,12 @@ export default async function PetsPage({ searchParams }: { searchParams: SearchP
             ) : (
               <EmptyState
                 icon={<PawPrint className="size-6" aria-hidden />}
-                title="No pets match those filters"
-                description="Try widening the distance, removing a filter, or saving this search so we can tell you the moment something matches."
+                title="No pets match that search"
+                description={
+                  params.q
+                    ? `Nothing matched "${params.q}". Try fewer words (a breed or a city works well), remove a filter, or save this search so we can tell you the moment something matches.`
+                    : "Try widening the distance, removing a filter, or saving this search so we can tell you the moment something matches."
+                }
                 action={
                   <div className="flex flex-wrap justify-center gap-3">
                     <ButtonLink href="/pets" variant="outline">

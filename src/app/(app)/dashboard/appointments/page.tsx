@@ -112,7 +112,7 @@ function AppointmentRow({
               </p>
               <p className="mt-0.5 text-sm text-fg-muted">{appointment.clinic.name}</p>
               <p className="mt-0.5 text-xs text-fg-subtle">
-                {formatDateTime(appointment.startAt)}
+                {formatDateTime(appointment.startAt, appointment.clinic.timezone)}
                 {highlight ? ` · ${relativeTime(appointment.startAt)}` : ""}
                 {appointment.vet?.user.name ? ` · ${appointment.vet.user.name}` : ""}
               </p>

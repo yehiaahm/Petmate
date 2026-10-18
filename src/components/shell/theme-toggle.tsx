@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useSyncExternalStore } from "react";
+import { flushSync } from "react-dom";
 import { Moon, Sun } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -34,8 +35,7 @@ export function ThemeToggle({ className }: { className?: string }) {
     () => false,
   );
 
-  function toggle() {
-    const next = theme === "dark" ? "light" : "dark";
+  function apply(next: "light" | "dark") {
     setTheme(next);
     document.documentElement.setAttribute("data-theme", next);
     try {
@@ -45,19 +45,56 @@ export function ThemeToggle({ className }: { className?: string }) {
     }
   }
 
+  function toggle(event: React.MouseEvent<HTMLButtonElement>) {
+    const next = theme === "dark" ? "light" : "dark";
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    if (!document.startViewTransition || reduced) {
+      apply(next);
+      return;
+    }
+
+    // The new theme grows out of the button as a circle. A view transition
+    // snapshots the old page, so nothing has to animate colour by colour.
+    const rect = event.currentTarget.getBoundingClientRect();
+    const x = rect.left + rect.width / 2;
+    const y = rect.top + rect.height / 2;
+    const radius = Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y));
+
+    const transition = document.startViewTransition(() => {
+      flushSync(() => apply(next));
+    });
+    void transition.ready.then(() => {
+      document.documentElement.animate(
+        { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${radius}px at ${x}px ${y}px)`] },
+        {
+          duration: 650,
+          easing: "cubic-bezier(0.22, 1, 0.36, 1)",
+          pseudoElement: "::view-transition-new(root)",
+        },
+      );
+    });
+  }
+
   return (
     <button
       type="button"
       onClick={toggle}
       className={cn(
-        "inline-flex size-9 items-center justify-center rounded-[var(--radius-field)] text-fg-muted transition-colors hover:bg-bg-sunken hover:text-fg",
+        "relative inline-flex size-10 items-center justify-center overflow-hidden rounded-full text-fg-muted transition-[color,background-color,transform] duration-200 hover:bg-bg-sunken hover:text-fg active:scale-90",
         className,
       )}
       aria-label={mounted ? `Switch to ${theme === "dark" ? "light" : "dark"} mode` : "Switch theme"}
     >
       {/* Both icons render; CSS decides. Avoids a hydration mismatch. */}
-      <Sun className="size-[18px] dark:hidden" aria-hidden />
-      <Moon className="hidden size-[18px] dark:block" aria-hidden />
+      <Sun
+        className="size-[18px] transition-[transform,opacity] duration-500 ease-[var(--ease-spring)] dark:-rotate-90 dark:scale-0 dark:opacity-0"
+        aria-hidden
+      />
+      <Moon
+        className="absolute size-[18px] rotate-90 scale-0 opacity-0 transition-[transform,opacity] duration-500 ease-[var(--ease-spring)] dark:rotate-0 dark:scale-100 dark:opacity-100"
+        aria-hidden
+      />
     </button>
   );
 }

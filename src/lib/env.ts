@@ -54,6 +54,12 @@ const serverSchema = z.object({
   EMAIL_PROVIDER: z.enum(["outbox", "resend", "smtp"]).default("outbox"),
   EMAIL_FROM: z.string().default("PetMate <no-reply@petmate.app>"),
   RESEND_API_KEY: z.string().optional(),
+  // Any SMTP server (Gmail app password, Zoho, Mailgun SMTP, a hosting mailbox).
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z.coerce.number().int().positive().default(587),
+  SMTP_SECURE: bool(false),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASSWORD: z.string().optional(),
 
   // ---- AI -----------------------------------------------------------------
   // Absent key => every AI surface falls back to its deterministic path and
@@ -155,6 +161,12 @@ export function productionReadiness(): string[] {
   }
   if (e.EMAIL_PROVIDER === "outbox") {
     problems.push("EMAIL_PROVIDER=outbox does not deliver mail; configure resend or smtp");
+  }
+  if (e.EMAIL_PROVIDER === "resend" && !e.RESEND_API_KEY) {
+    problems.push("EMAIL_PROVIDER=resend requires RESEND_API_KEY");
+  }
+  if (e.EMAIL_PROVIDER === "smtp" && !e.SMTP_HOST) {
+    problems.push("EMAIL_PROVIDER=smtp requires SMTP_HOST");
   }
   if (e.SEED_DEMO_DATA) {
     problems.push("SEED_DEMO_DATA must be false in production");

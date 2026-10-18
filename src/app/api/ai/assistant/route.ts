@@ -8,6 +8,7 @@ import {
   buildPetContext,
   careAssistantStream,
   careAssistantFallback,
+  getCareFacts,
 } from "@/lib/ai/features";
 import { aiAvailable } from "@/lib/ai/client";
 
@@ -67,7 +68,8 @@ export async function POST(request: Request) {
     }
 
     if (!aiAvailable()) {
-      const fallback = careAssistantFallback(parsed.data.question);
+      const facts = parsed.data.petId ? await getCareFacts(parsed.data.petId, auth.user.id) : undefined;
+      const fallback = careAssistantFallback(parsed.data.question, facts);
       return Response.json({ source: "rules", ...fallback });
     }
 

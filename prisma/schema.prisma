@@ -819,6 +819,10 @@ model Clinic {
   // Null means "use the platform default from PlatformSetting".
   commissionBps Int?
 
+  // IANA zone the opening hours are written in ("Africa/Cairo"). Slots are
+  // generated in this zone, so a clinic's 9am is 9am on its own wall clock.
+  timezone String @default("UTC")
+
   bookingLeadHours  Int @default(2)
   cancellationHours Int @default(24)
 

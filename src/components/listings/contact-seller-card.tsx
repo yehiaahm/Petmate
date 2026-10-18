@@ -2,12 +2,12 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { MessageSquare, Lock, ShieldCheck, FileText } from "lucide-react";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Card, Alert } from "@/components/ui/primitives";
 import { Field, Textarea } from "@/components/ui/field";
 import { Modal } from "@/components/ui/modal";
+import { ResendVerification } from "@/components/auth/resend-verification";
 import { FavoriteButton } from "./favorite-button";
 import { AdoptionApplicationForm } from "./adoption-application-form";
 import { api, ApiError } from "@/lib/api-client";
@@ -55,6 +55,7 @@ export function ContactSellerCard({
 
   const isOwner = viewer?.id === listing.sellerId;
   const available = listing.status === "ACTIVE";
+  const unverified = Boolean(viewer && !viewer.emailVerified);
 
   function requireAuth(next: string): boolean {
     if (viewer) return true;
@@ -153,8 +154,23 @@ export function ContactSellerCard({
           </div>
         ) : (
           <div className="mt-5 space-y-2.5">
+            {unverified && (
+              <Alert tone="warning">
+                <p>Confirm your email address to message sellers and make purchases.</p>
+                <div className="mt-2">
+                  <ResendVerification variant="outline" label="Resend the link" />
+                </div>
+              </Alert>
+            )}
             {listing.intent === "SALE" && (
-              <Button fullWidth size="lg" onClick={() => void startPurchase()} loading={buying} loadingText="Starting…">
+              <Button
+                fullWidth
+                size="lg"
+                onClick={() => void startPurchase()}
+                loading={buying}
+                loadingText="Starting…"
+                disabled={unverified}
+              >
                 <Lock className="size-4" aria-hidden />
                 Buy with escrow protection
               </Button>
@@ -183,6 +199,7 @@ export function ContactSellerCard({
             <Button
               fullWidth
               variant={listing.intent === "SALE" ? "outline" : "secondary"}
+              disabled={unverified}
               onClick={() => {
                 if (!requireAuth(`/pets/${listing.slug}`)) return;
                 setMessageOpen(true);
@@ -215,14 +232,6 @@ export function ContactSellerCard({
           </div>
         )}
 
-        {viewer && !viewer.emailVerified && (
-          <Alert tone="warning" className="mt-4">
-            Confirm your email address to message sellers and make purchases.{" "}
-            <Link href="/settings" className="font-semibold underline">
-              Resend the link
-            </Link>
-          </Alert>
-        )}
       </Card>
 
       <Modal

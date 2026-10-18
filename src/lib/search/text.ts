@@ -6,18 +6,27 @@
  * engine, every searchable row stores a pre-normalised haystack and every query
  * is normalised the same way. One code path, identical results on both.
  *
- * Normalisation: lowercase, strip diacritics, collapse punctuation to spaces.
+ * Normalisation: lowercase, strip diacritics, collapse punctuation to spaces,
+ * keep letters of every script (Arabic included).
  * So "Münchener Schäferhund" is found by "munchener schaferhund".
  */
 
 export function normalizeSearchText(input: string): string {
-  return input
-    .normalize("NFKD")
-    .replace(/[̀-ͯ]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9\s]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
+  return (
+    input
+      .normalize("NFKD")
+      // Latin diacritics and Arabic harakat/tashkeel.
+      .replace(/[̀-ًͯ-ٰٟـ]/g, "")
+      .toLowerCase()
+      // Arabic spelling variants that users type interchangeably.
+      .replace(/[آأإ]/g, "ا") // alef with hamza/madda -> alef
+      .replace(/ى/g, "ي") // alef maksura -> ya
+      .replace(/ة/g, "ه") // ta marbuta -> ha
+      // Keep letters and digits of any script; everything else becomes a space.
+      .replace(/[^\p{L}\p{N}\s]/gu, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+  );
 }
 
 /** Builds the stored haystack from every field worth matching on. */

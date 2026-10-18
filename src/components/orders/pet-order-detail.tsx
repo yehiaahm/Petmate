@@ -216,12 +216,14 @@ export function PetOrderDetail({ order }: { order: PetOrderView }) {
 
           <ul className="mt-4 space-y-2.5">
             <ConfirmRow
-              label={order.isBuyer ? "You confirmed" : "The buyer confirmed"}
+              doneLabel={order.isBuyer ? "You confirmed you have the animal" : "The buyer confirmed the handover"}
+              pendingLabel={order.isBuyer ? "Waiting for you to confirm the handover" : "Waiting for the buyer to confirm"}
               done={Boolean(order.buyerConfirmedAt)}
               at={order.buyerConfirmedAt}
             />
             <ConfirmRow
-              label={order.isBuyer ? "The seller confirmed" : "You confirmed"}
+              doneLabel={order.isBuyer ? "The seller confirmed the handover" : "You confirmed the handover"}
+              pendingLabel={order.isBuyer ? "Waiting for the seller to confirm" : "Waiting for you to confirm the handover"}
               done={Boolean(order.sellerConfirmedAt)}
               at={order.sellerConfirmedAt}
             />
@@ -415,11 +417,13 @@ export function PetOrderDetail({ order }: { order: PetOrderView }) {
 }
 
 function ConfirmRow({
-  label,
+  doneLabel,
+  pendingLabel,
   done,
   at,
 }: {
-  label: string;
+  doneLabel: string;
+  pendingLabel: string;
   done: boolean;
   at: string | null;
 }) {
@@ -430,7 +434,7 @@ function ConfirmRow({
       ) : (
         <Circle className="size-4 shrink-0 text-fg-subtle" aria-hidden />
       )}
-      <span className={done ? "text-fg" : "text-fg-muted"}>{label}</span>
+      <span className={done ? "text-fg" : "text-fg-muted"}>{done ? doneLabel : pendingLabel}</span>
       {at && <span className="text-xs text-fg-subtle">{relativeTime(new Date(at))}</span>}
     </li>
   );

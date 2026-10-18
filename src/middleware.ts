@@ -57,7 +57,40 @@ function contentSecurityPolicy(nonce: string): string {
   ].join("; ");
 }
 
+/**
+ * Pages that only make sense signed in. A visitor with no session cookie is sent
+ * to sign in and then brought back to the page they actually asked for, rather
+ * than always landing on the dashboard. This is a cheap presence check only:
+ * the layout still validates the session against the database.
+ */
+const SIGNED_IN_PREFIXES = [
+  "/dashboard",
+  "/messages",
+  "/notifications",
+  "/settings",
+  "/assistant",
+  "/sell",
+  "/checkout",
+  "/clinic/",
+  "/store/cart",
+  "/admin",
+];
+
+function needsSession(pathname: string): boolean {
+  return (
+    pathname === "/clinic" ||
+    SIGNED_IN_PREFIXES.some((p) => (p.endsWith("/") ? pathname.startsWith(p) : pathname === p || pathname.startsWith(`${p}/`)))
+  );
+}
+
 export async function middleware(request: NextRequest) {
+  const { pathname, search } = request.nextUrl;
+  if (needsSession(pathname) && !request.cookies.get("pm_session")) {
+    const login = new URL("/login", request.url);
+    login.searchParams.set("next", `${pathname}${search}`);
+    return NextResponse.redirect(login);
+  }
+
   // 16 random bytes, base64. Regenerated per request: a reused nonce is the
   // same as no nonce at all.
   const nonce = Buffer.from(crypto.randomUUID().replaceAll("-", ""), "hex").toString("base64");

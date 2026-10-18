@@ -14,6 +14,7 @@ import { purchaseFeaturedPlacement } from "@/lib/services/subscription.service";
 import { startListingConversation } from "@/lib/services/chat.service";
 import { createPayment } from "@/lib/payments/service";
 import { clientEnv } from "@/lib/env";
+import { forbidden } from "@/lib/errors";
 import { safeParagraph } from "@/lib/validation/common";
 import { LIMITS } from "@/lib/constants";
 
@@ -53,6 +54,13 @@ export const POST = route({
   ]),
   async handler({ params, body }) {
     const auth = await requireActive();
+
+    // Money and publishing need a reachable owner. Without this a buyer could
+    // pay and then be unable to message the seller or receive any receipt.
+    const needsVerifiedEmail = ["publish", "contact", "buy", "feature"].includes(body.action);
+    if (needsVerifiedEmail && !auth.user.emailVerified) {
+      throw forbidden("Please confirm your email address before continuing.");
+    }
 
     switch (body.action) {
       case "publish":

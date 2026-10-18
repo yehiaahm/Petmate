@@ -21,6 +21,8 @@ interface Turn {
   /** Which engine produced it. Never inferred — the server says. */
   source?: "ai" | "rules";
   links?: { label: string; href: string }[];
+  /** The reply tells the owner to get a vet now. */
+  urgent?: boolean;
 }
 
 const SUGGESTIONS = [
@@ -106,6 +108,7 @@ export function CareAssistant({
             content: payload.answer ?? "",
             source: payload.source === "ai" ? "ai" : "rules",
             links: payload.links ?? [],
+            urgent: Boolean(payload.urgent),
           },
         ]);
         return;
@@ -225,8 +228,17 @@ export function CareAssistant({
             <li key={index}>
               <Card
                 as="article"
-                className={cn("p-5", turn.role === "user" && "bg-bg-sunken")}
+                className={cn(
+                  "p-5",
+                  turn.role === "user" && "bg-bg-sunken",
+                  turn.urgent && "border-[var(--danger)] ring-1 ring-[var(--danger)]",
+                )}
               >
+                {turn.urgent && (
+                  <p className="mb-2 text-sm font-semibold uppercase tracking-wide text-[var(--danger)]" role="alert">
+                    Possible emergency
+                  </p>
+                )}
                 <div className="flex items-center gap-2">
                   {turn.role === "user" ? (
                     <User className="size-4 text-fg-subtle" aria-hidden />

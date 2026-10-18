@@ -77,7 +77,15 @@ recorded in the audit log.
 
 ## Headers
 
-Set in `next.config.ts` for every response: `X-Content-Type-Options`,
+A nonce-based `Content-Security-Policy` is set per request in
+`src/middleware.ts`: `script-src` carries a fresh nonce plus `strict-dynamic`
+in production, so an injected inline script cannot execute even if it reaches
+the page. Development keeps `unsafe-inline`/`unsafe-eval`, which fast refresh
+needs. The cost is that pages rendering the root layout are server-rendered
+rather than prerendered — a per-request nonce and a static HTML file are
+mutually exclusive.
+
+The rest are set in `next.config.ts` for every response: `X-Content-Type-Options`,
 `X-Frame-Options: DENY`, `Referrer-Policy`, a `Permissions-Policy` that denies
 camera, microphone and payment APIs, `Cross-Origin-Opener-Policy`, and HSTS in
 production. Uploaded files get their own stricter set.
@@ -121,8 +129,6 @@ Worth stating plainly rather than leaving someone to discover:
   production.
 - **No automated dependency scanning is wired in.** Add `npm audit` or
   Dependabot to CI.
-- **The CSP is not yet nonce-based in production.** The header set is strict
-  otherwise, but this is the remaining piece.
 
 ## Reporting a vulnerability
 

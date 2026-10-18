@@ -3,10 +3,11 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Menu, X, LogOut, Shield, Stethoscope, Store } from "lucide-react";
+import { Menu, X, LogOut, Shield, Stethoscope, Store, ChevronRight } from "lucide-react";
 import { Avatar, Badge } from "@/components/ui/primitives";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { ThemeToggle } from "./theme-toggle";
+import { Logo } from "@/components/brand/logo";
 import { api } from "@/lib/api-client";
 import type { SessionUser } from "@/lib/auth/session";
 
@@ -76,7 +77,7 @@ export function MobileNav({
           setOpenedAt(pathname);
           setOpen(true);
         }}
-        className="inline-flex size-9 items-center justify-center rounded-[var(--radius-field)] text-fg-muted transition-colors hover:bg-bg-sunken hover:text-fg lg:hidden"
+        className="inline-flex size-10 items-center justify-center rounded-full text-fg-muted transition-[color,background-color,transform] duration-200 hover:bg-bg-sunken hover:text-fg active:scale-90 lg:hidden"
         aria-label="Open menu"
         aria-expanded={open}
       >
@@ -86,7 +87,7 @@ export function MobileNav({
       {open && (
         <div className="fixed inset-0 z-[60] lg:hidden">
           <div
-            className="animate-fade absolute inset-0 bg-[var(--overlay)]"
+            className="animate-fade absolute inset-0 bg-[var(--overlay)] backdrop-blur-sm"
             onClick={() => setOpen(false)}
             aria-hidden
           />
@@ -95,14 +96,14 @@ export function MobileNav({
             role="dialog"
             aria-modal="true"
             aria-label="Menu"
-            className="absolute inset-y-0 right-0 flex w-[min(20rem,85vw)] flex-col bg-bg shadow-[var(--shadow-pop)]"
+            className="animate-slide-in-right absolute inset-y-0 right-0 flex w-[min(21rem,88vw)] flex-col overflow-hidden rounded-l-[1.75rem] bg-bg-elevated shadow-[var(--shadow-pop)]"
           >
             <div className="flex items-center justify-between border-b border-[var(--border)] p-4">
-              <span className="font-display text-lg font-semibold">Menu</span>
+              <Logo size="sm" />
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                className="inline-flex size-9 items-center justify-center rounded-[var(--radius-field)] text-fg-muted hover:bg-bg-sunken hover:text-fg"
+                className="inline-flex size-10 items-center justify-center rounded-full text-fg-muted transition-transform hover:rotate-90 hover:bg-bg-sunken hover:text-fg"
                 aria-label="Close menu"
               >
                 <X className="size-5" aria-hidden />
@@ -126,13 +127,18 @@ export function MobileNav({
               )}
 
               <nav className="p-2" aria-label="Mobile">
-                {links.map((link) => (
+                {links.map((link, index) => (
                   <Link
                     key={link.href}
                     href={link.href}
-                    className="block rounded-[var(--radius-field)] px-3 py-3 text-[15px] font-medium text-fg transition-colors hover:bg-bg-sunken"
+                    style={{ "--d": `${80 + index * 45}ms` } as React.CSSProperties}
+                    className="enter group flex items-center justify-between rounded-2xl px-3.5 py-3.5 text-[15px] font-semibold text-fg transition-colors hover:bg-brand-soft hover:text-brand-soft-fg"
                   >
                     {link.label}
+                    <ChevronRight
+                      className="size-4 text-fg-subtle transition-transform group-hover:translate-x-0.5 group-hover:text-brand-soft-fg"
+                      aria-hidden
+                    />
                   </Link>
                 ))}
               </nav>
@@ -142,7 +148,7 @@ export function MobileNav({
                   <Link
                     key={link.href}
                     href={link.href}
-                    className="block rounded-[var(--radius-field)] px-3 py-2.5 text-sm text-fg-muted transition-colors hover:bg-bg-sunken hover:text-fg"
+                    className="block rounded-2xl px-3.5 py-2.5 text-sm text-fg-muted transition-colors hover:bg-bg-sunken hover:text-fg"
                   >
                     {link.label}
                   </Link>
@@ -154,7 +160,7 @@ export function MobileNav({
                   {user.roles.includes("CLINIC_ADMIN") || user.roles.includes("VET") ? (
                     <Link
                       href="/clinic"
-                      className="flex items-center gap-3 rounded-[var(--radius-field)] px-3 py-2.5 text-sm text-fg-muted hover:bg-bg-sunken hover:text-fg"
+                      className="flex items-center gap-3 rounded-2xl px-3.5 py-2.5 text-sm text-fg-muted hover:bg-bg-sunken hover:text-fg"
                     >
                       <Stethoscope className="size-4" aria-hidden /> Clinic console
                     </Link>
@@ -162,7 +168,7 @@ export function MobileNav({
                   {user.roles.includes("SELLER") && (
                     <Link
                       href="/sell"
-                      className="flex items-center gap-3 rounded-[var(--radius-field)] px-3 py-2.5 text-sm text-fg-muted hover:bg-bg-sunken hover:text-fg"
+                      className="flex items-center gap-3 rounded-2xl px-3.5 py-2.5 text-sm text-fg-muted hover:bg-bg-sunken hover:text-fg"
                     >
                       <Store className="size-4" aria-hidden /> Seller console
                     </Link>
@@ -172,7 +178,7 @@ export function MobileNav({
                     user.roles.includes("MODERATOR")) && (
                     <Link
                       href="/admin"
-                      className="flex items-center gap-3 rounded-[var(--radius-field)] px-3 py-2.5 text-sm text-fg-muted hover:bg-bg-sunken hover:text-fg"
+                      className="flex items-center gap-3 rounded-2xl px-3.5 py-2.5 text-sm text-fg-muted hover:bg-bg-sunken hover:text-fg"
                     >
                       <Shield className="size-4" aria-hidden /> Admin
                     </Link>

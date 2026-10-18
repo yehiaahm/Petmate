@@ -311,6 +311,7 @@ export default async function ClinicPage({ params }: { params: Params }) {
             signedIn={Boolean(auth)}
             emailVerified={auth?.user.emailVerified ?? false}
             cancellationHours={clinic.cancellationHours}
+            timezone={clinic.timezone}
             bookingLeadHours={clinic.bookingLeadHours}
             phone={clinic.phone}
             website={clinic.website}

@@ -167,14 +167,14 @@ export function SearchBar({
           aria-autocomplete="list"
           role="combobox"
           aria-controls="search-suggestions"
-          className="h-11 w-full rounded-full border border-[var(--border-strong)] bg-bg-elevated pl-11 pr-11 text-[15px] text-fg placeholder:text-fg-subtle focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+          className="h-11 w-full rounded-full border border-[var(--border-strong)] bg-bg-elevated/80 pl-11 pr-11 text-[15px] text-fg shadow-[var(--shadow-subtle)] backdrop-blur transition-[border-color,box-shadow] duration-200 placeholder:text-fg-subtle hover:border-[color-mix(in_srgb,var(--brand)_45%,var(--border-strong))] focus:border-[var(--brand)] focus:shadow-[0_0_0_4px_color-mix(in_srgb,var(--brand)_18%,transparent)] focus:outline-none"
         />
         <button
           type="button"
           onClick={() => void runSearch()}
           disabled={!value.trim() || interpreting}
           aria-label="Search"
-          className="absolute right-1.5 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-full bg-brand text-brand-fg transition-colors hover:bg-brand-hover disabled:opacity-40"
+          className="btn-gradient absolute right-1.5 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-full disabled:opacity-40"
         >
           {interpreting ? (
             <Loader2 className="size-4 animate-spin" aria-hidden />
@@ -188,7 +188,7 @@ export function SearchBar({
         <div
           id="search-suggestions"
           role="listbox"
-          className="absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-[var(--radius-card)] border border-[var(--border)] bg-bg-elevated shadow-[var(--shadow-pop)]"
+          className="animate-in-up absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-[var(--radius-card)] border border-[var(--border)] bg-bg-elevated shadow-[var(--shadow-pop)]"
         >
           {visibleSuggestions.map((suggestion, index) => (
             <button

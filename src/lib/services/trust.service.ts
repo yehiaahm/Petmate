@@ -166,7 +166,10 @@ export async function getTrustBreakdown(userId: string): Promise<TrustBreakdown>
   earned.sort((a, b) => b.points - a.points);
   lost.sort((a, b) => a.points - b.points);
 
-  const available = ONE_TIME.filter((k) => !grouped.has(k) && k !== "ACCOUNT_AGE_90D").map((k) => ({
+  // Phone verification needs an SMS provider and there is no flow for it yet, so
+  // it must not be offered as something a member can go and do.
+  const NOT_EARNABLE_YET: TrustSignalKind[] = ["ACCOUNT_AGE_90D", "PHONE_VERIFIED"];
+  const available = ONE_TIME.filter((k) => !grouped.has(k) && !NOT_EARNABLE_YET.includes(k)).map((k) => ({
     kind: k,
     label: TRUST_SIGNAL_LABEL[k],
     points: TRUST_WEIGHTS[k],

@@ -7,6 +7,14 @@ import { Field, Input, Textarea, Checkbox } from "@/components/ui/field";
 import { Alert, Card, CardHeader } from "@/components/ui/primitives";
 import { api, ApiError } from "@/lib/api-client";
 
+function browserTimeZone(): string {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+  } catch {
+    return "UTC";
+  }
+}
+
 export function ClinicRegistration({
   defaultEmail,
   defaultCity,
@@ -33,6 +41,9 @@ export function ClinicRegistration({
     emergencyServices: false,
     homeVisits: false,
     acceptsWalkIns: false,
+    // The zone the opening hours are written in. Defaults to the zone of the
+    // browser registering the clinic, which is right for almost every clinic.
+    timezone: browserTimeZone(),
     bookingLeadHours: "2",
     cancellationHours: "24",
   });
@@ -68,6 +79,7 @@ export function ClinicRegistration({
           emergencyServices: values.emergencyServices,
           homeVisits: values.homeVisits,
           acceptsWalkIns: values.acceptsWalkIns,
+          timezone: values.timezone,
           bookingLeadHours: Number(values.bookingLeadHours),
           cancellationHours: Number(values.cancellationHours),
         },
@@ -278,6 +290,21 @@ export function ClinicRegistration({
               onChange={(e) => set("acceptsWalkIns", e.target.checked)}
             />
           </div>
+
+          <Field
+            label="Time zone"
+            hint="Opening hours and appointment times are shown in this zone, for example Africa/Cairo."
+            error={fieldError("timezone")}
+          >
+            {({ id, invalid }) => (
+              <Input
+                id={id}
+                invalid={invalid}
+                value={values.timezone}
+                onChange={(e) => set("timezone", e.target.value)}
+              />
+            )}
+          </Field>
 
           <div className="grid gap-5 sm:grid-cols-2">
             <Field

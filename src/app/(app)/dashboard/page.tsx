@@ -98,9 +98,19 @@ export default async function DashboardPage() {
     db.listing.count({
       where: { sellerId: userId, status: { in: ["ACTIVE", "RESERVED"] }, deletedAt: null },
     }),
-    db.order.count({
-      where: { buyerId: userId, status: { in: ["PAID", "PROCESSING", "SHIPPED"] } },
-    }),
+    // Shop orders I am waiting on, plus pet purchases and sales still in escrow
+    // or awaiting handover, from either side of the deal.
+    Promise.all([
+      db.order.count({
+        where: { buyerId: userId, status: { in: ["PAID", "PROCESSING", "SHIPPED"] } },
+      }),
+      db.petOrder.count({
+        where: {
+          OR: [{ buyerId: userId }, { sellerId: userId }],
+          status: { in: ["IN_ESCROW", "HANDOVER_PENDING"] },
+        },
+      }),
+    ]).then(([shop, pets]) => shop + pets),
     db.breedingRequest.count({ where: { receiverUserId: userId, status: "PENDING" } }),
     db.adoptionApplication.count({
       where: { listing: { sellerId: userId }, status: { in: ["SUBMITTED", "IN_REVIEW"] } },

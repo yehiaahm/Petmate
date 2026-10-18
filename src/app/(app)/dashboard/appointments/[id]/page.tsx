@@ -60,6 +60,7 @@ export default async function AppointmentPage({
           country: true,
           phone: true,
           cancellationHours: true,
+          timezone: true,
         },
       },
       service: { select: { name: true, category: true, durationMinutes: true } },
@@ -105,7 +106,7 @@ export default async function AppointmentPage({
         {appointment.service.name}
       </h1>
       <p className="mt-1 text-[15px] text-fg-muted">
-        {formatDateTime(appointment.startAt)} · {appointment.service.durationMinutes} minutes
+        {formatDateTime(appointment.startAt, appointment.clinic.timezone)} · {appointment.service.durationMinutes} minutes
         {appointment.status === "CONFIRMED" && hoursUntil > 0
           ? ` · ${relativeTime(appointment.startAt)}`
           : ""}

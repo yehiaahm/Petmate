@@ -5,7 +5,16 @@ import { audit } from "@/lib/audit";
 import { badRequest, conflict, notFound } from "@/lib/errors";
 import { assertClinicAccess, assertOwnsPet } from "@/lib/auth/rbac";
 import type { AuthContext } from "@/lib/auth/session";
-import { addMinutes, boundingBox, haversineKm, readableCode, startOfDayUTC, uniqueSlug } from "@/lib/utils";
+import {
+  addMinutes,
+  boundingBox,
+  haversineKm,
+  isValidTimeZone,
+  localDayStart,
+  readableCode,
+  uniqueSlug,
+  zonedMinuteToInstant,
+} from "@/lib/utils";
 import { applyBps } from "@/lib/money";
 import { resolveCommissionBps } from "@/lib/settings";
 import { buildSearchText, searchTextClauses } from "@/lib/search/text";
@@ -54,6 +63,10 @@ export const clinicSchema = z.object({
   emergencyServices: z.boolean().default(false),
   homeVisits: z.boolean().default(false),
   acceptsWalkIns: z.boolean().default(false),
+  timezone: z
+    .string()
+    .refine(isValidTimeZone, "Choose a valid time zone, for example Africa/Cairo.")
+    .default("UTC"),
   bookingLeadHours: z.number().int().min(0).max(168).default(2),
   cancellationHours: z.number().int().min(0).max(168).default(24),
 });
@@ -85,6 +98,7 @@ export async function createClinic(auth: AuthContext, input: z.infer<typeof clin
         emergencyServices: input.emergencyServices,
         homeVisits: input.homeVisits,
         acceptsWalkIns: input.acceptsWalkIns,
+        timezone: input.timezone,
         bookingLeadHours: input.bookingLeadHours,
         cancellationHours: input.cancellationHours,
         // A clinic is not listed until a human has checked the licence. This is
@@ -314,11 +328,11 @@ export async function getAvailability(params: {
   const [service, clinic] = await Promise.all([
     db.service.findFirst({
       where: { id: params.serviceId, clinicId: params.clinicId, isActive: true },
-      select: { id: true, durationMinutes: true, vetId: true },
+      select: { id: true, durationMinutes: true, vetId: true, category: true },
     }),
     db.clinic.findFirst({
       where: { id: params.clinicId, deletedAt: null, status: "ACTIVE" },
-      select: { id: true, bookingLeadHours: true },
+      select: { id: true, bookingLeadHours: true, timezone: true },
     }),
   ]);
 
@@ -336,8 +350,15 @@ export async function getAvailability(params: {
   if (!vets.length) return [];
 
   const vetIds = vets.map((v) => v.id);
-  const windowStart = startOfDayUTC(params.from);
+  // `windowStart` is the clinic's local calendar day, written as UTC midnight so
+  // weekday arithmetic and AvailabilityException.date (also UTC midnight) line
+  // up. Real instants are produced per slot with zonedMinuteToInstant below.
+  const tz = clinic.timezone;
+  const windowStart = localDayStart(params.from, tz);
   const windowEnd = new Date(windowStart.getTime() + days * 86_400_000);
+  // A clinic day can start up to ~14h before or after the UTC day boundary.
+  const bookedFrom = new Date(windowStart.getTime() - 86_400_000);
+  const bookedTo = new Date(windowEnd.getTime() + 86_400_000);
 
   const [hours, exceptions, booked] = await Promise.all([
     db.clinicHours.findMany({
@@ -354,14 +375,17 @@ export async function getAvailability(params: {
     db.appointment.findMany({
       where: {
         vetId: { in: vetIds },
-        startAt: { gte: windowStart, lt: windowEnd },
+        startAt: { gte: bookedFrom, lt: bookedTo },
         status: { in: ["PENDING_PAYMENT", "CONFIRMED", "CHECKED_IN"] },
       },
       select: { vetId: true, startAt: true, endAt: true },
     }),
   ]);
 
-  const earliest = new Date(Date.now() + clinic.bookingLeadHours * 3_600_000);
+  // An emergency cannot be asked to book hours ahead: the clinic's notice period
+  // applies to routine visits only.
+  const leadHours = service.category === "EMERGENCY" ? 0 : clinic.bookingLeadHours;
+  const earliest = new Date(Date.now() + leadHours * 3_600_000);
   const slots: Slot[] = [];
 
   for (const vet of vets) {
@@ -389,7 +413,7 @@ export async function getAvailability(params: {
           minute + service.durationMinutes <= endMinute;
           minute += block.slotMinutes
         ) {
-          const startAt = new Date(date.getTime() + minute * 60_000);
+          const startAt = zonedMinuteToInstant(date, minute, tz);
           const endAt = addMinutes(startAt, service.durationMinutes);
 
           if (startAt < earliest) continue;
@@ -440,7 +464,7 @@ export async function bookAppointment(auth: AuthContext, input: z.infer<typeof b
     }),
     db.service.findFirst({
       where: { id: input.serviceId, clinicId: input.clinicId, isActive: true },
-      select: { id: true, name: true, priceCents: true, currency: true, durationMinutes: true, species: true },
+      select: { id: true, name: true, priceCents: true, currency: true, durationMinutes: true, species: true, category: true },
     }),
     db.vet.findFirst({
       where: { id: input.vetId, clinicId: input.clinicId, acceptingNew: true },
@@ -464,7 +488,8 @@ export async function bookAppointment(auth: AuthContext, input: z.infer<typeof b
     }
   }
 
-  const earliest = new Date(Date.now() + clinic.bookingLeadHours * 3_600_000);
+  const leadHours = service.category === "EMERGENCY" ? 0 : clinic.bookingLeadHours;
+  const earliest = new Date(Date.now() + leadHours * 3_600_000);
   if (input.startAt < earliest) {
     throw badRequest(`This clinic needs at least ${clinic.bookingLeadHours} hours notice.`);
   }
@@ -813,6 +838,7 @@ export async function getClinicBySlug(slug: string) {
       acceptsWalkIns: true,
       cancellationHours: true,
       bookingLeadHours: true,
+      timezone: true,
       ratingAvgBps: true,
       ratingCount: true,
       bookingCount: true,
@@ -917,7 +943,7 @@ export async function listMyAppointments(auth: AuthContext, opts: { upcoming?: b
       currency: true,
       paymentIntentId: true,
       service: { select: { name: true, category: true } },
-      clinic: { select: { id: true, name: true, slug: true, addressLine: true, city: true, phone: true } },
+      clinic: { select: { id: true, name: true, slug: true, addressLine: true, city: true, phone: true, timezone: true } },
       vet: { select: { user: { select: { name: true } } } },
       pet: {
         select: {

@@ -95,7 +95,7 @@ export function formatDate(d: Date | string | null | undefined, style: "short" |
   });
 }
 
-export function formatDateTime(d: Date | string | null | undefined) {
+export function formatDateTime(d: Date | string | null | undefined, timeZone?: string) {
   if (!d) return "—";
   const date = typeof d === "string" ? new Date(d) : d;
   if (Number.isNaN(date.getTime())) return "—";
@@ -105,6 +105,7 @@ export function formatDateTime(d: Date | string | null | undefined) {
     year: "numeric",
     hour: "numeric",
     minute: "2-digit",
+    ...(timeZone ? { timeZone } : {}),
   });
 }
 
@@ -160,6 +161,64 @@ export function addMonths(d: Date, months: number): Date {
 
 export function startOfDayUTC(d: Date): Date {
   return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+}
+
+// ---------------------------------------------------------------------------
+// Time zones
+//
+// Clinic opening hours are "minutes since midnight in the clinic's own zone".
+// These two helpers translate between that and real instants without a date
+// library: Intl already knows every zone and every DST rule.
+// ---------------------------------------------------------------------------
+
+export function isValidTimeZone(tz: string): boolean {
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: tz });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Offset of `tz` from UTC at `instant`, in minutes (Cairo in summer: +180). */
+function zoneOffsetMinutes(instant: Date, tz: string): number {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: tz,
+    hourCycle: "h23",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  }).formatToParts(instant);
+  const get = (type: string) => Number(parts.find((p) => p.type === type)?.value);
+  const asUtc = Date.UTC(get("year"), get("month") - 1, get("day"), get("hour"), get("minute"), get("second"));
+  return Math.round((asUtc - Math.floor(instant.getTime() / 1000) * 1000) / 60_000);
+}
+
+/** The calendar date (as UTC midnight) that `instant` falls on in `tz`. */
+export function localDayStart(instant: Date, tz: string): Date {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: tz,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(instant);
+  const get = (type: string) => Number(parts.find((p) => p.type === type)?.value);
+  return new Date(Date.UTC(get("year"), get("month") - 1, get("day")));
+}
+
+/**
+ * The instant at which the wall clock in `tz` reads `minuteOfDay` on the
+ * calendar day `dayStartUtc` (a UTC-midnight date standing for y-m-d).
+ */
+export function zonedMinuteToInstant(dayStartUtc: Date, minuteOfDay: number, tz: string): Date {
+  const naive = dayStartUtc.getTime() + minuteOfDay * 60_000;
+  // Two passes settle the offset across a DST boundary.
+  let result = naive - zoneOffsetMinutes(new Date(naive), tz) * 60_000;
+  result = naive - zoneOffsetMinutes(new Date(result), tz) * 60_000;
+  return new Date(result);
 }
 
 // ---------------------------------------------------------------------------

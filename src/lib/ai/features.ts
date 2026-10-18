@@ -2,8 +2,9 @@ import "server-only";
 import { z } from "zod";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { db } from "@/lib/db";
-import { formatAge, splitTags } from "@/lib/utils";
+import { ageInMonths, formatAge, splitTags } from "@/lib/utils";
 import { normalizeSearchText } from "@/lib/search/text";
+import { careRulesAnswer, type CareAnswer, type CareFacts } from "./care-rules";
 import { SPECIES, LISTING_INTENT, type Species } from "@/lib/constants";
 import {
   aiAvailable,
@@ -533,52 +534,36 @@ export async function careAssistantStream(params: {
 }
 
 /**
- * The care assistant's deterministic path. Not a chatbot: it routes the
- * question to the relevant part of the product, which is honest and often more
- * useful than a paragraph of generic text.
+ * The care assistant's deterministic path (see care-rules.ts): urgency triage
+ * first, then widely accepted general guidance for the questions owners ask
+ * most, and an honest "I cannot answer that" for everything else.
  */
-export function careAssistantFallback(question: string): {
-  answer: string;
-  links: { label: string; href: string }[];
-} {
-  const text = normalizeSearchText(question);
+export function careAssistantFallback(question: string, facts?: CareFacts): CareAnswer {
+  return careRulesAnswer(question, facts);
+}
 
-  if (
-    /\b(emergency|bleeding|seizure|poison|collapse|not breathing|hit by|choking|bloat)\b/.test(text)
-  ) {
-    return {
-      answer:
-        "This sounds urgent. Contact an emergency vet now rather than waiting for guidance here. If you do not have one, use the clinic finder and filter for emergency services.",
-      links: [{ label: "Find an emergency clinic", href: "/clinics?emergency=true" }],
-    };
-  }
-
-  if (/\b(vaccin|jab|shot|booster)\b/.test(text)) {
-    return {
-      answer:
-        "Vaccination schedules depend on species, age and where you live. Your pet's health timeline shows what has been given and what is due, and booking through PetMate adds the result to the record automatically.",
-      links: [
-        { label: "Open pet health records", href: "/dashboard/pets" },
-        { label: "Book a vaccination", href: "/clinics?category=VACCINATION" },
-      ],
-    };
-  }
-
-  if (/\b(breed|mate|stud|litter|pregnan)\b/.test(text)) {
-    return {
-      answer:
-        "Breeding questions depend heavily on the individual animal's age, health and history. The breeding tools check compatibility and show exactly which factors apply to your pet.",
-      links: [{ label: "Open breeding matches", href: "/dashboard/breeding" }],
-    };
-  }
-
+/** What the rules engine may use from a pet the caller owns. */
+export async function getCareFacts(petId: string, ownerId: string): Promise<CareFacts | undefined> {
+  const pet = await db.pet.findFirst({
+    where: { id: petId, ownerId, deletedAt: null },
+    select: {
+      name: true,
+      species: true,
+      birthDate: true,
+      healthRecords: {
+        where: { deletedAt: null, nextDueAt: { lt: new Date() } },
+        orderBy: { nextDueAt: "asc" },
+        take: 5,
+        select: { title: true },
+      },
+    },
+  });
+  if (!pet) return undefined;
   return {
-    answer:
-      "The AI care assistant is not configured on this deployment, so I cannot answer freely. Your pet's health timeline and the clinic finder cover most questions, and a vet can answer the rest properly.",
-    links: [
-      { label: "Pet health records", href: "/dashboard/pets" },
-      { label: "Find a vet", href: "/clinics" },
-    ],
+    petName: pet.name,
+    species: pet.species as CareFacts["species"],
+    ageMonths: ageInMonths(pet.birthDate, new Date()),
+    overdue: pet.healthRecords.map((r) => r.title),
   };
 }
 

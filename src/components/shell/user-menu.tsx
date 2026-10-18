@@ -109,7 +109,7 @@ export function UserMenu({ user }: { user: SessionUser }) {
       {open && (
         <div
           role="menu"
-          className="animate-fade absolute right-0 top-full z-50 mt-2 w-64 overflow-hidden rounded-[var(--radius-card)] border border-[var(--border)] bg-bg-elevated shadow-[var(--shadow-pop)]"
+          className="animate-sheet absolute right-0 top-full z-50 mt-2 w-64 origin-top-right overflow-hidden rounded-[var(--radius-card)] border border-[var(--border)] bg-bg-elevated shadow-[var(--shadow-pop)]"
         >
           <div className="border-b border-[var(--border)] p-4">
             <p className="truncate text-sm font-semibold text-fg">{user.name}</p>
@@ -142,7 +142,7 @@ export function UserMenu({ user }: { user: SessionUser }) {
                   href={item.href}
                   role="menuitem"
                   onClick={() => setOpen(false)}
-                  className="flex items-center gap-3 px-4 py-2 text-sm text-fg-muted transition-colors hover:bg-bg-sunken hover:text-fg"
+                  className="mx-1.5 flex items-center gap-3 rounded-xl px-2.5 py-2 text-sm text-fg-muted transition-colors hover:bg-brand-soft hover:text-brand-soft-fg"
                 >
                   <item.icon className="size-4 shrink-0" aria-hidden />
                   {item.label}

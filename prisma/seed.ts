@@ -157,19 +157,47 @@ const PHOTOS: Record<string, string[]> = {
   DOG: [
     "https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=900&q=80",
     "https://images.unsplash.com/photo-1552053831-71594a27632d?w=900&q=80",
-    "https://images.unsplash.com/photo-1583512603805-3cc6b41f3edb?w=900&q=80",
     "https://images.unsplash.com/photo-1561037404-61cd46aa615b?w=900&q=80",
   ],
   CAT: [
-    "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=900&q=80",
-    "https://images.unsplash.com/photo-1533738363-b7f9aef128ce?w=900&q=80",
     "https://images.unsplash.com/photo-1495360010541-f48722b34f7d?w=900&q=80",
+    "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=900&q=80",
   ],
   RABBIT: ["https://images.unsplash.com/photo-1585110396000-c9ffd4e4b308?w=900&q=80"],
   BIRD: ["https://images.unsplash.com/photo-1452570053594-1b985d6ea890?w=900&q=80"],
   REPTILE: ["https://images.unsplash.com/photo-1504450874802-0ba2bcd9b5ae?w=900&q=80"],
   SMALL_MAMMAL: ["https://images.unsplash.com/photo-1425082661705-1834bfd09dca?w=900&q=80"],
   HORSE: ["https://images.unsplash.com/photo-1553284965-83fd3e82fa5a?w=900&q=80"],
+};
+
+/**
+ * Photos per breed, so a Labrador listing shows a Labrador. Every URL here was
+ * looked at and matches its breed. A breed with no entry falls back to its
+ * species list above, which is deliberately limited to photos that read as the
+ * species rather than as a particular breed.
+ */
+const BREED_PHOTOS: Record<string, string[]> = {
+  "Labrador Retriever": [
+    "https://images.unsplash.com/photo-1561495376-dc9c7c5b8726?w=900&q=80",
+    "https://images.unsplash.com/photo-1565313753908-7b1da784e4f1?w=900&q=80",
+    "https://images.unsplash.com/photo-1586671267731-da2cf3ceeb80?w=900&q=80",
+  ],
+  "Golden Retriever": [
+    "https://images.unsplash.com/photo-1591160690555-5debfba289f0?w=900&q=80",
+    "https://images.unsplash.com/photo-1552053831-71594a27632d?w=900&q=80",
+  ],
+  "Mixed Breed": [
+    "https://images.unsplash.com/photo-1561037404-61cd46aa615b?w=900&q=80",
+    "https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=900&q=80",
+  ],
+  "French Bulldog": ["https://images.unsplash.com/photo-1583512603805-3cc6b41f3edb?w=900&q=80"],
+  Beagle: ["https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=900&q=80"],
+  "Siberian Husky": ["https://images.unsplash.com/photo-1605568427561-40dd23c2acea?w=900&q=80"],
+  "Maine Coon": ["https://images.unsplash.com/photo-1573865526739-10659fec78a5?w=900&q=80"],
+  "Domestic Shorthair": [
+    "https://images.unsplash.com/photo-1495360010541-f48722b34f7d?w=900&q=80",
+    "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=900&q=80",
+  ],
 };
 
 function pick<T>(items: T[], index: number): T {
@@ -343,7 +371,7 @@ async function seedDemoData() {
   for (const [index, spec] of petSpecs.entries()) {
     const breed = breeds.find((b) => b.name === spec.breedName && b.species === spec.species);
     const birthDate = addMonths(new Date(), -spec.ageMonths);
-    const photos = PHOTOS[spec.species] ?? PHOTOS.DOG!;
+    const photos = BREED_PHOTOS[spec.breedName] ?? PHOTOS[spec.species] ?? PHOTOS.DOG!;
 
     const pet = await db.pet.create({
       data: {
@@ -356,6 +384,8 @@ async function seedDemoData() {
         isNeutered: spec.intent === "BREEDING" ? false : spec.ageMonths > 12,
         temperament: spec.temperament,
         passportNo: generatePassportNumber(),
+        // Listings say "microchipped"; the record should agree with them.
+        microchipId: spec.intent ? `98102000${String(index + 1).padStart(7, "0")}` : null,
         verificationLevel: index < 3 ? "CLINIC_VERIFIED" : "OWNER_CLAIMED",
         verifiedAt: index < 3 ? new Date() : null,
         city: spec.ownerCity.city,
@@ -534,6 +564,7 @@ async function seedDemoData() {
       emergencyServices: true,
       homeVisits: false,
       acceptsWalkIns: true,
+      timezone: "Africa/Cairo",
       ratingAvgBps: 470,
       ratingCount: 38,
       bookingCount: 214,
@@ -615,7 +646,7 @@ async function seedDemoData() {
   const products = [
     { title: "Grain-free adult dog food, 12kg", slug: "grain-free-adult-dog-food-12kg", category: "dry-food", priceCents: 6499, compareAtCents: 7499, stock: 42, brand: "Northfield", description: "Single-protein salmon recipe with no wheat, corn or soy. Suitable for adult dogs of all sizes, including those with grain sensitivities. Contains glucosamine and chondroitin for joint support, and omega oils for coat condition. Feeding guide on the pack; transition over seven days when switching.", image: "https://images.unsplash.com/photo-1589924691995-400dc9ecc119?w=800&q=80" },
     { title: "Stainless steel slow feeder bowl", slug: "stainless-steel-slow-feeder-bowl", category: "beds-mats", priceCents: 1899, stock: 88, brand: "Northfield", description: "A raised maze insert that turns a thirty-second meal into a five-minute one, which helps with bloat risk in deep-chested dogs and with cats who eat too fast and bring it straight back up. Dishwasher safe, non-slip base.", image: "https://images.unsplash.com/photo-1601758124510-52d02ddb7cbd?w=800&q=80" },
-    { title: "Spot-on flea and tick treatment, 6 pack", slug: "spot-on-flea-tick-6-pack", category: "flea-tick", priceCents: 3299, stock: 120, brand: "Vetline", description: "Six monthly pipettes for dogs 10-25kg. Kills fleas within 24 hours and ticks within 48, and breaks the flea life cycle by preventing egg development. Read the weight band carefully before buying, and never use a dog product on a cat.", image: "https://images.unsplash.com/photo-1607923432780-7a2d0c9d1e4f?w=800&q=80" },
+    { title: "Spot-on flea and tick treatment, 6 pack", slug: "spot-on-flea-tick-6-pack", category: "flea-tick", priceCents: 3299, stock: 120, brand: "Vetline", description: "Six monthly pipettes for dogs 10-25kg. Kills fleas within 24 hours and ticks within 48, and breaks the flea life cycle by preventing egg development. Read the weight band carefully before buying, and never use a dog product on a cat.", image: "https://images.unsplash.com/photo-1630438994394-3deff7a591bf?w=800&q=80" },
     { title: "Orthopaedic memory foam dog bed, large", slug: "orthopaedic-memory-foam-dog-bed-large", category: "beds-mats", priceCents: 8999, compareAtCents: 10999, stock: 17, brand: "Restwell", description: "10cm of high-density memory foam with a bolstered edge, sized for dogs up to 40kg. Genuinely worth it for older dogs and for any breed prone to hip or elbow problems. Removable, machine-washable cover with a waterproof inner liner.", image: "https://images.unsplash.com/photo-1583337130417-3346a1be7dee?w=800&q=80" },
     { title: "Interactive treat puzzle, level 2", slug: "interactive-treat-puzzle-level-2", category: "puzzle-feeders", priceCents: 2499, stock: 64, brand: "Braintoy", description: "Sliding compartments and removable pegs that take most dogs ten to fifteen minutes to work through. Real mental work, which tires a dog more reliably than another walk. Not a chew toy — supervise, and put it away afterwards.", image: "https://images.unsplash.com/photo-1601758174114-e711c0cbaa69?w=800&q=80" },
     { title: "Clumping cat litter, 10L", slug: "clumping-cat-litter-10l", category: "litter-trays", priceCents: 1599, stock: 200, brand: "Northfield", description: "Fine-grain bentonite that clumps hard and scoops clean, with no added fragrance. Low dust, which matters for cats with any respiratory history and for you.", image: "https://images.unsplash.com/photo-1606214174585-fe31582dc6ee?w=800&q=80" },

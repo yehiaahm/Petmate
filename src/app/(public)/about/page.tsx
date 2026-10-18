@@ -33,7 +33,7 @@ export default async function AboutPage() {
             Most pets change hands with a photo, a phone number and a promise. The buyer has no way
             to check whether the vaccinations happened, whether the seller has done this before, or
             whether the animal is what the listing says it is. The seller has no way to prove any of
-            it. Both of them are asked to trust a stranger with several hundred pounds and a living
+            it. Both of them are asked to trust a stranger with real money and a living
             animal.
           </p>
 

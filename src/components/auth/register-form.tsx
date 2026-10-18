@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils";
 type Role = "USER" | "BREEDER" | "SELLER" | "CLINIC_ADMIN";
 
 const ROLE_OPTIONS: { value: Role; label: string; description: string }[] = [
-  { value: "USER", label: "I have pets", description: "Find, adopt, book vets, keep records" },
+  { value: "USER", label: "I own or want a pet", description: "Buy, adopt, book vets, keep records" },
   { value: "BREEDER", label: "I breed", description: "Listings, breeding matches, litters" },
   { value: "SELLER", label: "I sell products", description: "Open a shop on the store" },
   { value: "CLINIC_ADMIN", label: "I run a clinic", description: "Take bookings, write records" },
@@ -221,6 +221,15 @@ export function RegisterForm({ next }: { next: string }) {
       >
         Create free account
       </Button>
+      {!submitting && (!acceptedTerms || strength.problems.length > 0 || !name || !email) && (
+        <p className="text-center text-xs text-fg-subtle">
+          {!name || !email
+            ? "Enter your name and email to continue."
+            : strength.problems.length > 0
+              ? "Choose a stronger password to continue."
+              : "Tick the box above to accept the terms."}
+        </p>
+      )}
     </form>
   );
 }

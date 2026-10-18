@@ -1,77 +1,106 @@
 import Link from "next/link";
 import { BadgeCheck, Lock, Stethoscope } from "lucide-react";
-import { Logo } from "@/components/brand/logo";
+import { Logo, LogoBadge, Wordmark } from "@/components/brand/logo";
 import { ThemeToggle } from "@/components/shell/theme-toggle";
 
 /**
  * Auth layout.
  *
- * A split: the form on one side, the reason to bother on the other. The right
+ * A split: the form on one side, the reason to bother on the other. The brand
  * panel is hidden below `lg` rather than stacked, because on a phone the only
- * thing that matters is getting to the first field.
+ * thing that matters is getting to the first field — so phones get the mark
+ * drawing itself above the form instead, which costs no scrolling.
  */
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="grid min-h-dvh lg:grid-cols-2">
-      <div className="flex flex-col">
-        <header className="flex items-center justify-between p-6">
-          <Link href="/" aria-label="PetMate home">
+      <div className="relative isolate flex flex-col overflow-hidden">
+        <div className="pointer-events-none absolute inset-0 -z-10 lg:hidden" aria-hidden>
+          <div className="blob -left-24 -top-24 size-72 bg-[var(--color-lagoon-400)] opacity-30" />
+          <div className="blob -right-24 top-24 size-64 bg-[var(--color-ocean-400)] opacity-20 [animation-delay:-7s]" />
+        </div>
+
+        <header className="flex items-center justify-between p-5 sm:p-6">
+          <Link href="/" aria-label="PetMate home" className="rounded-xl">
             <Logo size="sm" />
           </Link>
           <ThemeToggle />
         </header>
 
         <main id="main" className="flex flex-1 items-center justify-center px-6 pb-16">
-          <div className="w-full max-w-sm">{children}</div>
+          <div className="w-full max-w-sm">
+            <div className="enter mb-8 flex justify-center lg:hidden">
+              <LogoBadge animated className="size-24 rounded-[1.75rem] shadow-[var(--shadow-lift)]" />
+            </div>
+            <div className="enter" style={{ "--d": "120ms" } as React.CSSProperties}>
+              {children}
+            </div>
+          </div>
         </main>
       </div>
 
-      <aside className="relative hidden overflow-hidden bg-[var(--color-pine-700)] lg:flex lg:flex-col lg:justify-center">
-        <div
-          className="pointer-events-none absolute inset-0"
-          style={{
-            background:
-              "radial-gradient(80% 60% at 20% 10%, color-mix(in srgb, #ffffff 14%, transparent) 0%, transparent 60%), radial-gradient(70% 70% at 90% 90%, color-mix(in srgb, var(--color-ember-400) 22%, transparent) 0%, transparent 55%)",
-          }}
-          aria-hidden
-        />
+      <aside
+        data-theme="dark"
+        className="relative isolate hidden overflow-hidden bg-bg lg:m-3 lg:flex lg:flex-col lg:justify-center lg:rounded-[2rem]"
+      >
+        <div className="pointer-events-none absolute inset-0 -z-10" aria-hidden>
+          <div className="blob -left-20 -top-20 size-96 bg-[var(--color-lagoon-500)] opacity-35" />
+          <div className="blob -bottom-24 -right-16 size-96 bg-[var(--color-ocean-500)] opacity-30 [animation-delay:-8s]" />
+          <div className="blob bottom-1/3 left-1/3 size-64 bg-[var(--color-grape)] opacity-15 [animation-delay:-14s]" />
+          <div className="dot-grid absolute inset-0" />
+        </div>
 
         <div className="relative mx-auto max-w-md px-12 py-16">
-          <h2 className="font-display text-3xl font-semibold leading-tight text-white">
-            The pet record that outlives the transaction
+          <div className="flex items-center gap-4">
+            <LogoBadge animated className="size-20 animate-float rounded-[1.5rem] shadow-[0_24px_50px_-18px_rgb(0_0_0/0.8)]" />
+            <Wordmark className="text-2xl" />
+          </div>
+
+          <h2 className="mt-10 text-4xl font-bold leading-[1.1] text-white">
+            The pet record that <span className="text-gradient">outlives the sale</span>
           </h2>
-          <p className="mt-4 text-[15px] leading-relaxed text-[color-mix(in_srgb,#ffffff_78%,transparent)]">
+          <p className="mt-4 text-[15px] leading-relaxed text-fg-muted">
             Most pets change hands with a photo, a phone number and a promise. PetMate replaces
-            that with a record anyone can check — and keeps working long after the sale.
+            that with a record anyone can check — and keeps working long after.
           </p>
 
-          <ul className="mt-10 space-y-6">
+          <ul className="mt-10 space-y-3">
             {[
               {
                 icon: BadgeCheck,
+                tint: "var(--color-mint)",
                 title: "Verification that means something",
-                body: "A vaccination entered by a clinic is marked differently from one typed in by a seller.",
+                body: "A vaccine entered by a clinic is marked differently from one typed in by a seller.",
               },
               {
                 icon: Lock,
+                tint: "var(--color-lagoon-400)",
                 title: "Escrow on every purchase",
                 body: "Money is held until you have met the animal and you both confirm the handover.",
               },
               {
                 icon: Stethoscope,
+                tint: "var(--color-sky)",
                 title: "Your vet, in the same place",
-                body: "Book a real appointment and the results land in your pet's timeline automatically.",
+                body: "Book a real appointment; results land in your pet's timeline automatically.",
               },
-            ].map((item) => (
-              <li key={item.title} className="flex gap-4">
-                <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-white/12 text-white">
-                  <item.icon className="size-[18px]" aria-hidden />
+            ].map((item, index) => (
+              <li
+                key={item.title}
+                className="enter glass flex gap-4 rounded-2xl p-4"
+                style={{ "--d": `${300 + index * 120}ms` } as React.CSSProperties}
+              >
+                <span
+                  className="flex size-10 shrink-0 items-center justify-center rounded-xl text-white"
+                  style={{
+                    background: `linear-gradient(140deg, ${item.tint}, color-mix(in srgb, ${item.tint} 60%, #000))`,
+                  }}
+                >
+                  <item.icon className="size-5" aria-hidden />
                 </span>
                 <div>
                   <h3 className="text-sm font-semibold text-white">{item.title}</h3>
-                  <p className="mt-1 text-sm leading-relaxed text-[color-mix(in_srgb,#ffffff_70%,transparent)]">
-                    {item.body}
-                  </p>
+                  <p className="mt-1 text-sm leading-relaxed text-fg-muted">{item.body}</p>
                 </div>
               </li>
             ))}
