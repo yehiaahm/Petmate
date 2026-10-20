@@ -1,0 +1,76 @@
+/* ==========================================================================
+   Staff console — chart tokens
+   --------------------------------------------------------------------------
+   Categorical order is fixed: series 1 is always teal, 2 coral, 3 blue,
+   4 gold, 5 violet. Both sets pass the colour-vision checks (adjacent-pair
+   CVD ΔE ≥ 13, normal-vision ΔE ≥ 24, 3:1 against the chart surface) for
+   their own surface, which is why dark mode has its own steps rather than
+   an automatic flip.
+   ========================================================================== */
+
+:root {
+  --viz-1: #00918f;
+  --viz-2: #cf4520;
+  --viz-3: #2683bb;
+  --viz-4: #b07d10;
+  --viz-5: #8b6cf0;
+  --viz-grid: var(--border);
+  --viz-axis: var(--fg-muted);
+  --viz-surface: var(--bg-elevated);
+}
+
+[data-theme="dark"] {
+  --viz-1: #22aaa3;
+  --viz-2: #e8653f;
+  --viz-3: #3a8fd0;
+  --viz-4: #b8860f;
+  --viz-5: #9478ea;
+}
+
+/* The console scrolls its own panes; the page itself never scrolls sideways. */
+.admin-root {
+  overflow-x: clip;
+}
+
+/* Thin, quiet scrollbars inside the sidebar and wide tables. */
+.admin-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+
+/* Sticky first column in the data table keeps the row's name visible while
+   scrolling sideways through wide records. */
+.admin-table th.sticky-col,
+.admin-table td.sticky-col {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: inherit;
+}
+
+.admin-kbd {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  border: 1px solid var(--border-strong);
+  border-bottom-width: 2px;
+  border-radius: 6px;
+  padding: 0 5px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 18px;
+  color: var(--fg-muted);
+  background: var(--bg-elevated);
+}
+
+/* Indeterminate progress bar shown while a list page is navigating. */
+@keyframes admin-progress {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(300%); }
+}
+.admin-progress {
+  animation: admin-progress 1.1s var(--ease-out-soft) infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .admin-progress { animation: none; }
+}

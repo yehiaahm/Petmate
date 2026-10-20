@@ -16,6 +16,7 @@ import {
 import { notify } from "@/lib/services/notification.service";
 import { cuidSchema, safeParagraph, safeText } from "@/lib/validation/common";
 import { ROLES } from "@/lib/constants";
+import type { AuthContext } from "@/lib/auth/session";
 
 /**
  * Admin operations.
@@ -24,6 +25,20 @@ import { ROLES } from "@/lib/constants";
  * The two escalation paths that matter are blocked explicitly: a moderator
  * cannot grant roles, and nobody below SUPER_ADMIN can grant SUPER_ADMIN.
  */
+
+/** Staff below super admin cannot act on an admin account; nobody can act on a super admin but a super admin. */
+async function assertCanActOn(auth: AuthContext, userId: string) {
+  const target = await db.user.findUnique({
+    where: { id: userId },
+    select: { roles: { select: { role: true } } },
+  });
+  if (!target) throw notFound("That member");
+  const roles = target.roles.map((r) => r.role);
+  const actorIsSuper = auth.user.roles.includes("SUPER_ADMIN");
+  if ((roles.includes("SUPER_ADMIN") || roles.includes("ADMIN")) && !actorIsSuper && userId !== auth.user.id) {
+    throw forbidden("You cannot change that account.");
+  }
+}
 
 export const GET = route({
   permission: "admin:read",
@@ -187,6 +202,8 @@ export const POST = route({
       days: z.number().int().min(1).max(3650).optional(),
     }),
     z.object({ action: z.literal("reinstate-user"), userId: cuidSchema, note: safeText(500, 3) }),
+    z.object({ action: z.literal("revoke-sessions"), userId: cuidSchema }),
+    z.object({ action: z.literal("verify-email"), userId: cuidSchema }),
     z.object({
       action: z.literal("set-role"),
       userId: cuidSchema,
@@ -311,6 +328,40 @@ export const POST = route({
         await requirePermission("admin:users");
         await reinstateUser(auth, body.userId, body.note);
         return { ok: true };
+
+      case "revoke-sessions": {
+        await requirePermission("admin:users");
+        await assertCanActOn(auth, body.userId);
+        const { count } = await db.session.updateMany({
+          where: { userId: body.userId, revokedAt: null },
+          data: { revokedAt: new Date() },
+        });
+        await audit({
+          action: "auth.sessions_revoked",
+          actorId: auth.user.id,
+          entityType: "USER",
+          entityId: body.userId,
+          summary: `${count} session${count === 1 ? "" : "s"} signed out by staff`,
+        });
+        return { revoked: count };
+      }
+
+      case "verify-email": {
+        await requirePermission("admin:users");
+        await assertCanActOn(auth, body.userId);
+        await db.user.update({
+          where: { id: body.userId },
+          data: { emailVerifiedAt: new Date() },
+        });
+        await audit({
+          action: "admin.email_verified",
+          actorId: auth.user.id,
+          entityType: "USER",
+          entityId: body.userId,
+          summary: "Email marked as verified by staff",
+        });
+        return { ok: true };
+      }
 
       case "set-role": {
         await requirePermission("admin:users");

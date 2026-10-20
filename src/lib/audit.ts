@@ -85,7 +85,13 @@ export type AuditAction =
   | "verification.submitted"
   | "verification.decided"
   | "admin.setting_changed"
-  | "admin.impersonation_denied";
+  | "admin.impersonation_denied"
+  | "admin.record_updated"
+  | "admin.record_deleted"
+  | "admin.record_restored"
+  | "admin.record_purged"
+  | "admin.data_exported"
+  | "admin.email_verified";
 
 export interface AuditInput {
   action: AuditAction;
