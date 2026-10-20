@@ -40,6 +40,7 @@ export function BoardingBookingPanel({
   checkOutMinute,
   offersTransport,
   transportRadiusKm,
+  providerLocation,
   initialUnitId,
 }: {
   providerId: string;
@@ -54,6 +55,8 @@ export function BoardingBookingPanel({
   checkOutMinute: number;
   offersTransport: boolean;
   transportRadiusKm: number;
+  /** Where the provider is pinned; centres the map and draws the coverage circle. */
+  providerLocation?: Coords | null;
   initialUnitId?: string;
 }) {
   const router = useRouter();
@@ -245,6 +248,7 @@ export function BoardingBookingPanel({
                 coords={coords}
                 onCoordsChange={setCoords}
                 hint={`${providerName} covers up to ${transportRadiusKm} km. Pin your location to price the trip.`}
+                area={providerLocation ? { ...providerLocation, radiusKm: transportRadiusKm } : null}
               />
             )}
           </fieldset>
