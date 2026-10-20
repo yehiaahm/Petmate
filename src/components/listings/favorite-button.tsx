@@ -6,6 +6,7 @@ import { Heart } from "lucide-react";
 import { api, ApiError } from "@/lib/api-client";
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/components/i18n/i18n-provider";
 
 /**
  * Save a listing.
@@ -24,6 +25,7 @@ export function FavoriteButton({
   size?: "sm" | "md";
   withLabel?: boolean;
 }) {
+  const { t } = useI18n();
   const router = useRouter();
   const toast = useToast();
   const [favorited, setFavorited] = useState(initial);
@@ -49,11 +51,11 @@ export function FavoriteButton({
       setFavorited(!next);
 
       if (error instanceof ApiError && error.isAuth) {
-        toast.info("Sign in to save listings", "Your saved pets sync across devices.");
+        toast.info(t("Sign in to save listings"), t("Your saved pets sync across devices."));
         startTransition(() => router.push(`/login?next=/pets`));
         return;
       }
-      toast.error("We could not save that", "Please try again.");
+      toast.error(t("We could not save that"), t("Please try again."));
     }
   }
 
@@ -63,7 +65,7 @@ export function FavoriteButton({
       onClick={(e) => void toggle(e)}
       disabled={pending}
       aria-pressed={favorited}
-      aria-label={favorited ? "Remove from saved" : "Save this listing"}
+      aria-label={favorited ? t("Remove from saved") : t("Save this listing")}
       className={cn(
         "relative inline-flex items-center justify-center gap-2 rounded-full border border-[var(--glass-border)] bg-[var(--glass)] text-fg-muted shadow-[var(--shadow-card)] backdrop-blur-md transition-[color,background-color,transform] duration-200 hover:text-[var(--color-coral-500)] active:scale-90",
         size === "sm" ? "size-9" : "h-11 px-4",
@@ -88,7 +90,7 @@ export function FavoriteButton({
         aria-hidden
       />
       {withLabel && (
-        <span className="text-sm font-medium">{favorited ? "Saved" : "Save"}</span>
+        <span className="text-sm font-medium">{favorited ? t("Saved") : t("Save")}</span>
       )}
     </button>
   );

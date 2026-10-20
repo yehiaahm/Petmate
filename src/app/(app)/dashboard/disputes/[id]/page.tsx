@@ -5,11 +5,16 @@ import { getDispute } from "@/lib/services/safety.service";
 import { isAppError } from "@/lib/errors";
 import { DisputeThread } from "@/components/disputes/dispute-thread";
 import { Breadcrumbs } from "@/components/ui/primitives";
+import { PLATFORM_CURRENCY } from "@/lib/currency";
+import { getI18n } from "@/lib/i18n/server";
 
-export const metadata: Metadata = {
-  title: "Dispute",
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return {
+  title: t("Dispute"),
   robots: { index: false, follow: false },
 };
+}
 
 export default async function DisputePage({ params }: { params: Promise<{ id: string }> }) {
   const [{ id }, auth] = await Promise.all([params, requireAuth()]);
@@ -39,7 +44,7 @@ export default async function DisputePage({ params }: { params: Promise<{ id: st
           reason: dispute.reason,
           amountCents: dispute.amountCents,
           refundCents: dispute.refundCents,
-          currency: dispute.petOrder?.currency ?? dispute.order?.currency ?? "USD",
+          currency: dispute.petOrder?.currency ?? dispute.order?.currency ?? PLATFORM_CURRENCY,
           resolution: dispute.resolution,
           responseDueAt: dispute.responseDueAt?.toISOString() ?? null,
           createdAt: dispute.createdAt.toISOString(),

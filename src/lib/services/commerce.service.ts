@@ -1,27 +1,32 @@
 import "server-only";
+import { redeemCoupon, releaseCoupon } from "./coupon.service";
 import { z } from "zod";
-import { db } from "@/lib/db";
+import { db, type Tx } from "@/lib/db";
 import { audit } from "@/lib/audit";
-import { badRequest, conflict, notFound, unprocessable } from "@/lib/errors";
+import { badRequest, conflict, notFound, unprocessable, upgradeRequired } from "@/lib/errors";
 import { assertOwnsShop, isStaff } from "@/lib/auth/rbac";
 import type { AuthContext } from "@/lib/auth/session";
-import { applyBps } from "@/lib/money";
+import { applyBps, distributeCents, formatMoney, parseMoneyToCents } from "@/lib/money";
+import { getSettings } from "@/lib/settings";
+import { csvRecords } from "@/lib/csv";
+import { PRODUCT_IMPORT_COLUMNS, MAX_IMPORT_ROWS } from "@/lib/product-import";
 import { resolveCommissionBps } from "@/lib/settings";
 import { generateOrderNumber, uniqueSlug } from "@/lib/utils";
-import { buildSearchText, searchTextClauses } from "@/lib/search/text";
+import { buildSearchText, searchTextClauses, relevanceScore } from "@/lib/search/text";
 import { enforceRateLimit } from "@/lib/rate-limit";
-import { getEntitlements } from "@/lib/billing/entitlements";
+import { getEntitlements, getVisibilityBoosts } from "@/lib/billing/entitlements";
 import {
   safeText,
   safeParagraph,
   optionalText,
   cuidSchema,
   centsSchema,
-  currencySchema,
   emailSchema,
   phoneSchema,
+  priceCurrencySchema,
 } from "@/lib/validation/common";
-import { LIMITS } from "@/lib/constants";
+import { LIMITS, PAYMENT_METHOD } from "@/lib/constants";
+import { PLATFORM_CURRENCY } from "@/lib/currency";
 
 /**
  * Commerce.
@@ -49,11 +54,16 @@ export const shopSchema = z.object({
   country: safeText(60, 2),
   region: optionalText(80),
   city: optionalText(80),
-  flatShippingCents: centsSchema.default(599),
-  freeShippingThresholdCents: centsSchema.optional(),
+  flatShippingCents: centsSchema.default(6_000), // EGP 60
+  /** Null removes free shipping. */
+  freeShippingThresholdCents: centsSchema.nullable().optional(),
+  /** Take cash on delivery, subject to the platform's COD setting and cap. */
+  acceptsCod: z.boolean().default(false),
 });
 
-export async function createShop(auth: AuthContext, input: z.infer<typeof shopSchema>) {
+export async function createShop(auth: AuthContext, raw: z.input<typeof shopSchema>) {
+  // Parsed here too, so a caller that skipped the route still gets defaults.
+  const input = shopSchema.parse(raw);
   const existing = await db.shop.count({ where: { ownerUserId: auth.user.id, deletedAt: null } });
   if (existing >= 3) throw conflict("You have reached the limit of shops per account.");
 
@@ -71,6 +81,7 @@ export async function createShop(auth: AuthContext, input: z.infer<typeof shopSc
         city: input.city ?? null,
         flatShippingCents: input.flatShippingCents,
         freeShippingThresholdCents: input.freeShippingThresholdCents ?? null,
+        acceptsCod: input.acceptsCod,
         status: "PENDING",
         searchText: buildSearchText(input.name, input.description, input.city, input.country),
       },
@@ -83,12 +94,162 @@ export async function createShop(auth: AuthContext, input: z.infer<typeof shopSc
       update: {},
     });
 
+    // A shop opens PENDING and can list nothing until someone reviews it.
+    // Without this row it never reached the admin review queue, so every new
+    // shop stayed pending forever. Approval (safety.service) activates it.
+    await tx.verification.create({
+      data: {
+        subjectType: "SHOP",
+        subjectId: shop.id,
+        userId: auth.user.id,
+        type: "BUSINESS",
+        status: "PENDING",
+      },
+    });
+
     await audit(
       { action: "user.role_granted", actorId: auth.user.id, entityType: "SHOP", entityId: shop.id, summary: "Shop created" },
       tx,
     );
 
     return shop;
+  });
+}
+
+/**
+ * The details a shop owner can change themselves. Name changes re-derive the
+ * search text; status and commission are staff decisions and are not here.
+ */
+export async function updateShop(auth: AuthContext, shopId: string, input: Partial<z.infer<typeof shopSchema>>) {
+  await assertOwnsShop(shopId, auth);
+  const saved = await db.shop.update({
+    where: { id: shopId },
+    data: {
+      ...(input.name !== undefined ? { name: input.name } : {}),
+      ...(input.description !== undefined ? { description: input.description ?? null } : {}),
+      ...(input.email !== undefined ? { email: input.email } : {}),
+      ...(input.phone !== undefined ? { phone: input.phone ?? null } : {}),
+      ...(input.city !== undefined ? { city: input.city ?? null } : {}),
+      ...(input.region !== undefined ? { region: input.region ?? null } : {}),
+      ...(input.country !== undefined ? { country: input.country } : {}),
+      ...(input.flatShippingCents !== undefined ? { flatShippingCents: input.flatShippingCents } : {}),
+      ...(input.freeShippingThresholdCents !== undefined
+        ? { freeShippingThresholdCents: input.freeShippingThresholdCents ?? null }
+        : {}),
+      ...(input.acceptsCod !== undefined ? { acceptsCod: input.acceptsCod } : {}),
+    },
+    select: { id: true, name: true, description: true, city: true, country: true },
+  });
+  await db.shop.update({
+    where: { id: shopId },
+    data: { searchText: buildSearchText(saved.name, saved.description, saved.city, saved.country) },
+  });
+  return saved;
+}
+
+/** A shop and its whole catalogue, for its owner's console. */
+export async function getShopConsole(auth: AuthContext, shopId: string) {
+  await assertOwnsShop(shopId, auth);
+
+  const [shop, products, pendingVerification] = await Promise.all([
+    db.shop.findUniqueOrThrow({
+      where: { id: shopId },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        status: true,
+        description: true,
+        email: true,
+        phone: true,
+        city: true,
+        country: true,
+        flatShippingCents: true,
+        freeShippingThresholdCents: true,
+        acceptsCod: true,
+        verifiedAt: true,
+        orderCount: true,
+      },
+    }),
+    db.product.findMany({
+      where: { shopId, deletedAt: null },
+      orderBy: [{ updatedAt: "desc" }],
+      take: 500,
+      select: {
+        id: true,
+        title: true,
+        slug: true,
+        sku: true,
+        status: true,
+        priceCents: true,
+        compareAtCents: true,
+        currency: true,
+        stock: true,
+        trackInventory: true,
+        lowStockAt: true,
+        soldCount: true,
+        category: { select: { name: true } },
+        images: { orderBy: { position: "asc" }, take: 1, select: { url: true, alt: true } },
+      },
+    }),
+    db.verification.findFirst({
+      where: { subjectType: "SHOP", subjectId: shopId, status: "PENDING" },
+      select: { id: true, createdAt: true },
+    }),
+  ]);
+
+  return { shop, products, pendingVerification };
+}
+
+/** The product as its owner edits it, including drafts. */
+export async function getProductForEdit(auth: AuthContext, productId: string) {
+  const product = await db.product.findFirst({
+    where: { id: productId, deletedAt: null },
+    select: {
+      id: true,
+      shopId: true,
+      title: true,
+      description: true,
+      categoryId: true,
+      brand: true,
+      sku: true,
+      priceCents: true,
+      compareAtCents: true,
+      stock: true,
+      trackInventory: true,
+      lowStockAt: true,
+      weightGrams: true,
+      status: true,
+      images: { orderBy: { position: "asc" }, select: { url: true, alt: true } },
+    },
+  });
+  if (!product) throw notFound("That product");
+  await assertOwnsShop(product.shopId, auth);
+  return product;
+}
+
+/**
+ * Takes a product off sale for good. Soft-deleted, so past orders keep a
+ * readable line item; a cart holding it simply stops finding it.
+ */
+export async function archiveProduct(auth: AuthContext, productId: string): Promise<void> {
+  const product = await db.product.findFirst({
+    where: { id: productId, deletedAt: null },
+    select: { id: true, shopId: true, title: true },
+  });
+  if (!product) throw notFound("That product");
+  await assertOwnsShop(product.shopId, auth);
+
+  await db.$transaction(async (tx) => {
+    await tx.product.update({
+      where: { id: productId },
+      data: { deletedAt: new Date(), status: "ARCHIVED" },
+    });
+    await tx.cartItem.deleteMany({ where: { variant: { productId } } });
+    await audit(
+      { action: "product.archived", actorId: auth.user.id, entityType: "PRODUCT", entityId: productId, summary: product.title },
+      tx,
+    );
   });
 }
 
@@ -100,13 +261,26 @@ export const productSchema = z.object({
   sku: optionalText(60),
   priceCents: centsSchema.refine((v) => v > 0, "A product needs a price."),
   compareAtCents: centsSchema.optional(),
-  currency: currencySchema.default("USD"),
+  currency: priceCurrencySchema,
   stock: z.number().int().min(0).max(1_000_000).default(0),
   trackInventory: z.boolean().default(true),
   lowStockAt: z.number().int().min(0).max(1000).default(5),
   weightGrams: z.number().int().min(0).max(500_000).optional(),
   attributes: z.record(z.string(), z.string()).optional(),
-  images: z.array(z.object({ url: z.string().max(1000), alt: optionalText(160) })).max(LIMITS.imagesPerProduct).optional(),
+  images: z
+    .array(
+      z.object({
+        // An uploaded file (a site path) or an https URL — never javascript:,
+        // data: or a plain-http address that would break the page's TLS.
+        url: z
+          .string()
+          .max(1000)
+          .refine((u) => (u.startsWith("/") && !u.startsWith("//")) || u.startsWith("https://"), "That image address is not allowed."),
+        alt: optionalText(160),
+      }),
+    )
+    .max(LIMITS.imagesPerProduct)
+    .optional(),
   publish: z.boolean().default(false),
 });
 
@@ -128,58 +302,346 @@ export async function createProduct(
 
   return db.$transaction(async (tx) => {
     const product = await tx.product.create({
-      data: {
-        shopId,
-        categoryId: input.categoryId ?? null,
-        title: input.title,
-        slug: uniqueSlug(input.title),
-        description: input.description,
-        brand: input.brand ?? null,
-        sku: input.sku ?? null,
-        priceCents: input.priceCents,
-        compareAtCents: input.compareAtCents ?? null,
-        currency: input.currency,
-        stock: input.stock,
-        trackInventory: input.trackInventory,
-        lowStockAt: input.lowStockAt,
-        weightGrams: input.weightGrams ?? null,
-        attributes: input.attributes ? JSON.stringify(input.attributes) : null,
-        status: input.publish ? (input.stock > 0 || !input.trackInventory ? "ACTIVE" : "OUT_OF_STOCK") : "DRAFT",
-        publishedAt: input.publish ? new Date() : null,
-        searchText: buildSearchText(
-          input.title,
-          input.description,
-          input.brand,
-          Object.values(input.attributes ?? {}).join(" "),
-        ),
-        // Every product has exactly one default variant, so the order path
-        // never has to branch on "simple vs variable product".
-        variants: {
-          create: {
-            name: "Default",
-            sku: input.sku ?? null,
-            priceCents: input.priceCents,
-            stock: input.stock,
-            isDefault: true,
-          },
-        },
-        ...(input.images?.length
-          ? {
-              images: {
-                create: input.images.map((img, position) => ({
-                  url: img.url,
-                  alt: img.alt ?? null,
-                  position,
-                })),
-              },
-            }
-          : {}),
-      },
+      data: productCreateData(shopId, input),
       select: { id: true, slug: true, title: true, status: true },
     });
 
     return product;
   });
+}
+
+/** The row a new product is written as. Shared by single create and bulk import. */
+function productCreateData(shopId: string, input: z.infer<typeof productSchema>) {
+  return {
+    shopId,
+    categoryId: input.categoryId ?? null,
+    title: input.title,
+    slug: uniqueSlug(input.title),
+    description: input.description,
+    brand: input.brand ?? null,
+    sku: input.sku ?? null,
+    priceCents: input.priceCents,
+    compareAtCents: input.compareAtCents ?? null,
+    currency: input.currency,
+    stock: input.stock,
+    trackInventory: input.trackInventory,
+    lowStockAt: input.lowStockAt,
+    weightGrams: input.weightGrams ?? null,
+    attributes: input.attributes ? JSON.stringify(input.attributes) : null,
+    status: input.publish ? (input.stock > 0 || !input.trackInventory ? "ACTIVE" : "OUT_OF_STOCK") : "DRAFT",
+    publishedAt: input.publish ? new Date() : null,
+    searchText: buildSearchText(
+      input.title,
+      input.description,
+      input.brand,
+      Object.values(input.attributes ?? {}).join(" "),
+    ),
+    // Every product has exactly one default variant, so the order path
+    // never has to branch on "simple vs variable product".
+    variants: {
+      create: {
+        name: "Default",
+        sku: input.sku ?? null,
+        priceCents: input.priceCents,
+        stock: input.stock,
+        isDefault: true,
+      },
+    },
+    ...(input.images?.length
+      ? {
+          images: {
+            create: input.images.map((img, position) => ({
+              url: img.url,
+              alt: img.alt ?? null,
+              position,
+            })),
+          },
+        }
+      : {}),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Bulk import
+// ---------------------------------------------------------------------------
+
+export interface ImportRowError {
+  /** The spreadsheet row, counting the header as row 1, so it matches Excel. */
+  row: number;
+  column?: string;
+  message: string;
+}
+
+export interface ImportResult {
+  /** False when any row failed: an import is all or nothing. */
+  applied: boolean;
+  created: number;
+  updated: number;
+  errors: ImportRowError[];
+}
+
+const YES = new Set(["yes", "y", "true", "1", "نعم", "اه", "أيوه"]);
+const NO = new Set(["no", "n", "false", "0", "لا"]);
+
+function parseYesNo(value: string | undefined): boolean | undefined | "invalid" {
+  if (value === undefined || value === "") return undefined;
+  const v = value.trim().toLowerCase();
+  if (YES.has(v)) return true;
+  if (NO.has(v)) return false;
+  return "invalid";
+}
+
+function parseWhole(value: string | undefined): number | undefined | "invalid" {
+  if (value === undefined || value === "") return undefined;
+  const cleaned = normalizeDigits(value).replace(/[\s,]/g, "");
+  return /^\d+$/.test(cleaned) ? Number(cleaned) : "invalid";
+}
+
+function parsePrice(value: string | undefined): number | undefined | "invalid" {
+  if (value === undefined || value === "") return undefined;
+  const cents = parseMoneyToCents(normalizeDigits(value).replace(/,/g, ""));
+  return cents === null ? "invalid" : cents;
+}
+
+/** Arabic-Indic digits and the Arabic decimal separator, as Excel in Arabic writes them. */
+function normalizeDigits(value: string): string {
+  return value
+    .replace(/[\u0660-\u0669]/g, (d) => String(d.charCodeAt(0) - 0x0660))
+    .replace(/\u066b/g, ".")
+    .replace(/\u066c/g, ",");
+}
+
+/**
+ * Imports or updates a catalogue from a CSV (see `PRODUCT_IMPORT_COLUMNS`).
+ *
+ * A row whose `sku` already exists in this shop updates that product — its
+ * price, stock and whichever other columns are filled in — which is how a
+ * shop keeps a spreadsheet as its inventory system. Any other row creates a
+ * product and must pass the same validation as the single-product form.
+ *
+ * Every row is checked before anything is written, and one bad row applies
+ * none of them: a half-imported catalogue, with the seller unsure which rows
+ * made it, is worse than a clear list of what to fix.
+ */
+export async function importProducts(auth: AuthContext, shopId: string, csv: string): Promise<ImportResult> {
+  const shop = await assertOwnsShop(shopId, auth);
+  if (shop.status !== "ACTIVE" && !isStaff(auth.user)) {
+    throw conflict("Your shop is still being reviewed. You can add products once it is approved.");
+  }
+
+  const entitlements = await getEntitlements(shop.ownerUserId);
+  if (!entitlements.bulkTools) {
+    throw upgradeRequired("Bulk import and inventory updates are part of Seller Pro.", {
+      feature: "bulkTools",
+    });
+  }
+
+  await enforceRateLimit("productImport", auth.user.id);
+
+  const { headers, records } = csvRecords(csv);
+  const fail = (message: string, row = 1): ImportResult => ({
+    applied: false,
+    created: 0,
+    updated: 0,
+    errors: [{ row, message }],
+  });
+
+  if (!headers.length || !records.length) return fail("The file has no rows under its header.");
+  if (!headers.includes("sku") && !headers.includes("title")) {
+    return fail('The header row needs a "title" column, or a "sku" column to update existing products.');
+  }
+  if (records.length > MAX_IMPORT_ROWS) {
+    return fail(`Import up to ${MAX_IMPORT_ROWS} rows at a time; this file has ${records.length}.`);
+  }
+  const unknown = headers.filter((h) => h && !(PRODUCT_IMPORT_COLUMNS as readonly string[]).includes(h));
+  if (unknown.length) return fail(`Unknown columns: ${unknown.join(", ")}.`);
+
+  const [existing, categories] = await Promise.all([
+    db.product.findMany({
+      where: { shopId, deletedAt: null, sku: { not: null } },
+      select: { id: true, sku: true, trackInventory: true, status: true },
+    }),
+    db.category.findMany({ select: { id: true, slug: true } }),
+  ]);
+  const bySku = new Map(existing.map((p) => [p.sku!.toLowerCase(), p]));
+  const categoryBySlug = new Map(categories.map((c) => [c.slug, c.id]));
+
+  type Create = { kind: "create"; input: z.infer<typeof productSchema> };
+  type Update = {
+    kind: "update";
+    id: string;
+    trackInventory: boolean;
+    status: string;
+    data: {
+      title?: string;
+      description?: string;
+      brand?: string;
+      categoryId?: string;
+      priceCents?: number;
+      compareAtCents?: number;
+      stock?: number;
+      weightGrams?: number;
+      publish?: boolean;
+    };
+  };
+  const ops: (Create | Update)[] = [];
+  const errors: ImportRowError[] = [];
+  const seenSkus = new Map<string, number>();
+
+  records.forEach((record, index) => {
+    const row = index + 2;
+    const rowErrors: ImportRowError[] = [];
+    const bad = (column: string, message: string) => rowErrors.push({ row, column, message });
+
+    const sku = record.sku || undefined;
+    if (sku) {
+      const key = sku.toLowerCase();
+      const first = seenSkus.get(key);
+      if (first) bad("sku", `SKU ${sku} is already on row ${first}.`);
+      else seenSkus.set(key, row);
+    }
+
+    const price = parsePrice(record.price);
+    const compareAt = parsePrice(record.compare_at_price);
+    const stock = parseWhole(record.stock);
+    const weight = parseWhole(record.weight_grams);
+    const publish = parseYesNo(record.publish);
+    if (price === "invalid") bad("price", "Price must be a number, like 250 or 249.50.");
+    if (compareAt === "invalid") bad("compare_at_price", "Compare-at price must be a number.");
+    if (stock === "invalid") bad("stock", "Stock must be a whole number.");
+    if (weight === "invalid") bad("weight_grams", "Weight must be a whole number of grams.");
+    if (publish === "invalid") bad("publish", "Publish must be yes or no.");
+
+    let categoryId: string | undefined;
+    if (record.category) {
+      categoryId = categoryBySlug.get(record.category.toLowerCase());
+      if (!categoryId) bad("category", `There is no category "${record.category}".`);
+    }
+
+    const match = sku ? bySku.get(sku.toLowerCase()) : undefined;
+
+    if (rowErrors.length) {
+      errors.push(...rowErrors);
+      return;
+    }
+
+    if (match) {
+      const data: Update["data"] = {
+        ...(record.title ? { title: record.title } : {}),
+        ...(record.description ? { description: record.description } : {}),
+        ...(record.brand ? { brand: record.brand } : {}),
+        ...(categoryId ? { categoryId } : {}),
+        ...(typeof price === "number" ? { priceCents: price } : {}),
+        ...(typeof compareAt === "number" ? { compareAtCents: compareAt } : {}),
+        ...(typeof stock === "number" ? { stock } : {}),
+        ...(typeof weight === "number" ? { weightGrams: weight } : {}),
+        ...(typeof publish === "boolean" ? { publish } : {}),
+      };
+      // Updates are checked with the same rules as the form, field by field.
+      const checked = productSchema.partial().safeParse(data);
+      if (!checked.success) {
+        for (const issue of checked.error.issues) {
+          errors.push({ row, column: String(issue.path[0] ?? ""), message: issue.message });
+        }
+        return;
+      }
+      if (data.priceCents !== undefined && data.priceCents <= 0) {
+        errors.push({ row, column: "price", message: "A product needs a price." });
+        return;
+      }
+      ops.push({ kind: "update", id: match.id, trackInventory: match.trackInventory, status: match.status, data });
+      return;
+    }
+
+    const parsed = productSchema.safeParse({
+      title: record.title ?? "",
+      description: record.description ?? "",
+      brand: record.brand || undefined,
+      sku,
+      categoryId,
+      priceCents: typeof price === "number" ? price : 0,
+      compareAtCents: typeof compareAt === "number" ? compareAt : undefined,
+      stock: typeof stock === "number" ? stock : 0,
+      weightGrams: typeof weight === "number" ? weight : undefined,
+      publish: typeof publish === "boolean" ? publish : false,
+    });
+    if (!parsed.success) {
+      const column = (path: PropertyKey | undefined) =>
+        path === "priceCents" ? "price" : path === "compareAtCents" ? "compare_at_price" : String(path ?? "");
+      for (const issue of parsed.error.issues) {
+        errors.push({ row, column: column(issue.path[0]), message: issue.message });
+      }
+      return;
+    }
+    if (parsed.data.compareAtCents && parsed.data.compareAtCents <= parsed.data.priceCents) {
+      errors.push({ row, column: "compare_at_price", message: "The compare-at price must be above the selling price." });
+      return;
+    }
+    ops.push({ kind: "create", input: parsed.data });
+  });
+
+  if (errors.length) return { applied: false, created: 0, updated: 0, errors };
+
+  let created = 0;
+  let updated = 0;
+  await db.$transaction(
+    async (tx) => {
+      for (const op of ops) {
+        if (op.kind === "create") {
+          await tx.product.create({ data: productCreateData(shopId, op.input), select: { id: true } });
+          created++;
+          continue;
+        }
+
+        const { publish, ...fields } = op.data;
+        const saved = await tx.product.update({
+          where: { id: op.id },
+          data: {
+            ...fields,
+            ...(publish !== undefined
+              ? { status: publish ? "ACTIVE" : "DRAFT", publishedAt: publish ? new Date() : null }
+              : {}),
+          },
+          select: { title: true, description: true, brand: true, status: true, stock: true, trackInventory: true },
+        });
+        if (fields.priceCents !== undefined || fields.stock !== undefined) {
+          await tx.productVariant.updateMany({
+            where: { productId: op.id, isDefault: true },
+            data: {
+              ...(fields.priceCents !== undefined ? { priceCents: fields.priceCents } : {}),
+              ...(fields.stock !== undefined ? { stock: fields.stock } : {}),
+            },
+          });
+        }
+        // Keep the published status honest about stock, as the form does.
+        const status =
+          saved.trackInventory && saved.status === "ACTIVE" && saved.stock <= 0
+            ? "OUT_OF_STOCK"
+            : saved.status === "OUT_OF_STOCK" && saved.stock > 0
+              ? "ACTIVE"
+              : saved.status;
+        await tx.product.update({
+          where: { id: op.id },
+          data: { status, searchText: buildSearchText(saved.title, saved.description, saved.brand) },
+        });
+        updated++;
+      }
+
+      await audit(
+        {
+          action: "product.imported",
+          actorId: auth.user.id,
+          entityType: "SHOP",
+          entityId: shopId,
+          summary: `Imported ${created} new and ${updated} updated products`,
+        },
+        tx,
+      );
+    },
+    { timeout: 60_000 },
+  );
+
+  return { applied: true, created, updated, errors: [] };
 }
 
 export async function updateProduct(
@@ -202,6 +664,8 @@ export async function updateProduct(
         ...(input.description !== undefined ? { description: input.description } : {}),
         ...(input.categoryId !== undefined ? { categoryId: input.categoryId || null } : {}),
         ...(input.brand !== undefined ? { brand: input.brand ?? null } : {}),
+        ...(input.sku !== undefined ? { sku: input.sku ?? null } : {}),
+        ...(input.weightGrams !== undefined ? { weightGrams: input.weightGrams ?? null } : {}),
         ...(input.priceCents !== undefined ? { priceCents: input.priceCents } : {}),
         ...(input.compareAtCents !== undefined ? { compareAtCents: input.compareAtCents ?? null } : {}),
         ...(input.stock !== undefined ? { stock: input.stock } : {}),
@@ -213,6 +677,17 @@ export async function updateProduct(
       },
       select: { id: true, title: true, description: true, brand: true, attributes: true, status: true, stock: true, trackInventory: true },
     });
+
+    // Photos are replaced as a set: the form sends the whole ordered list, so
+    // a removal or a reorder is just the new list.
+    if (input.images !== undefined) {
+      await tx.productImage.deleteMany({ where: { productId } });
+      if (input.images.length) {
+        await tx.productImage.createMany({
+          data: input.images.map((img, position) => ({ productId, url: img.url, alt: img.alt ?? null, position })),
+        });
+      }
+    }
 
     // The default variant mirrors the product's own price and stock.
     if (input.priceCents !== undefined || input.stock !== undefined) {
@@ -353,6 +828,8 @@ export interface CartSummary {
   totalCents: number;
   currency: string;
   hasUnavailable: boolean;
+  /** Whether this basket can be paid on delivery, and if not, why. */
+  cashOnDelivery: { available: boolean; reason: string | null };
 }
 
 /** Builds the cart, pricing every line from the database. */
@@ -388,6 +865,7 @@ export async function getCart(userId: string): Promise<CartSummary> {
                   status: true,
                   flatShippingCents: true,
                   freeShippingThresholdCents: true,
+                  acceptsCod: true,
                 },
               },
             },
@@ -454,16 +932,42 @@ export async function getCart(userId: string): Promise<CartSummary> {
 
   const subtotalCents = shops.reduce((a, s) => a + s.subtotalCents, 0);
   const shippingCents = shops.reduce((a, s) => a + s.shippingCents, 0);
+  const totalCents = subtotalCents + shippingCents;
 
   return {
     items: lines.map(({ _shop, _currency, ...rest }) => rest),
     shops,
     subtotalCents,
     shippingCents,
-    totalCents: subtotalCents + shippingCents,
-    currency: lines[0]?._currency ?? "USD",
+    totalCents,
+    currency: lines[0]?._currency ?? PLATFORM_CURRENCY,
     hasUnavailable: lines.some((l) => !l.available),
+    cashOnDelivery: await cashOnDeliveryFor(available.map((l) => l._shop), totalCents),
   };
+}
+
+/**
+ * Whether a basket may be paid on delivery. Every shop in it has to take cash,
+ * because one courier collects for the whole parcel from each shop, and a
+ * basket that is half card and half cash is two checkouts. The cap limits how
+ * much commission a shop can owe the platform on cash it has collected.
+ */
+async function cashOnDeliveryFor(
+  shops: { acceptsCod: boolean; name: string }[],
+  totalCents: number,
+): Promise<CartSummary["cashOnDelivery"]> {
+  const settings = await getSettings();
+  if (!settings.codEnabled) return { available: false, reason: "Cash on delivery is not available right now." };
+  if (!shops.length) return { available: false, reason: null };
+  const refusing = shops.find((s) => !s.acceptsCod);
+  if (refusing) return { available: false, reason: `${refusing.name} does not take cash on delivery.` };
+  if (totalCents > settings.codMaxOrderCents) {
+    return {
+      available: false,
+      reason: `Cash on delivery is available for baskets up to ${formatMoney(settings.codMaxOrderCents)}.`,
+    };
+  }
+  return { available: true, reason: null };
 }
 
 export async function cartCount(userId: string): Promise<number> {
@@ -488,13 +992,16 @@ export const checkoutSchema = z.object({
   shippingCountry: safeText(60, 2),
   shippingPostal: optionalText(20),
   shippingNote: optionalText(300),
+  paymentMethod: z.enum(PAYMENT_METHOD).default("ONLINE"),
+  couponCode: z.string().trim().max(40).optional(),
 });
 
 /**
  * Creates the order and reserves stock. Returns the amount to charge, which the
  * payment layer then uses — the client never supplies a total.
  */
-export async function createOrder(auth: AuthContext, input: z.infer<typeof checkoutSchema>) {
+export async function createOrder(auth: AuthContext, raw: z.input<typeof checkoutSchema>) {
+  const input = { ...raw, paymentMethod: raw.paymentMethod ?? "ONLINE" };
   await enforceRateLimit("checkout", auth.user.id);
 
   const cart = await getCart(auth.user.id);
@@ -506,7 +1013,29 @@ export async function createOrder(auth: AuthContext, input: z.infer<typeof check
     );
   }
 
-  const entitlements = await getEntitlements(auth.user.id);
+  const cod = input.paymentMethod === "COD";
+  if (cod) {
+    if (!cart.cashOnDelivery.available) {
+      throw conflict(cart.cashOnDelivery.reason ?? "Cash on delivery is not available right now.");
+    }
+    // The courier has to be able to call before turning up with a parcel that
+    // is only paid for at the door.
+    if (!input.shippingPhone) {
+      throw unprocessable("Add a phone number so the courier can reach you.", [
+        { field: "shippingPhone", message: "Needed for cash on delivery." },
+      ]);
+    }
+  }
+
+  // A plan's commission discount belongs to the shop's owner — Seller Pro
+  // sells a lower rate on the shop's own sales. It is looked up once per owner.
+  const ownerDiscounts = new Map<string, number>();
+  const discountFor = async (ownerUserId: string) => {
+    if (!ownerDiscounts.has(ownerUserId)) {
+      ownerDiscounts.set(ownerUserId, (await getEntitlements(ownerUserId)).commissionDiscountBps);
+    }
+    return ownerDiscounts.get(ownerUserId)!;
+  };
 
   const order = await db.$transaction(async (tx) => {
     const created = await tx.order.create({
@@ -514,8 +1043,10 @@ export async function createOrder(auth: AuthContext, input: z.infer<typeof check
         orderNumber: generateOrderNumber("PM"),
         buyerId: auth.user.id,
         status: "PENDING_PAYMENT",
+        paymentMethod: input.paymentMethod,
         subtotalCents: cart.subtotalCents,
         shippingCents: cart.shippingCents,
+        // Set below, once the coupon (if any) has been claimed.
         totalCents: cart.totalCents,
         currency: cart.currency,
         shippingName: input.shippingName,
@@ -547,7 +1078,7 @@ export async function createOrder(auth: AuthContext, input: z.infer<typeof check
               title: true,
               trackInventory: true,
               shopId: true,
-              shop: { select: { commissionBps: true } },
+              shop: { select: { commissionBps: true, ownerUserId: true } },
               images: { orderBy: { position: "asc" }, take: 1, select: { url: true } },
             },
           },
@@ -572,7 +1103,7 @@ export async function createOrder(auth: AuthContext, input: z.infer<typeof check
       }
 
       const baseBps = await resolveCommissionBps("PRODUCT", variant.product.shop.commissionBps);
-      const commissionBps = Math.max(0, baseBps - entitlements.commissionDiscountBps);
+      const commissionBps = Math.max(0, baseBps - (await discountFor(variant.product.shop.ownerUserId)));
 
       const lineTotal = variant.priceCents * line.quantity;
       const commissionCents = applyBps(lineTotal, commissionBps);
@@ -596,10 +1127,33 @@ export async function createOrder(auth: AuthContext, input: z.infer<typeof check
       });
     }
 
+    // The coupon is claimed in this transaction, so its use and the order
+    // either both exist or neither does. The discount is spread over the
+    // items so each shop's cash-on-delivery amount and refunds stay exact.
+    let discountCents = 0;
+    let couponCode: string | null = null;
+    if (input.couponCode) {
+      const quote = await redeemCoupon(tx, {
+        userId: auth.user.id,
+        code: input.couponCode,
+        subtotalCents: cart.subtotalCents,
+        orderId: created.id,
+      });
+      discountCents = quote.discountCents;
+      couponCode = quote.code;
+      const items = await tx.orderItem.findMany({ where: { orderId: created.id }, orderBy: { id: "asc" }, select: { id: true, totalCents: true } });
+      const shares = distributeCents(discountCents, items.map((i) => i.totalCents));
+      for (const [index, item] of items.entries()) {
+        await tx.orderItem.update({ where: { id: item.id }, data: { discountCents: shares[index] ?? 0 } });
+      }
+    }
+
+    const totalCents = cart.totalCents - discountCents;
     await tx.order.update({
       where: { id: created.id },
-      data: { platformFeeCents: platformFee },
+      data: { platformFeeCents: platformFee, discountCents, couponCode, totalCents },
     });
+    created.totalCents = totalCents;
 
     await tx.cartItem.deleteMany({
       where: { userId: auth.user.id, variantId: { in: available.map((l) => l.variantId) } },
@@ -619,6 +1173,14 @@ export async function createOrder(auth: AuthContext, input: z.infer<typeof check
     return created;
   });
 
+  if (cod) {
+    // Nothing to wait for: the order goes straight to the shops, and money
+    // changes hands at the door.
+    const { placeCashOnDeliveryOrder } = await import("@/lib/payments/settlement");
+    await placeCashOnDeliveryOrder(order.id);
+    return { ...order, paymentMethod: "COD" as const };
+  }
+
   // Unpaid orders return their stock after 30 minutes.
   const { enqueueJob } = await import("@/lib/jobs/queue");
   await enqueueJob({
@@ -628,7 +1190,7 @@ export async function createOrder(auth: AuthContext, input: z.infer<typeof check
     uniqueKey: `order.expire:${order.id}`,
   });
 
-  return order;
+  return { ...order, paymentMethod: "ONLINE" as const };
 }
 
 /** Restores reserved stock. Used on cancellation and on payment timeout. */
@@ -641,44 +1203,81 @@ export async function createOrder(auth: AuthContext, input: z.infer<typeof check
  * be enough to cancel someone else's order. Not being the buyer returns false,
  * exactly like a nonexistent order, so this is not an enumeration oracle.
  */
+/** Puts ordered quantities back on the shelf, variant and product both. */
+export async function restockItems(tx: Tx, items: { variantId: string; quantity: number }[]): Promise<void> {
+  for (const item of items) {
+    await tx.productVariant.update({
+      where: { id: item.variantId },
+      data: { stock: { increment: item.quantity } },
+    });
+    const variant = await tx.productVariant.findUnique({
+      where: { id: item.variantId },
+      select: { productId: true },
+    });
+    if (variant) {
+      const product = await tx.product.findUnique({
+        where: { id: variant.productId },
+        select: { status: true, deletedAt: true },
+      });
+      await tx.product.update({
+        where: { id: variant.productId },
+        data: {
+          stock: { increment: item.quantity },
+          // Back on sale only if it was merely sold out; a draft or an
+          // archived product stays exactly as its seller left it.
+          ...(product?.status === "OUT_OF_STOCK" && !product.deletedAt ? { status: "ACTIVE" } : {}),
+        },
+      });
+    }
+  }
+}
+
+/**
+ * Cancels an order that has not shipped. An unpaid or cash-on-delivery order
+ * only needs its stock back. A paid one must also give the buyer their money
+ * back: the shops' earnings are reversed in the same transaction as the
+ * cancellation, and the gateway refund follows once it has committed.
+ */
 export async function cancelOrder(
   params: { orderId: string; reason: string; actorId: string; requireBuyerId?: string },
 ): Promise<boolean> {
-  return db.$transaction(async (tx) => {
+  const outcome = await db.$transaction(async (tx) => {
     const order = await tx.order.findUnique({
       where: { id: params.orderId },
       select: {
         id: true,
         status: true,
         buyerId: true,
+        paymentMethod: true,
+        paymentIntentId: true,
+        totalCents: true,
         items: { select: { variantId: true, quantity: true } },
       },
     });
-    if (!order) return false;
-    if (params.requireBuyerId && order.buyerId !== params.requireBuyerId) return false;
+    if (!order) return null;
+    if (params.requireBuyerId && order.buyerId !== params.requireBuyerId) return null;
 
     const claimed = await tx.order.updateMany({
-      where: { id: order.id, status: { in: ["PENDING_PAYMENT", "PAID", "PROCESSING"] } },
+      where: { id: order.id, status: { in: ["PENDING_PAYMENT", "CONFIRMED", "PAID", "PROCESSING"] } },
       data: { status: "CANCELLED", cancelledAt: new Date(), cancelReason: params.reason },
     });
-    if (claimed.count === 0) return false;
+    if (claimed.count === 0) return null;
 
-    for (const item of order.items) {
-      await tx.productVariant.update({
-        where: { id: item.variantId },
-        data: { stock: { increment: item.quantity } },
+    // A cancelled order gives its use of a coupon back.
+    await releaseCoupon(tx, order.id);
+
+    const paid = order.paymentMethod === "ONLINE" && (order.status === "PAID" || order.status === "PROCESSING");
+    if (paid) {
+      const { clawBackOrderEarnings } = await import("@/lib/payments/settlement");
+      await clawBackOrderEarnings(tx, {
+        orderId: order.id,
+        refundCents: order.totalCents,
+        actorId: params.actorId,
+        reason: "cancelled",
       });
-      const variant = await tx.productVariant.findUnique({
-        where: { id: item.variantId },
-        select: { productId: true },
-      });
-      if (variant) {
-        await tx.product.update({
-          where: { id: variant.productId },
-          data: { stock: { increment: item.quantity }, status: "ACTIVE" },
-        });
-      }
     }
+
+    await restockItems(tx, order.items);
 
     await tx.orderItem.updateMany({
       where: { orderId: order.id },
@@ -696,8 +1295,107 @@ export async function cancelOrder(
       tx,
     );
 
-    return true;
+    return { refundIntentId: paid ? order.paymentIntentId : null };
   });
+
+  if (!outcome) return false;
+
+  if (outcome.refundIntentId) {
+    const { refundPayment } = await import("@/lib/payments/service");
+    const intent = await db.paymentIntent.findUnique({
+      where: { id: outcome.refundIntentId },
+      select: { amountCents: true, refundedCents: true },
+    });
+    const remaining = intent ? intent.amountCents - intent.refundedCents : 0;
+    if (remaining > 0) {
+      try {
+        await refundPayment({
+          intentId: outcome.refundIntentId,
+          amountCents: remaining,
+          reason: "CANCELLED_ORDER",
+          approvedById: params.actorId,
+          note: params.reason,
+          idempotencyKey: `cancel_${params.orderId}`,
+        });
+      } catch (e) {
+        // The order is cancelled and the money is back with the platform; the
+        // gateway refund needs a person. Flagged, never silently dropped.
+        const { logger } = await import("@/lib/logger");
+        logger.exception("REFUND FAILED after order cancellation", e, { orderId: params.orderId });
+        await db.paymentIntent.update({
+          where: { id: outcome.refundIntentId },
+          data: { failureCode: "REFUND_PENDING", failureMessage: "Order cancelled; gateway refund failed" },
+        });
+      }
+    }
+  }
+
+  return true;
+}
+
+/**
+ * A store order as its buyer sees it. Someone else's order and a missing one
+ * are the same 404.
+ */
+export async function getOrderForBuyer(auth: AuthContext, orderId: string) {
+  const order = await db.order.findFirst({
+    where: { id: orderId, buyerId: auth.user.id },
+    select: {
+      id: true,
+      orderNumber: true,
+      status: true,
+      paymentMethod: true,
+      paymentIntentId: true,
+      subtotalCents: true,
+      shippingCents: true,
+      discountCents: true,
+      totalCents: true,
+      currency: true,
+      shippingName: true,
+      shippingPhone: true,
+      shippingLine1: true,
+      shippingLine2: true,
+      shippingCity: true,
+      shippingCountry: true,
+      createdAt: true,
+      placedAt: true,
+      cancelledAt: true,
+      cancelReason: true,
+      items: {
+        select: {
+          id: true,
+          shopId: true,
+          titleSnapshot: true,
+          variantSnapshot: true,
+          imageSnapshot: true,
+          quantity: true,
+          totalCents: true,
+          fulfillmentStatus: true,
+          shop: { select: { name: true, slug: true } },
+        },
+      },
+      deliveries: {
+        select: { id: true, shopId: true, trackingNumber: true, carrierTracking: true, status: true, provider: true, deliveredAt: true },
+      },
+    },
+  });
+  if (!order) throw notFound("That order");
+
+  // The latest payment attempt for an online order that has not been paid,
+  // so the page can send the buyer back to finish it.
+  const pendingPayment =
+    order.paymentMethod === "ONLINE" && order.status === "PENDING_PAYMENT"
+      ? await db.paymentIntent.findFirst({
+          where: { userId: auth.user.id, referenceType: "ORDER", referenceId: order.id },
+          orderBy: { createdAt: "desc" },
+          select: { id: true, status: true },
+        })
+      : null;
+
+  const shipped = order.items.some((i) => ["SHIPPED", "DELIVERED"].includes(i.fulfillmentStatus));
+  const cancellable = ["PENDING_PAYMENT", "CONFIRMED", "PAID", "PROCESSING"].includes(order.status) && !shipped;
+
+  return { ...order, pendingPayment, cancellable };
 }
 
 // ---------------------------------------------------------------------------
@@ -749,12 +1447,18 @@ export async function searchProducts(params: ProductSearchParams) {
             ? [{ ratingAvgBps: "desc" as const }, { ratingCount: "desc" as const }]
             : [{ soldCount: "desc" as const }, { viewCount: "desc" as const }];
 
-  const [items, total] = await Promise.all([
+  // The default ("relevance") order is ranked in memory over a bounded window
+  // so it can weigh text match, quality and the shop's plan boost together.
+  // Past the window it degrades to the SQL popularity order rather than
+  // scanning further; nobody pages 17 deep into a product search.
+  const ranked = (!params.sort || params.sort === "relevance") && page * limit <= PRODUCT_RANK_WINDOW;
+
+  const [rows, total] = await Promise.all([
     db.product.findMany({
       where,
       orderBy,
-      skip: (page - 1) * limit,
-      take: limit,
+      skip: ranked ? 0 : (page - 1) * limit,
+      take: ranked ? PRODUCT_RANK_WINDOW : limit,
       select: {
         id: true,
         title: true,
@@ -770,7 +1474,7 @@ export async function searchProducts(params: ProductSearchParams) {
         ratingCount: true,
         soldCount: true,
         images: { orderBy: { position: "asc" }, take: 1, select: { url: true, alt: true } },
-        shop: { select: { id: true, name: true, slug: true, verifiedAt: true } },
+        shop: { select: { id: true, name: true, slug: true, verifiedAt: true, ownerUserId: true } },
         category: { select: { id: true, name: true, slug: true } },
         variants: { where: { isDefault: true }, take: 1, select: { id: true } },
       },
@@ -778,7 +1482,61 @@ export async function searchProducts(params: ProductSearchParams) {
     db.product.count({ where }),
   ]);
 
+  let ordered = rows;
+  if (ranked) {
+    const boosts = await getVisibilityBoosts(rows.map((r) => r.shop.ownerUserId));
+    const scored = rows.map((row) => ({
+      row,
+      score: productRankScore({
+        soldCount: row.soldCount,
+        ratingAvgBps: row.ratingAvgBps,
+        ratingCount: row.ratingCount,
+        inStock: row.status === "ACTIVE",
+        verifiedShop: Boolean(row.shop.verifiedAt),
+        relevance: params.query ? relevanceScore(params.query, { title: row.title, secondary: row.brand ?? undefined }) : 0,
+        planBoost: boosts.get(row.shop.ownerUserId) ?? 1,
+      }),
+    }));
+    scored.sort((a, b) => b.score - a.score);
+    ordered = scored.slice((page - 1) * limit, page * limit).map((s) => s.row);
+  }
+
+  // The owner id was only needed for ranking; it is not part of the public card.
+  const items = ordered.map(({ shop: { ownerUserId: _owner, ...shop }, ...row }) => ({ ...row, shop }));
+
   return { items, total, page, limit, pages: Math.max(1, Math.ceil(total / limit)) };
+}
+
+const PRODUCT_RANK_WINDOW = 400;
+
+/**
+ * Product ranking, in one readable place, on the same principle as listing
+ * ranking: quality and relevance first, and a paid plan multiplies that score
+ * (capped at `MAX_VISIBILITY_BOOST`) rather than overriding it. An out-of-stock
+ * product from a Seller Pro shop still sits below a well-reviewed one in stock.
+ */
+export function productRankScore(input: {
+  soldCount: number;
+  ratingAvgBps: number;
+  ratingCount: number;
+  inStock: boolean;
+  verifiedShop: boolean;
+  relevance: number;
+  planBoost?: number;
+}): number {
+  // A baseline for simply being listed. Without it a brand-new product scores
+  // zero, and a multiplier on zero is zero, so a new Seller Pro shop would get
+  // nothing for its plan until it had already sold something.
+  let score = 10;
+  score += Math.min(60, input.relevance);
+  score += Math.min(30, Math.log1p(input.soldCount) * 6);
+  // A rating only counts in proportion to how many people gave it; one
+  // five-star review is not evidence of anything.
+  const confidence = Math.min(1, input.ratingCount / 10);
+  score += (Math.min(500, input.ratingAvgBps) / 500) * 20 * confidence;
+  if (input.verifiedShop) score += 8;
+  if (!input.inStock) score *= 0.5;
+  return score * (input.planBoost ?? 1);
 }
 
 export async function getProductBySlug(slug: string) {
@@ -857,12 +1615,14 @@ export async function listShopOrders(auth: AuthContext, shopId: string, status?:
       totalCents: true,
       sellerEarningsCents: true,
       commissionCents: true,
+      discountCents: true,
       fulfillmentStatus: true,
       order: {
         select: {
           id: true,
           orderNumber: true,
           status: true,
+          paymentMethod: true,
           placedAt: true,
           currency: true,
           shippingName: true,
@@ -882,12 +1642,43 @@ export async function updateFulfillment(
 ) {
   const item = await db.orderItem.findUnique({
     where: { id: orderItemId },
-    select: { id: true, shopId: true, orderId: true, fulfillmentStatus: true },
+    select: {
+      id: true,
+      shopId: true,
+      orderId: true,
+      fulfillmentStatus: true,
+      order: { select: { paymentMethod: true, status: true } },
+    },
   });
   if (!item) throw notFound("That order item");
   await assertOwnsShop(item.shopId, auth);
 
-  await db.orderItem.update({ where: { id: orderItemId }, data: { fulfillmentStatus: status } });
+  // Packing is the shop's; shipping and delivery of a Bosta parcel are
+  // Bosta's to report.
+  if (status === "SHIPPED" || status === "DELIVERED") {
+    const booked = await db.delivery.findFirst({
+      where: { orderId: item.orderId, shopId: item.shopId, carrierTracking: { not: null } },
+      select: { id: true },
+    });
+    if (booked) throw conflict("Bosta updates this parcel. To change or cancel it, use your Bosta dashboard.");
+  }
+
+  // A shop that delivers its own parcels marks them delivered here. For a
+  // cash-on-delivery order that is the moment the shop has the cash, so the
+  // commission on it is charged in the same transaction.
+  await db.$transaction(async (tx) => {
+    await tx.orderItem.update({ where: { id: orderItemId }, data: { fulfillmentStatus: status } });
+    if (status === "DELIVERED" && item.order.paymentMethod === "COD") {
+      const shopItems = await tx.orderItem.findMany({
+        where: { orderId: item.orderId, shopId: item.shopId },
+        select: { fulfillmentStatus: true },
+      });
+      if (shopItems.every((i) => i.fulfillmentStatus === "DELIVERED" || i.fulfillmentStatus === "CANCELLED")) {
+        const { settleCashOnDelivery } = await import("@/lib/payments/settlement");
+        await settleCashOnDelivery(tx, item.orderId, item.shopId);
+      }
+    }
+  });
 
   // The order status reflects the least-advanced item, so an order is only
   // "shipped" once every seller has actually shipped.
@@ -905,7 +1696,7 @@ export async function updateFulfillment(
     await db.order.update({ where: { id: item.orderId }, data: { status: "SHIPPED" } });
   } else {
     await db.order.updateMany({
-      where: { id: item.orderId, status: "PAID" },
+      where: { id: item.orderId, status: { in: ["PAID", "CONFIRMED"] } },
       data: { status: "PROCESSING" },
     });
   }

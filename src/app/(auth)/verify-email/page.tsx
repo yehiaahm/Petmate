@@ -4,25 +4,30 @@ import { verifyEmail } from "@/lib/services/auth.service";
 import { isAppError } from "@/lib/errors";
 import { ButtonLink } from "@/components/ui/button";
 import { ResendVerification } from "@/components/auth/resend-verification";
+import { getI18n } from "@/lib/i18n/server";
 
-export const metadata: Metadata = {
-  title: "Confirm your email",
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return {
+  title: t("Confirm your email"),
   robots: { index: false, follow: false },
 };
+}
 
 export default async function VerifyEmailPage({
   searchParams,
 }: {
   searchParams: Promise<{ token?: string }>;
 }) {
+  const { t } = await getI18n();
   const { token } = await searchParams;
 
   if (!token) {
     return (
       <Result
         ok={false}
-        title="Missing confirmation token"
-        body="That link looks incomplete. Open the link from your email again, or request a new one."
+        title={t("Missing confirmation token")}
+        body={t("That link looks incomplete. Open the link from your email again, or request a new one.")}
       />
     );
   }
@@ -54,7 +59,8 @@ export default async function VerifyEmailPage({
   return <Result ok={outcome.ok} title={outcome.title} body={outcome.body} />;
 }
 
-function Result({ ok, title, body }: { ok: boolean; title: string; body: string }) {
+async function Result({ ok, title, body }: { ok: boolean; title: string; body: string }) {
+  const { t } = await getI18n();
   return (
     <div className="text-center">
       <div
@@ -71,13 +77,13 @@ function Result({ ok, title, body }: { ok: boolean; title: string; body: string 
       <div className="mt-8 space-y-3">
         {ok ? (
           <ButtonLink href="/login?verified=1" fullWidth size="lg">
-            Sign in
+            {t("Sign in")}
           </ButtonLink>
         ) : (
           <>
             <ResendVerification />
             <ButtonLink href="/login" variant="outline" fullWidth>
-              Back to sign in
+              {t("Back to sign in")}
             </ButtonLink>
           </>
         )}

@@ -8,7 +8,9 @@ import {
   getPaymentForUser,
   listPaymentsForUser,
   refundPayment,
+  retryPayment,
 } from "@/lib/payments/service";
+import { clientEnv } from "@/lib/env";
 import { isSandboxPayments } from "@/lib/payments/provider";
 import { getEarnings, listLedgerEntries } from "@/lib/payments/ledger-core";
 import {
@@ -17,6 +19,7 @@ import {
   listPayouts,
 } from "@/lib/payments/payout.service";
 import { cuidSchema, optionalText } from "@/lib/validation/common";
+import { PLATFORM_CURRENCY } from "@/lib/currency";
 
 export const GET = route({
   auth: true,
@@ -68,11 +71,11 @@ export const GET = route({
       }
 
       if (query.mode === "earnings") {
-        const earnings = await getEarnings(ownerType, ownerId, auth.user.currency);
+        const earnings = await getEarnings(ownerType, ownerId, PLATFORM_CURRENCY);
         return { earnings };
       }
 
-      const entries = await listLedgerEntries(ownerType, ownerId, { currency: auth.user.currency });
+      const entries = await listLedgerEntries(ownerType, ownerId, { currency: PLATFORM_CURRENCY });
       return { entries };
     }
 
@@ -134,8 +137,20 @@ export const POST = route({
       note: optionalText(500),
     }),
     z.object({ action: z.literal("request-payout"), payout: payoutRequestSchema }),
+    // A new attempt after a declined card or an expired checkout.
+    z.object({ action: z.literal("retry"), paymentIntentId: cuidSchema }),
   ]),
   async handler({ body }) {
+    if (body.action === "retry") {
+      const auth = await requireActive();
+      const payment = await retryPayment(
+        body.paymentIntentId,
+        auth.user.id,
+        `${clientEnv.NEXT_PUBLIC_APP_URL}/checkout/${body.paymentIntentId}`,
+      );
+      return { payment };
+    }
+
     if (body.action === "request-payout") {
       const auth = await requireActive();
       const payout = await requestPayout(auth, body.payout);

@@ -6,6 +6,8 @@ import { ShoppingCart, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import { api, ApiError } from "@/lib/api-client";
+import { track } from "@/lib/analytics";
+import { useI18n } from "@/components/i18n/i18n-provider";
 
 /**
  * Add to basket.
@@ -26,6 +28,7 @@ export function AddToCartButton({
   compact?: boolean;
   fullWidth?: boolean;
 }) {
+  const { t } = useI18n();
   const router = useRouter();
   const toast = useToast();
 
@@ -41,7 +44,13 @@ export function AddToCartButton({
     setAdding(true);
 
     try {
-      await api.post("/api/cart", { action: "add", variantId, quantity });
+      const cart = await api.post<{ currency: string; items: { variantId: string; unitPriceCents: number }[] }>("/api/cart", {
+        action: "add",
+        variantId,
+        quantity,
+      });
+      const line = cart.items.find((i) => i.variantId === variantId);
+      if (line) track({ name: "add_to_cart", value: line.unitPriceCents * quantity, currency: cart.currency });
 
       setAdded(true);
       setTimeout(() => setAdded(false), 2200);
@@ -54,7 +63,7 @@ export function AddToCartButton({
         return;
       }
       toast.error(
-        "Could not add to your basket",
+        t("Could not add to your basket"),
         err instanceof ApiError ? err.message : "Please try again.",
       );
     } finally {
@@ -69,17 +78,17 @@ export function AddToCartButton({
       fullWidth={fullWidth ?? compact}
       onClick={() => void add()}
       loading={adding}
-      loadingText="Adding…"
+      loadingText={t("Adding…")}
     >
       {added ? (
         <>
           <Check className="size-4" aria-hidden />
-          Added
+          {t("Added")}
         </>
       ) : (
         <>
           <ShoppingCart className="size-4" aria-hidden />
-          {compact ? "Add" : "Add to basket"}
+          {compact ? t("Add") : t("Add to basket")}
         </>
       )}
     </Button>

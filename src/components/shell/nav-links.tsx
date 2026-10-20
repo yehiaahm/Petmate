@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import { cn } from "@/lib/utils";
+import { useAppPathname } from "@/components/i18n/use-app-pathname";
 
 /**
  * Desktop primary navigation.
@@ -11,9 +12,15 @@ import { cn } from "@/lib/utils";
  * A client island only so it can mark where you are: the current section gets
  * a filled pill, which is the cheapest "you are here" signal there is.
  */
-export function NavLinks({ links }: { links: { href: string; label: string }[] }) {
+export function NavLinks({
+  links,
+  label,
+}: {
+  links: { href: string; label: string }[];
+  label: string;
+}) {
   return (
-    <nav aria-label="Main" className="hidden items-center gap-0.5 lg:flex xl:gap-1">
+    <nav aria-label={label} className="hidden items-center gap-0.5 lg:flex xl:gap-1">
       {/* useSearchParams needs a Suspense boundary; the fallback is the same
           links without the active state. */}
       <Suspense fallback={<Links links={links} active={null} />}>
@@ -24,7 +31,8 @@ export function NavLinks({ links }: { links: { href: string; label: string }[] }
 }
 
 function ActiveLinks({ links }: { links: { href: string; label: string }[] }) {
-  const pathname = usePathname();
+  // Without the /ar or /en prefix, so the links match in both languages.
+  const pathname = useAppPathname();
   const params = useSearchParams();
   const current = `${pathname}${params.toString() ? `?${params.toString()}` : ""}`;
 
@@ -77,7 +85,7 @@ function Links({
 
 /** The phone-width search row, left out on the home page where the hero is one. */
 export function MobileSearchRow({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname();
+  const pathname = useAppPathname();
   if (pathname === "/") return null;
   return <div className="pb-3 md:hidden">{children}</div>;
 }

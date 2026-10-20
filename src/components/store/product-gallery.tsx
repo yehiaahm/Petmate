@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useI18n } from "@/components/i18n/i18n-provider";
 import Image from "next/image";
 import { ShoppingBag } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -12,6 +13,7 @@ export function ProductGallery({
   images: { id: string; url: string; alt: string | null }[];
   title: string;
 }) {
+    const { t } = useI18n();
   const [index, setIndex] = useState(0);
   const current = images[index];
 
@@ -45,7 +47,7 @@ export function ProductGallery({
               <button
                 type="button"
                 onClick={() => setIndex(i)}
-                aria-label={`Show image ${i + 1} of ${images.length}`}
+                aria-label={t("Show image {n} of {total}", { n: i + 1, total: images.length })}
                 aria-current={i === index}
                 className={cn(
                   "relative size-16 shrink-0 overflow-hidden rounded-[var(--radius-field)] transition-all sm:size-20",

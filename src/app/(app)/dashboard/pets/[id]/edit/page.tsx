@@ -5,13 +5,18 @@ import { requireAuth } from "@/lib/auth/rbac";
 import { PageHeader, Breadcrumbs, Alert } from "@/components/ui/primitives";
 import { PetForm } from "@/components/pets/pet-form";
 import { splitTags } from "@/lib/utils";
+import { getI18n } from "@/lib/i18n/server";
 
-export const metadata: Metadata = {
-  title: "Edit pet",
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return {
+  title: t("Edit pet"),
   robots: { index: false, follow: false },
 };
+}
 
 export default async function EditPetPage({ params }: { params: Promise<{ id: string }> }) {
+  const { t } = await getI18n();
   const [{ id }, auth] = await Promise.all([params, requireAuth()]);
 
   // Scoped to the owner: someone else's pet id matches nothing here, which is
@@ -59,16 +64,15 @@ export default async function EditPetPage({ params }: { params: Promise<{ id: st
       />
 
       <PageHeader
-        title={`Edit ${pet.name}`}
-        description="Changes apply to the animal's permanent record, so anything already published from it updates too."
+        title={t("Edit {name}", { name: pet.name })}
+        description={t("Changes apply to the animal's permanent record, so anything already published from it updates too.")}
       />
 
       {pet._count.listings > 0 && (
         <Alert tone="info" className="mt-6">
           <p>
-            {pet.name} has {pet._count.listings} listing
-            {pet._count.listings === 1 ? "" : "s"}. Edits here change what buyers see, including on
-            listings that are already live.
+            {t.plural(pet._count.listings, { one: "{name} has {count} listing.", other: "{name} has {count} listings." }, { name: pet.name })}{" "}
+            {t("Edits here change what buyers see, including on listings that are already live.")}
           </p>
         </Alert>
       )}

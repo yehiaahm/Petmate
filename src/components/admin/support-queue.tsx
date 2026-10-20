@@ -170,7 +170,7 @@ export function SupportQueue({ tickets }: { tickets: QueueTicket[] }) {
                       }
                     }}
                   >
-                    <Send className="size-4" aria-hidden />
+                    <Send className="rtl:-scale-x-100 size-4" aria-hidden />
                     Send reply
                   </Button>
 

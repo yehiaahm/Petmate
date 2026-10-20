@@ -30,22 +30,29 @@ import { HeroSearch } from "@/components/home/hero-search";
 import { HeroVisual } from "@/components/home/hero-visual";
 import { CountUp } from "@/components/home/count-up";
 import { LogoMark } from "@/components/brand/logo";
+import { AdSlot } from "@/components/ads/ad-slot";
+import { RichText } from "@/components/i18n/rich-text";
 import { SPECIES_PLURAL, type Species } from "@/lib/constants";
+import { getI18n } from "@/lib/i18n/server";
 
-export const metadata: Metadata = {
-  title: {
-    absolute: "PetMate — Verified pets, verified people, one lifelong record",
-  },
-  description:
-    "Find, buy, adopt and breed pets from people you can actually check. Every pet gets a health record that follows them for life, plus pet hotels with pickup and drop-off, dog training and a pet store in one place.",
-  alternates: { canonical: "/" },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return {
+    title: {
+      absolute: t("PetMate — Verified pets, verified people, one lifelong record"),
+    },
+    description:
+      t("Find, buy, adopt and breed pets from people you can actually check. Every pet gets a health record that follows them for life, plus pet hotels with pickup and drop-off, dog training and a pet store in one place."),
+    alternates: { canonical: "/" },
+  };
+}
 
 // The home page is mostly public data; revalidating on a timer keeps it fast
 // without serving a stale marketplace.
 export const revalidate = 120;
 
 export default async function HomePage() {
+  const { t } = await getI18n();
   const auth = await getAuth();
 
   const [featured, adoptable, breeds, stats, recommended] = await Promise.all([
@@ -70,11 +77,17 @@ export default async function HomePage() {
 
       {recommended && recommended.items.length > 0 && (
         <Section
-          eyebrow={recommended.personalised ? "Picked for you" : "Popular right now"}
-          title="Fresh faces near you"
-          description={recommended.basis}
+          eyebrow={recommended.personalised ? t("Picked for you") : t("Popular right now")}
+          title={t("Fresh faces near you")}
+          description={
+            recommended.interests?.length
+              ? t("Based on your interest in {interest}", {
+                  interest: recommended.interests.map((x) => t(x).toLowerCase()).join(t(", ")),
+                })
+              : t(recommended.basis)
+          }
           href="/pets"
-          linkLabel="Browse all"
+          linkLabel={t("Browse all")}
         >
           <ListingRail>
             {recommended.items.slice(0, 8).map((listing, index) => (
@@ -84,13 +97,17 @@ export default async function HomePage() {
         </Section>
       )}
 
+      <div className="container-page py-4 empty:hidden">
+        <AdSlot slot="HOME_HERO" />
+      </div>
+
       {featured.items.length > 0 && (
         <Section
-          eyebrow="For sale"
-          title="Pets with a record you can read"
-          description="Every card shows how well documented the pet's health is — and whether a vet put it there."
+          eyebrow={t("For sale")}
+          title={t("Pets with a record you can read")}
+          description={t("Every card shows how well documented the pet's health is — and whether a vet put it there.")}
           href="/pets?intent=SALE"
-          linkLabel="See all"
+          linkLabel={t("See all")}
         >
           <ListingRail>
             {featured.items.map((listing, index) => (
@@ -104,11 +121,11 @@ export default async function HomePage() {
 
       {adoptable.items.length > 0 && (
         <Section
-          eyebrow="Adoption"
-          title="Waiting for the right home"
-          description="Apply once — your household profile is reused for every rescue."
+          eyebrow={t("Adoption")}
+          title={t("Waiting for the right home")}
+          description={t("Apply once — your household profile is reused for every rescue.")}
           href="/pets?intent=ADOPTION"
-          linkLabel="See all"
+          linkLabel={t("See all")}
         >
           <ListingRail>
             {adoptable.items.map((listing) => (
@@ -149,20 +166,21 @@ const QUICK_ACTIONS: { href: string; label: string; icon: LucideIcon; tint: stri
   { href: "/store", label: "Store", icon: ShoppingBag, tint: "var(--color-sun)" },
 ];
 
-function Hero({
+async function Hero({
   stats,
   firstName,
 }: {
   stats: { pets: number; listings: number; providers: number; members: number };
   firstName: string | null;
 }) {
+  const { t } = await getI18n();
   return (
     <section className="relative isolate overflow-hidden">
       {/* Colour, not a stock photo: the listings below are the photography. */}
       <div className="pointer-events-none absolute inset-0 -z-10" aria-hidden>
-        <div className="blob -left-24 -top-24 size-[22rem] bg-[var(--color-lagoon-400)]" />
-        <div className="blob -right-20 top-10 size-[20rem] bg-[var(--color-ocean-400)] [animation-delay:-6s]" />
-        <div className="blob bottom-[-8rem] left-1/3 size-[18rem] bg-[var(--color-coral-300)] opacity-30 [animation-delay:-12s]" />
+        <div className="blob -start-24 -top-24 size-[22rem] bg-[var(--color-lagoon-400)]" />
+        <div className="blob -end-20 top-10 size-[20rem] bg-[var(--color-ocean-400)] [animation-delay:-6s]" />
+        <div className="blob bottom-[-8rem] start-1/3 size-[18rem] bg-[var(--color-coral-300)] opacity-30 [animation-delay:-12s]" />
         <div className="dot-grid absolute inset-0" />
       </div>
 
@@ -172,9 +190,9 @@ function Hero({
             <HeroVisual />
           </div>
 
-          <div className="order-2 text-center lg:order-1 lg:text-left">
+          <div className="order-2 text-center lg:order-1 lg:text-start">
             <p
-              className="enter inline-flex items-center gap-2 rounded-full border border-[var(--glass-border)] bg-[var(--glass)] py-1 pl-1 pr-3 text-xs font-semibold text-fg shadow-[var(--shadow-subtle)] backdrop-blur"
+              className="enter inline-flex items-center gap-2 rounded-full border border-[var(--glass-border)] bg-[var(--glass)] py-1 ps-1 pe-3 text-xs font-semibold text-fg shadow-[var(--shadow-subtle)] backdrop-blur"
               style={{ "--d": "80ms" } as React.CSSProperties}
             >
               <span className="flex size-6 items-center justify-center rounded-full bg-brand text-brand-fg">
@@ -184,42 +202,48 @@ function Hero({
                   <BadgeCheck className="size-3.5" aria-hidden />
                 )}
               </span>
-              {firstName ? `Welcome back, ${firstName}` : "Every pet gets a passport"}
+              {firstName ? t("Welcome back, {value}", { value: firstName }) : t("Every pet gets a passport")}
             </p>
 
             <h1
               className="enter mt-3 font-display text-[2.15rem] font-bold leading-[1.06] tracking-tight text-fg sm:mt-4 sm:text-5xl lg:text-[3.75rem]"
               style={{ "--d": "160ms" } as React.CSSProperties}
             >
-              Find your pet&rsquo;s <span className="text-gradient">perfect mate</span>{" "}
-              from people you{" "}
-              <span className="relative inline-block whitespace-nowrap">
-                can trust
-                <svg
-                  viewBox="0 0 200 12"
-                  className="absolute -bottom-1.5 left-0 h-2.5 w-full text-[var(--color-coral-400)]"
-                  preserveAspectRatio="none"
-                  aria-hidden
-                >
-                  <path
-                    d="M2 9 C 50 2, 150 2, 198 8"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                    strokeLinecap="round"
-                    pathLength={1}
-                    className="[stroke-dasharray:1_2] [stroke-dashoffset:1.02] [animation:pm-draw_900ms_var(--ease-out-soft)_900ms_forwards]"
-                  />
-                </svg>
-              </span>
+              <RichText
+                text={t("Find your pet’s {mate} from people you {trust}")}
+                values={{
+                  mate: <span className="text-gradient">{t("perfect mate")}</span>,
+                  trust: (
+                    <span className="relative inline-block whitespace-nowrap">
+                      {t("can trust")}
+                      {/* Drawn in the reading direction, so it is mirrored in RTL. */}
+                      <svg
+                        viewBox="0 0 200 12"
+                        className="absolute inset-x-0 -bottom-1.5 h-2.5 w-full text-[var(--color-coral-400)] rtl:-scale-x-100"
+                        preserveAspectRatio="none"
+                        aria-hidden
+                      >
+                        <path
+                          d="M2 9 C 50 2, 150 2, 198 8"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                          strokeLinecap="round"
+                          pathLength={1}
+                          className="[stroke-dasharray:1_2] [stroke-dashoffset:1.02] [animation:pm-draw_900ms_var(--ease-out-soft)_900ms_forwards]"
+                        />
+                      </svg>
+                    </span>
+                  ),
+                }}
+              />
             </h1>
 
             <p
               className="enter mx-auto mt-3 max-w-xl text-[15px] leading-relaxed text-fg-muted sm:mt-4 sm:text-lg lg:mx-0"
               style={{ "--d": "240ms" } as React.CSSProperties}
             >
-              Verified health records, payments held safely until you meet the pet, and trusted pet
-              hotels and trainers — all in one place.
+              {t("Verified health records, payments held safely until you meet the pet, and trusted pet hotels and trainers — all in one place.")}
             </p>
 
             <div
@@ -230,7 +254,7 @@ function Hero({
             </div>
 
             <nav
-              aria-label="What are you here for?"
+              aria-label={t("What are you here for?")}
               className="mx-auto mt-5 grid max-w-xl grid-cols-5 gap-2 sm:mt-6 sm:gap-3 lg:mx-0"
             >
               {QUICK_ACTIONS.map((action, index) => (
@@ -249,7 +273,7 @@ function Hero({
                   >
                     <action.icon className="size-6" strokeWidth={2.2} aria-hidden />
                   </span>
-                  {action.label}
+                  {t(action.label)}
                 </Link>
               ))}
             </nav>
@@ -273,11 +297,11 @@ function Hero({
               >
                 <stat.icon className="size-5" aria-hidden />
               </span>
-              <div className="min-w-0 text-left">
+              <div className="min-w-0 text-start">
                 <dd className="font-display text-xl font-bold leading-none text-fg sm:text-2xl">
                   <CountUp value={stat.value} />
                 </dd>
-                <dt className="mt-1 truncate text-xs text-fg-muted">{stat.label}</dt>
+                <dt className="mt-1 truncate text-xs text-fg-muted">{t(stat.label)}</dt>
               </div>
             </div>
           ))}
@@ -297,13 +321,14 @@ const SPECIES_TILES: { species: Species; icon: LucideIcon; tint: string }[] = [
   { species: "OTHER", icon: PawPrint, tint: "var(--color-lagoon-500)" },
 ];
 
-function SpeciesStrip() {
+async function SpeciesStrip() {
+  const { t } = await getI18n();
   return (
     <section className="container-page py-8 lg:py-12">
       <div className="mb-5 flex items-end justify-between gap-4">
         <div>
-          <p className="eyebrow">Browse by pet</p>
-          <h2 className="mt-1.5 text-2xl tracking-tight sm:text-3xl">Who are you looking for?</h2>
+          <p className="eyebrow">{t("Browse by pet")}</p>
+          <h2 className="mt-1.5 text-2xl tracking-tight sm:text-3xl">{t("Who are you looking for?")}</h2>
         </div>
       </div>
 
@@ -326,7 +351,7 @@ function SpeciesStrip() {
               >
                 <Icon className="size-7" strokeWidth={2} aria-hidden />
               </span>
-              <span className="relative text-sm font-semibold text-fg">{SPECIES_PLURAL[species]}</span>
+              <span className="relative text-sm font-semibold text-fg">{t(SPECIES_PLURAL[species])}</span>
             </Link>
           </li>
         ))}
@@ -335,16 +360,20 @@ function SpeciesStrip() {
   );
 }
 
-function WhyPetMate() {
+async function WhyPetMate() {
+  const { t } = await getI18n();
   return (
     <section className="container-page py-12 lg:py-20">
       <div className="reveal mx-auto max-w-2xl text-center">
-        <p className="eyebrow">Why PetMate</p>
+        <p className="eyebrow">{t("Why PetMate")}</p>
         <h2 className="mt-2 text-3xl tracking-tight sm:text-4xl">
-          Safe by design, <span className="text-gradient">not by luck</span>
+          <RichText
+            text={t("Safe by design, {highlight}")}
+            values={{ highlight: <span className="text-gradient">{t("not by luck")}</span> }}
+          />
         </h2>
         <p className="mt-3 text-base text-fg-muted sm:text-lg">
-          The three things a photo and a phone number can never give you.
+          {t("The three things a photo and a phone number can never give you.")}
         </p>
       </div>
 
@@ -374,7 +403,7 @@ function WhyPetMate() {
             className="group relative overflow-hidden rounded-[var(--radius-panel)] border border-[var(--border)] bg-bg-elevated p-6 shadow-[var(--shadow-card)] transition-transform duration-300 hover:-translate-y-1"
           >
             <span
-              className="pointer-events-none absolute -right-10 -top-10 size-40 rounded-full opacity-25 blur-2xl transition-opacity duration-500 group-hover:opacity-50"
+              className="pointer-events-none absolute -end-10 -top-10 size-40 rounded-full opacity-25 blur-2xl transition-opacity duration-500 group-hover:opacity-50"
               style={{ background: item.tint }}
               aria-hidden
             />
@@ -391,8 +420,8 @@ function WhyPetMate() {
                 0{index + 1}
               </span>
             </div>
-            <h3 className="relative mt-5 text-xl">{item.title}</h3>
-            <p className="relative mt-2 text-[15px] leading-relaxed text-fg-muted">{item.body}</p>
+            <h3 className="relative mt-5 text-xl">{t(item.title)}</h3>
+            <p className="relative mt-2 text-[15px] leading-relaxed text-fg-muted">{t(item.body)}</p>
           </div>
         ))}
       </div>
@@ -400,7 +429,8 @@ function WhyPetMate() {
   );
 }
 
-function Ecosystem() {
+async function Ecosystem() {
+  const { t } = await getI18n();
   const pillars: {
     icon: LucideIcon;
     tint: string;
@@ -446,9 +476,9 @@ function Ecosystem() {
   return (
     <section className="container-page py-12 lg:py-16">
       <div className="reveal max-w-2xl">
-        <p className="eyebrow">One app, the whole journey</p>
+        <p className="eyebrow">{t("One app, the whole journey")}</p>
         <h2 className="mt-2 text-3xl tracking-tight sm:text-4xl">
-          From the first search to every stay away
+          {t("From the first search to every stay away")}
         </h2>
       </div>
 
@@ -463,19 +493,19 @@ function Ecosystem() {
             }}
           >
             <pillar.icon
-              className="pointer-events-none absolute -bottom-6 -right-6 size-36 rotate-[-12deg] opacity-15 transition-transform duration-700 ease-[var(--ease-spring)] group-hover:rotate-0 group-hover:scale-110"
+              className="pointer-events-none absolute -bottom-6 -end-6 size-36 rotate-[-12deg] opacity-15 transition-transform duration-700 ease-[var(--ease-spring)] group-hover:rotate-0 group-hover:scale-110"
               strokeWidth={1.5}
               aria-hidden
             />
             <span className="flex size-12 items-center justify-center rounded-2xl bg-white/20 backdrop-blur">
               <pillar.icon className="size-6" aria-hidden />
             </span>
-            <h3 className="mt-5 text-xl text-white">{pillar.title}</h3>
-            <p className="mt-2 flex-1 text-sm leading-relaxed text-white/85">{pillar.body}</p>
+            <h3 className="mt-5 text-xl text-white">{t(pillar.title)}</h3>
+            <p className="mt-2 flex-1 text-sm leading-relaxed text-white/85">{t(pillar.body)}</p>
             <span className="mt-5 inline-flex items-center gap-1.5 text-sm font-bold">
-              {pillar.cta}
+              {t(pillar.cta)}
               <ArrowRight
-                className="size-4 transition-transform duration-300 group-hover:translate-x-1"
+                className="size-4 transition-transform duration-300 group-hover:translate-x-1 rtl:-scale-x-100 rtl:group-hover:-translate-x-1"
                 aria-hidden
               />
             </span>
@@ -516,7 +546,10 @@ function Section({
           className="group inline-flex shrink-0 items-center gap-1 rounded-full bg-brand-soft px-3.5 py-2 text-sm font-semibold text-brand-soft-fg transition-colors hover:bg-[color-mix(in_srgb,var(--brand)_18%,var(--brand-soft))]"
         >
           {linkLabel}
-          <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" aria-hidden />
+          <ArrowRight
+            className="size-4 transition-transform group-hover:translate-x-0.5 rtl:-scale-x-100 rtl:group-hover:-translate-x-0.5"
+            aria-hidden
+          />
         </Link>
       </div>
       {children}
@@ -524,11 +557,12 @@ function Section({
   );
 }
 
-function BreedMarquee({
+async function BreedMarquee({
   breeds,
 }: {
   breeds: { id: string; name: string; slug: string; species: string; sizeClass: string | null; _count: { pets: number } }[];
 }) {
+  const { t } = await getI18n();
   const tints = [
     "var(--color-lagoon-500)",
     "var(--color-sun)",
@@ -543,11 +577,11 @@ function BreedMarquee({
     <section className="py-10 lg:py-14">
       <div className="container-page mb-5 flex items-end justify-between gap-4">
         <div>
-          <p className="eyebrow">Breed guide</p>
-          <h2 className="mt-1.5 text-2xl tracking-tight sm:text-3xl">Explore by breed</h2>
+          <p className="eyebrow">{t("Breed guide")}</p>
+          <h2 className="mt-1.5 text-2xl tracking-tight sm:text-3xl">{t("Explore by breed")}</h2>
         </div>
         <Link href="/breeds" className="shrink-0 text-sm font-semibold text-brand hover:underline">
-          All breeds
+          {t("All breeds")}
         </Link>
       </div>
 
@@ -561,11 +595,11 @@ function BreedMarquee({
               const hidden = copy === 1 || index >= breeds.length;
               const tint = tints[index % tints.length]!;
               return (
-                <li key={`${copy}-${index}`} className="pr-3" aria-hidden={hidden || undefined}>
+                <li key={`${copy}-${index}`} className="pe-3" aria-hidden={hidden || undefined}>
                   <Link
                     href={`/breeds/${breed.slug}`}
                     tabIndex={hidden ? -1 : undefined}
-                    className="flex items-center gap-2.5 whitespace-nowrap rounded-full border border-[var(--border)] bg-bg-elevated py-2 pl-2 pr-4 text-sm font-semibold text-fg shadow-[var(--shadow-subtle)] transition-[transform,border-color] duration-300 hover:-translate-y-0.5 hover:border-[var(--brand)]"
+                    className="flex items-center gap-2.5 whitespace-nowrap rounded-full border border-[var(--border)] bg-bg-elevated py-2 ps-2 pe-4 text-sm font-semibold text-fg shadow-[var(--shadow-subtle)] transition-[transform,border-color] duration-300 hover:-translate-y-0.5 hover:border-[var(--brand)]"
                   >
                     <span
                       className="flex size-7 items-center justify-center rounded-full"
@@ -594,21 +628,22 @@ function BreedMarquee({
   );
 }
 
-function ClosingCta({ signedIn }: { signedIn: boolean }) {
+async function ClosingCta({ signedIn }: { signedIn: boolean }) {
+  const { t } = await getI18n();
   return (
     <section className="container-page pb-16 pt-8">
       <div className="reveal passport-edge relative isolate overflow-hidden rounded-[var(--radius-panel)] bg-[linear-gradient(135deg,var(--color-lagoon-700),var(--color-slate-900)_55%,var(--color-ocean-600))] px-6 py-14 text-center sm:px-12 sm:py-16">
         <div className="pointer-events-none absolute inset-0 -z-10" aria-hidden>
-          <div className="blob -left-10 -top-16 size-64 bg-[var(--color-lagoon-400)] opacity-40" />
-          <div className="blob -bottom-20 -right-10 size-72 bg-[var(--color-ocean-400)] opacity-40 [animation-delay:-8s]" />
+          <div className="blob -start-10 -top-16 size-64 bg-[var(--color-lagoon-400)] opacity-40" />
+          <div className="blob -bottom-20 -end-10 size-72 bg-[var(--color-ocean-400)] opacity-40 [animation-delay:-8s]" />
           <LogoMark
             onDark
-            className="absolute -right-10 top-1/2 w-[26rem] -translate-y-1/2 opacity-[0.08]"
+            className="absolute -end-10 top-1/2 w-[26rem] -translate-y-1/2 opacity-[0.08]"
           />
           {[
-            "left-[8%] top-[18%] rotate-[-18deg]",
-            "left-[16%] bottom-[14%] rotate-[12deg] [animation-delay:-3s]",
-            "right-[12%] top-[12%] rotate-[22deg] [animation-delay:-5s]",
+            "start-[8%] top-[18%] rotate-[-18deg]",
+            "start-[16%] bottom-[14%] rotate-[12deg] [animation-delay:-3s]",
+            "end-[12%] top-[12%] rotate-[22deg] [animation-delay:-5s]",
           ].map((position) => (
             <PawPrint
               key={position}
@@ -622,11 +657,10 @@ function ClosingCta({ signedIn }: { signedIn: boolean }) {
             <Sparkles className="animate-wiggle size-7" aria-hidden />
           </span>
           <h2 className="mt-5 text-3xl tracking-tight text-white sm:text-4xl">
-            Start with one pet profile
+            {t("Start with one pet profile")}
           </h2>
           <p className="mx-auto mt-3 max-w-xl text-[15px] leading-relaxed text-white/80">
-            Add your pet, log a vaccine, set a reminder. It&rsquo;s free, it stays yours, and every
-            listing, booking and match builds on it.
+            {t("Add your pet, log a vaccine, set a reminder. It’s free, it stays yours, and every listing, booking and match builds on it.")}
           </p>
           <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
             <ButtonLink
@@ -635,8 +669,8 @@ function ClosingCta({ signedIn }: { signedIn: boolean }) {
               variant="secondary"
               className="border-transparent bg-white text-[var(--color-lagoon-800)] shadow-[0_14px_30px_-12px_rgb(0_0_0/0.5)] hover:bg-white/90"
             >
-              {signedIn ? "Add a pet" : "Create a free account"}
-              <ArrowRight className="size-4" aria-hidden />
+              {signedIn ? t("Add a pet") : t("Create a free account")}
+              <ArrowRight className="size-4 rtl:-scale-x-100" aria-hidden />
             </ButtonLink>
             <ButtonLink
               href="/pets"
@@ -644,7 +678,7 @@ function ClosingCta({ signedIn }: { signedIn: boolean }) {
               variant="ghost"
               className="border border-white/30 text-white hover:bg-white/10 hover:text-white"
             >
-              Just browsing
+              {t("Just browsing")}
             </ButtonLink>
           </div>
         </div>

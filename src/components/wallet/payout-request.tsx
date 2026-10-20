@@ -8,7 +8,7 @@ import { Field, Input, Select } from "@/components/ui/field";
 import { Alert } from "@/components/ui/primitives";
 import { useToast } from "@/components/ui/toast";
 import { api, ApiError } from "@/lib/api-client";
-import { formatMoney } from "@/lib/money";
+import { useI18n } from "@/components/i18n/i18n-provider";
 
 interface PayoutAccount {
   ownerType: "USER" | "SHOP" | "CLINIC" | "PROVIDER";
@@ -29,6 +29,7 @@ export function PayoutRequest({
   minCents: number;
   accounts: PayoutAccount[];
 }) {
+  const { t, fmt } = useI18n();
   const router = useRouter();
   const toast = useToast();
 
@@ -64,7 +65,7 @@ export function PayoutRequest({
           destination: destination.trim(),
         },
       });
-      toast.success("Payout requested", "We will confirm once the transfer is sent.");
+      toast.success(t("Payout requested"), t("We will confirm once the transfer is sent."));
       setDestination("");
       router.refresh();
     } catch (err) {
@@ -79,7 +80,7 @@ export function PayoutRequest({
       {error && <Alert tone="danger">{error}</Alert>}
 
       {accounts.length > 1 && (
-        <Field label="From">
+        <Field label={t("From")}>
           {({ id }) => (
             <Select
               id={id}
@@ -101,9 +102,9 @@ export function PayoutRequest({
       )}
 
       <Field
-        label="Amount"
+        label={t("Amount")}
         required
-        hint={`Between ${formatMoney(minCents, currency)} and ${formatMoney(accountAvailable, currency)}`}
+        hint={t("Between {amount} and {amount2}", { amount: fmt.money(minCents, currency), amount2: fmt.money(accountAvailable, currency) })}
       >
         {({ id, invalid }) => (
           <Input
@@ -122,9 +123,9 @@ export function PayoutRequest({
       </Field>
 
       <Field
-        label="Which account?"
+        label={t("Which account?")}
         required
-        hint="A label you will recognise, such as “HSBC ••4417”. Never enter full account or card numbers — we do not store them and will never ask."
+        hint={t("A label you will recognise, such as “HSBC ••4417”. Never enter full account or card numbers — we do not store them and will never ask.")}
       >
         {({ id, invalid }) => (
           <Input
@@ -133,14 +134,14 @@ export function PayoutRequest({
             maxLength={60}
             value={destination}
             onChange={(e) => setDestination(e.target.value)}
-            placeholder="HSBC current account"
+            placeholder={t("HSBC current account")}
           />
         )}
       </Field>
 
-      <Button type="submit" fullWidth loading={submitting} loadingText="Requesting…" disabled={!valid}>
+      <Button type="submit" fullWidth loading={submitting} loadingText={t("Requesting…")} disabled={!valid}>
         <Landmark className="size-4" aria-hidden />
-        Request payout
+        {t("Request payout")}
       </Button>
     </form>
   );

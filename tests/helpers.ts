@@ -333,25 +333,60 @@ export async function makeCareProvider(
   return { providerId: provider.id, unitId: unit.id, programId: program.id };
 }
 
+/**
+ * Puts a user on a paid plan with the given limits. Plans are reference data
+ * and survive `resetDatabase`, so each call upserts its own plan code.
+ */
+export async function subscribeUser(
+  userId: string,
+  limits: Record<string, number | boolean | string>,
+  code = `test-plan-${unique()}`,
+) {
+  const plan = await db.plan.upsert({
+    where: { code },
+    create: {
+      code,
+      name: `Plan ${code}`,
+      audience: "CONSUMER",
+      priceMonthlyCents: 10_000,
+      features: "[]",
+      limits: JSON.stringify(limits),
+    },
+    update: { limits: JSON.stringify(limits) },
+    select: { id: true },
+  });
+
+  await db.subscription.create({
+    data: {
+      userId,
+      planId: plan.id,
+      status: "ACTIVE",
+      currentPeriodStart: new Date(),
+      currentPeriodEnd: addDays(new Date(), 30),
+    },
+  });
+  return plan.id;
+}
+
 /** Wipes every table between suites, in FK-safe order. */
 export async function resetDatabase() {
   const tables = [
     "LedgerEntry", "LedgerTransaction", "LedgerAccount", "Refund", "Invoice",
-    "DeliveryEvent", "Delivery", "OrderItem", "Order", "PetOrder", "CartItem",
+    "DeliveryEvent", "Delivery", "CodCollection", "CouponRedemption", "Coupon", "Referral", "OrderItem", "Order", "PetOrder", "CartItem",
     "ProductVariant", "ProductImage", "Product", "Shop",
     "CareEvent", "CareTransport", "TrainingSession", "BoardingNight", "CareBooking",
     "TrainingProgram", "BoardingUnit", "CareProviderHours", "CareProviderMember", "CareProvider",
     "Appointment", "Service", "ClinicHours", "AvailabilityException", "Vet", "ClinicMember", "Clinic",
-    "DisputeMessage", "Dispute", "Report", "Verification", "TrustSignal", "RiskEvent", "Block",
+    "SupportMessage", "SupportTicket", "DisputeMessage", "Dispute", "Report", "Verification", "TrustSignal", "RiskEvent", "Block",
     "Message", "ConversationParticipant", "Conversation",
-    "Notification", "NotificationPreference", "EmailMessage",
+    "Notification", "NotificationPreference", "EmailMessage", "OutboundMessage",
     "AdoptionApplication", "ListingQuestion", "ListingView", "Favorite", "SavedSearch", "Listing",
     "BreedingMatch", "BreedingRequest", "BreedingProfilePreferredBreed", "BreedingProfile", "Litter",
     "HealthReminder", "HealthRecord", "PetDocument", "PetPhoto", "PetTransfer", "Pet",
     "Review", "Reaction", "Comment", "Post", "GroupMember", "Group",
     "Subscription", "PaymentIntent", "Payout", "FeaturedPlacement", "AdCampaign",
     "FileObject", "Job", "AnalyticsEvent", "SearchQueryLog", "RateLimitCounter",
-    "IdempotencyKey", "AuditLog", "LoginAttempt", "VerificationToken", "Session", "UserRole",
+    "IdempotencyKey", "AuditLog", "LoginAttempt", "VerificationToken", "OAuthAccount", "TwoFactorBackupCode", "Session", "UserRole",
     "RecentlyViewed", "User",
   ];
 

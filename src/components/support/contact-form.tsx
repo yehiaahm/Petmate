@@ -6,6 +6,8 @@ import { Button, ButtonLink } from "@/components/ui/button";
 import { Field, Input, Textarea, Select } from "@/components/ui/field";
 import { Alert, Card } from "@/components/ui/primitives";
 import { api, ApiError } from "@/lib/api-client";
+import { useI18n } from "@/components/i18n/i18n-provider";
+import { RichText } from "@/components/i18n/rich-text";
 
 export interface ContactTopic {
   value: string;
@@ -20,6 +22,7 @@ interface Props {
 }
 
 export function ContactForm({ topics, identity, defaultTopic }: Props) {
+  const { t } = useI18n();
   const [name, setName] = useState(identity?.name ?? "");
   const [email, setEmail] = useState(identity?.email ?? "");
   const [topic, setTopic] = useState(defaultTopic ?? topics[0]?.value ?? "OTHER");
@@ -65,16 +68,20 @@ export function ContactForm({ topics, identity, defaultTopic }: Props) {
         <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-[var(--success-soft)] text-[var(--success)]">
           <CheckCircle2 className="size-6" aria-hidden />
         </div>
-        <h2 className="mt-4 font-display text-xl font-semibold text-fg">Message received</h2>
+        <h2 className="mt-4 font-display text-xl font-semibold text-fg">{t("Message received")}</h2>
         <p className="mt-2 text-sm leading-relaxed text-fg-muted">
-          Your reference is{" "}
-          <span className="font-mono font-semibold text-fg">{reference}</span>. We sent a copy to{" "}
-          <span className="font-medium text-fg">{email}</span> and will reply there.
+          <RichText
+            text={t("Your reference is {reference}. We sent a copy to {email} and will reply there.")}
+            values={{
+              reference: <span className="font-mono font-semibold text-fg">{reference}</span>,
+              email: <span className="font-medium text-fg">{email}</span>,
+            }}
+          />
         </p>
         <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
-          <ButtonLink href={`/support/${reference}`}>Track this request</ButtonLink>
+          <ButtonLink href={`/support/${reference}`}>{t("Track this request")}</ButtonLink>
           <Button variant="outline" onClick={() => setReference(null)}>
-            Send another
+            {t("Send another")}
           </Button>
         </div>
       </Card>
@@ -85,11 +92,10 @@ export function ContactForm({ topics, identity, defaultTopic }: Props) {
     <Card className="p-6">
       <div className="flex items-center gap-2.5">
         <LifeBuoy className="size-5 text-brand" aria-hidden />
-        <h2 className="font-display text-xl font-semibold text-fg">Contact support</h2>
+        <h2 className="font-display text-xl font-semibold text-fg">{t("Contact support")}</h2>
       </div>
       <p className="mt-2 text-sm text-fg-muted">
-        We reply by email, usually within one working day. Animal-welfare reports are handled
-        first.
+        {t("We reply by email, usually within one working day. Animal-welfare reports are handled first.")}
       </p>
 
       <form onSubmit={onSubmit} className="mt-6 space-y-5" noValidate>
@@ -99,12 +105,14 @@ export function ContactForm({ topics, identity, defaultTopic }: Props) {
 
         {identity ? (
           <p className="rounded-[var(--radius-field)] bg-bg-sunken px-3.5 py-2.5 text-sm text-fg-muted">
-            Sending as <span className="font-medium text-fg">{identity.name}</span> (
-            {identity.email}). We reply to that address.
+            <RichText
+              text={t("Sending as {name} ({email}). We reply to that address.", { email: identity.email })}
+              values={{ name: <span className="font-medium text-fg">{identity.name}</span> }}
+            />
           </p>
         ) : (
           <div className="grid gap-5 sm:grid-cols-2">
-            <Field label="Your name" required error={fieldError("name")}>
+            <Field label={t("Your name")} required error={fieldError("name")}>
               {({ id, invalid }) => (
                 <Input
                   id={id}
@@ -118,9 +126,9 @@ export function ContactForm({ topics, identity, defaultTopic }: Props) {
               )}
             </Field>
             <Field
-              label="Email address"
+              label={t("Email address")}
               required
-              hint="Where we send the reply."
+              hint={t("Where we send the reply.")}
               error={fieldError("email")}
             >
               {({ id, invalid }) => (
@@ -139,19 +147,19 @@ export function ContactForm({ topics, identity, defaultTopic }: Props) {
           </div>
         )}
 
-        <Field label="What is this about?" required error={fieldError("topic")}>
+        <Field label={t("What is this about?")} required error={fieldError("topic")}>
           {({ id }) => (
             <Select id={id} value={topic} onChange={(e) => setTopic(e.target.value)}>
-              {topics.map((t) => (
-                <option key={t.value} value={t.value}>
-                  {t.label}
+              {topics.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {t(option.label)}
                 </option>
               ))}
             </Select>
           )}
         </Field>
 
-        <Field label="Subject" required error={fieldError("subject")}>
+        <Field label={t("Subject")} required error={fieldError("subject")}>
           {({ id, invalid }) => (
             <Input
               id={id}
@@ -160,14 +168,14 @@ export function ContactForm({ topics, identity, defaultTopic }: Props) {
               maxLength={140}
               value={subject}
               onChange={(e) => setSubject(e.target.value)}
-              placeholder="Escrow not released after handover"
+              placeholder={t("Escrow not released after handover")}
             />
           )}
         </Field>
 
         <Field
-          label="Order, listing or dispute reference"
-          hint="Optional, but it gets you an answer faster."
+          label={t("Order, listing or dispute reference")}
+          hint={t("Optional, but it gets you an answer faster.")}
           error={fieldError("orderRef")}
         >
           {({ id, invalid }) => (
@@ -183,7 +191,7 @@ export function ContactForm({ topics, identity, defaultTopic }: Props) {
         </Field>
 
         <Field
-          label="What happened?"
+          label={t("What happened?")}
           required
           error={fieldError("message")}
           trailing={`${message.length}/4000`}
@@ -197,13 +205,13 @@ export function ContactForm({ topics, identity, defaultTopic }: Props) {
               maxLength={4000}
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              placeholder="Include dates, amounts and what you have already tried. Never include passwords or card numbers — we will never ask for them."
+              placeholder={t("Include dates, amounts and what you have already tried. Never include passwords or card numbers — we will never ask for them.")}
             />
           )}
         </Field>
 
-        <Button type="submit" size="lg" loading={submitting} loadingText="Sending…">
-          Send message
+        <Button type="submit" size="lg" loading={submitting} loadingText={t("Sending…")}>
+          {t("Send message")}
         </Button>
       </form>
     </Card>

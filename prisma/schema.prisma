@@ -39,6 +39,17 @@ model User {
   bio             String?
   phone           String?
   phoneVerifiedAt DateTime?
+  /// Their own code for inviting others (/r/CODE), made on first use.
+  referralCode    String?   @unique
+  /// How phone messages reach them: WHATSAPP | SMS.
+  phoneChannel    String    @default("WHATSAPP")
+
+  // Two-factor sign-in (TOTP). The seed is encrypted, never hashed, because
+  // the server has to compute codes from it; the counter stops a code that
+  // was already used from being replayed.
+  twoFactorSecret      String?
+  twoFactorEnabledAt   DateTime?
+  twoFactorLastCounter Int?
 
   // Location, denormalised so radius filtering works without PostGIS.
   country    String?
@@ -48,8 +59,8 @@ model User {
   lat        Float?
   lng        Float?
 
-  locale   String @default("en")
-  currency String @default("USD")
+  locale   String @default("ar") // ar | en — the language email, SMS and notifications are written in
+  currency String @default("EGP")
   timezone String @default("UTC")
 
   status       String    @default("ACTIVE") // ACTIVE | SUSPENDED | FROZEN | DEACTIVATED | BANNED
@@ -77,6 +88,8 @@ model User {
 
   roles               UserRole[]
   sessions            Session[]
+  backupCodes         TwoFactorBackupCode[]
+  oauthAccounts       OAuthAccount[]
   tokens              VerificationToken[]
   pets                Pet[]                     @relation("PetOwner")
   listings            Listing[]                 @relation("ListingSeller")
@@ -159,6 +172,35 @@ model Session {
 
   @@index([userId])
   @@index([expiresAt])
+}
+
+/// A Google or Facebook identity that signs in to this account.
+model OAuthAccount {
+  id                String   @id @default(cuid())
+  userId            String
+  provider          String // GOOGLE | FACEBOOK
+  providerAccountId String
+  email             String?
+  createdAt         DateTime @default(now())
+  lastUsedAt        DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+/// Single-use recovery codes for when the authenticator is lost. Hashed.
+model TwoFactorBackupCode {
+  id        String    @id @default(cuid())
+  userId    String
+  codeHash  String
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, codeHash])
 }
 
 model VerificationToken {
@@ -501,7 +543,7 @@ model Listing {
   description String
 
   priceCents       Int     @default(0)
-  currency         String  @default("USD")
+  currency         String  @default("EGP")
   negotiable       Boolean @default(false)
   // Adoption listings use a fee, not a price; kept separate so the two never mix.
   adoptionFeeCents Int     @default(0)
@@ -684,7 +726,7 @@ model BreedingProfile {
 
   goals             String? // PEDIGREE | COMPANION | WORKING | SHOW
   studFeeCents      Int     @default(0)
-  currency          String  @default("USD")
+  currency          String  @default("EGP")
   feeType           String  @default("FEE") // FEE | PICK_OF_LITTER | SPLIT | FREE
   willingToTravelKm Int     @default(50)
 
@@ -758,7 +800,7 @@ model BreedingRequest {
 
   // Terms, agreed by both sides before anything is scheduled.
   feeCents          Int       @default(0)
-  currency          String    @default("USD")
+  currency          String    @default("EGP")
   feeType           String    @default("FEE")
   termsText         String?
   termsProposedById String?
@@ -770,6 +812,19 @@ model BreedingRequest {
   completedAt    DateTime?
   outcome        String? // SUCCESSFUL | UNSUCCESSFUL | CANCELLED
   conversationId String?
+
+  // A paid stud fee is collected by PetMate and held until the breeding is
+  // done, so neither owner has to trust the other with the money.
+  feeStatus          String    @default("NONE") // NONE | DUE | HELD | FROZEN | RELEASED | REFUNDED | REFUND_PENDING
+  feePayerUserId     String?
+  feePayeeUserId     String?
+  feePaymentIntentId String?
+  feeCommissionCents Int       @default(0)
+  feePayoutCents     Int       @default(0)
+  feePaidAt          DateTime?
+  feeReleaseAt       DateTime?
+  feeReleasedAt      DateTime?
+  feeRefundedAt      DateTime?
 
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
@@ -784,6 +839,7 @@ model BreedingRequest {
   @@index([receiverUserId, status])
   @@index([initiatorUserId, status])
   @@index([status, createdAt])
+  @@index([feeStatus])
 }
 
 // ============================================================================
@@ -902,7 +958,7 @@ model Service {
   species         String? // comma-delimited, empty means all
   durationMinutes Int     @default(30)
   priceCents      Int
-  currency        String  @default("USD")
+  currency        String  @default("EGP")
   isActive        Boolean @default(true)
   position        Int     @default(0)
 
@@ -961,7 +1017,7 @@ model Appointment {
   status String @default("PENDING_PAYMENT") // PENDING_PAYMENT | CONFIRMED | CHECKED_IN | COMPLETED | CANCELLED | NO_SHOW | RESCHEDULED
 
   priceCents      Int
-  currency        String    @default("USD")
+  currency        String    @default("EGP")
   commissionCents Int       @default(0)
   paymentIntentId String?
   paidAt          DateTime?
@@ -1338,7 +1394,18 @@ model Shop {
   orderCount   Int @default(0)
 
   freeShippingThresholdCents Int?
-  flatShippingCents          Int  @default(599)
+  flatShippingCents          Int  @default(6000)
+
+  /// The shop takes cash on delivery. Its commission on a COD order is charged
+  /// against its balance when the parcel is delivered (see CodCollection).
+  acceptsCod Boolean @default(false)
+
+  // Courier. BOSTA books every parcel with the shop's own Bosta account, so
+  // Bosta pays cash-on-delivery money to the shop directly. The key is
+  // encrypted; the webhook secret authenticates Bosta's status updates.
+  shippingProvider   String  @default("INTERNAL") // INTERNAL | BOSTA
+  bostaApiKey        String?
+  bostaWebhookSecret String?
 
   searchText String @default("")
 
@@ -1346,10 +1413,11 @@ model Shop {
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
-  owner      User        @relation("ShopOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
-  products   Product[]
-  orderItems OrderItem[]
-  deliveries Delivery[]
+  owner          User            @relation("ShopOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
+  products       Product[]
+  orderItems     OrderItem[]
+  deliveries     Delivery[]
+  codCollections CodCollection[]
 
   @@index([status])
   @@index([ownerUserId])
@@ -1385,7 +1453,7 @@ model Product {
 
   priceCents     Int
   compareAtCents Int?
-  currency       String @default("USD")
+  currency       String @default("EGP")
 
   trackInventory Boolean @default(true)
   stock          Int     @default(0)
@@ -1470,15 +1538,21 @@ model Order {
   orderNumber String @unique
   buyerId     String
 
-  status String @default("PENDING_PAYMENT") // PENDING_PAYMENT | PAID | PROCESSING | SHIPPED | DELIVERED | CANCELLED | REFUNDED | PARTIALLY_REFUNDED
+  status String @default("PENDING_PAYMENT") // PENDING_PAYMENT | CONFIRMED | PAID | PROCESSING | SHIPPED | DELIVERED | CANCELLED | REFUNDED | PARTIALLY_REFUNDED
+
+  /// ONLINE is paid before dispatch; COD is paid in cash to whoever delivers
+  /// it, and a CONFIRMED order is a COD order placed and not yet paid.
+  paymentMethod String @default("ONLINE") // ONLINE | COD
 
   subtotalCents    Int
-  shippingCents    Int    @default(0)
-  taxCents         Int    @default(0)
-  discountCents    Int    @default(0)
+  shippingCents    Int     @default(0)
+  taxCents         Int     @default(0)
+  discountCents    Int     @default(0)
+  /// The coupon behind `discountCents`, as typed at checkout.
+  couponCode       String?
   totalCents       Int
-  platformFeeCents Int    @default(0)
-  currency         String @default("USD")
+  platformFeeCents Int     @default(0)
+  currency         String  @default("EGP")
 
   shippingName    String
   shippingPhone   String?
@@ -1498,14 +1572,34 @@ model Order {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  buyer         User           @relation("OrderBuyer", fields: [buyerId], references: [id], onDelete: Cascade)
-  items         OrderItem[]
-  deliveries    Delivery[]
-  paymentIntent PaymentIntent? @relation(fields: [paymentIntentId], references: [id], onDelete: SetNull)
-  disputes      Dispute[]
+  buyer          User            @relation("OrderBuyer", fields: [buyerId], references: [id], onDelete: Cascade)
+  items          OrderItem[]
+  deliveries     Delivery[]
+  paymentIntent  PaymentIntent?  @relation(fields: [paymentIntentId], references: [id], onDelete: SetNull)
+  disputes       Dispute[]
+  codCollections CodCollection[]
 
   @@index([buyerId, createdAt])
   @@index([status, createdAt])
+}
+
+/// Cash collected on delivery for one shop's part of a COD order. The unique
+/// index is what makes the commission charge for it happen exactly once,
+/// whichever of the delivery paths reports the parcel delivered first.
+model CodCollection {
+  id              String   @id @default(cuid())
+  orderId         String
+  shopId          String
+  amountCents     Int
+  commissionCents Int
+  currency        String   @default("EGP")
+  collectedAt     DateTime @default(now())
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  shop  Shop  @relation(fields: [shopId], references: [id], onDelete: Cascade)
+
+  @@unique([orderId, shopId])
+  @@index([shopId, collectedAt])
 }
 
 model OrderItem {
@@ -1524,6 +1618,8 @@ model OrderItem {
 
   commissionBps       Int
   commissionCents     Int
+  /// This item's share of the order's coupon discount.
+  discountCents       Int @default(0)
   sellerEarningsCents Int
 
   fulfillmentStatus String @default("PENDING") // PENDING | PACKED | SHIPPED | DELIVERED | CANCELLED | RETURNED
@@ -1550,7 +1646,7 @@ model PetOrder {
   status String @default("PENDING_PAYMENT") // PENDING_PAYMENT | IN_ESCROW | HANDOVER_PENDING | COMPLETED | CANCELLED | REFUNDED | DISPUTED
 
   amountCents       Int
-  currency          String @default("USD")
+  currency          String @default("EGP")
   platformFeeCents  Int    @default(0)
   sellerPayoutCents Int    @default(0)
 
@@ -1588,9 +1684,15 @@ model Delivery {
   shopId    String
   courierId String?
 
-  provider       String  @default("INTERNAL") // INTERNAL | DHL | ARAMEX | LOCAL_COURIER
-  trackingNumber String  @unique
-  carrierRef     String?
+  provider        String  @default("INTERNAL") // INTERNAL | BOSTA
+  trackingNumber  String  @unique
+  carrierRef      String?
+  /// The carrier's own tracking number, when a carrier is booked.
+  carrierTracking String?
+  /// The carrier's last raw state, kept for support.
+  carrierState    String?
+  /// Why booking with the carrier failed, until it succeeds.
+  bookingError    String?
 
   status String @default("PENDING") // PENDING | ASSIGNED | PICKED_UP | IN_TRANSIT | OUT_FOR_DELIVERY | DELIVERED | FAILED | RETURNED | CANCELLED
 
@@ -1627,6 +1729,7 @@ model Delivery {
   @@index([orderId])
   @@index([courierId, status])
   @@index([status])
+  @@index([carrierTracking])
 }
 
 model DeliveryEvent {
@@ -1649,14 +1752,16 @@ model DeliveryEvent {
 // ============================================================================
 
 model PaymentIntent {
-  id          String  @id @default(cuid())
-  userId      String
-  provider    String // stripe | ledger
-  providerRef String? @unique
+  id                String  @id @default(cuid())
+  userId            String
+  provider          String // stripe | paymob | ledger
+  providerRef       String? @unique
+  /// The captured charge, where the provider refunds by it (Paymob's transaction id).
+  providerChargeRef String?
 
   purpose     String // PET_PURCHASE | PRODUCT_ORDER | APPOINTMENT | CARE_BOOKING | SUBSCRIPTION | FEATURED_LISTING | AD_CAMPAIGN | WALLET_TOPUP
   amountCents Int
-  currency    String @default("USD")
+  currency    String @default("EGP")
 
   status String @default("REQUIRES_PAYMENT") // REQUIRES_PAYMENT | PROCESSING | SUCCEEDED | FAILED | CANCELLED | REFUNDED | PARTIALLY_REFUNDED
 
@@ -1697,7 +1802,7 @@ model Refund {
   id              String    @id @default(cuid())
   paymentIntentId String
   amountCents     Int
-  currency        String    @default("USD")
+  currency        String    @default("EGP")
   reason          String // REQUESTED_BY_CUSTOMER | DUPLICATE | FRAUDULENT | DISPUTE_RESOLUTION | CANCELLED_ORDER
   status          String    @default("PENDING") // PENDING | SUCCEEDED | FAILED
   note            String?
@@ -1719,7 +1824,7 @@ model LedgerAccount {
   ownerType String // USER | SHOP | CLINIC | PLATFORM | ESCROW | EXTERNAL
   ownerId   String // "platform" / "escrow" for the singleton system accounts
   kind      String // AVAILABLE | PENDING | PAYABLE | REVENUE | FEES | ESCROW | GATEWAY
-  currency  String   @default("USD")
+  currency  String   @default("EGP")
   createdAt DateTime @default(now())
 
   entries LedgerEntry[]
@@ -1735,7 +1840,7 @@ model LedgerTransaction {
   referenceType   String?
   referenceId     String?
   paymentIntentId String?
-  currency        String   @default("USD")
+  currency        String   @default("EGP")
   createdAt       DateTime @default(now())
   createdById     String?
 
@@ -1753,7 +1858,7 @@ model LedgerEntry {
   /// Signed minor units. Positive credits the account, negative debits it.
   /// The sum of every entry in a transaction must be exactly 0.
   amountCents   Int
-  currency      String   @default("USD")
+  currency      String   @default("EGP")
   createdAt     DateTime @default(now())
 
   transaction LedgerTransaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
@@ -1768,7 +1873,7 @@ model Payout {
   ownerType    String // SHOP | CLINIC | USER
   ownerId      String
   amountCents  Int
-  currency     String    @default("USD")
+  currency     String    @default("EGP")
   status       String    @default("REQUESTED") // REQUESTED | APPROVED | PAID | REJECTED | FAILED
   method       String    @default("BANK_TRANSFER")
   destination  String? // masked reference only, never full bank details
@@ -1789,7 +1894,7 @@ model Invoice {
   paymentIntentId String   @unique
   totalCents      Int
   taxCents        Int      @default(0)
-  currency        String   @default("USD")
+  currency        String   @default("EGP")
   lines           String // JSON
   billingName     String
   billingAddress  String?
@@ -1808,7 +1913,7 @@ model Plan {
   audience          String // CONSUMER | BREEDER | SELLER | CLINIC
   priceMonthlyCents Int     @default(0)
   priceYearlyCents  Int     @default(0)
-  currency          String  @default("USD")
+  currency          String  @default("EGP")
   features          String // JSON array of human-readable feature strings
   limits            String // JSON map consumed by lib/billing/entitlements.ts
   isActive          Boolean @default(true)
@@ -1855,7 +1960,7 @@ model FeaturedPlacement {
   startAt         DateTime
   endAt           DateTime
   amountCents     Int
-  currency        String   @default("USD")
+  currency        String   @default("EGP")
   paymentIntentId String?
   impressions     Int      @default(0)
   clicks          Int      @default(0)
@@ -1866,28 +1971,38 @@ model FeaturedPlacement {
 }
 
 model AdCampaign {
-  id             String   @id @default(cuid())
-  advertiserId   String
-  name           String
-  slot           String // HOME_HERO | SEARCH_INLINE | CLINIC_SIDEBAR | NEWSLETTER
-  status         String   @default("DRAFT") // DRAFT | PENDING_REVIEW | ACTIVE | PAUSED | COMPLETED | REJECTED
-  budgetCents    Int
-  spentCents     Int      @default(0)
-  cpmCents       Int      @default(500)
-  targeting      String? // JSON
-  headline       String
-  body           String?
-  imageUrl       String?
-  destinationUrl String
-  startAt        DateTime
-  endAt          DateTime
-  impressions    Int      @default(0)
-  clicks         Int      @default(0)
-  createdAt      DateTime @default(now())
+  id              String    @id @default(cuid())
+  advertiserId    String
+  name            String
+  slot            String // HOME_HERO | SEARCH_INLINE | CLINIC_SIDEBAR
+  status          String    @default("DRAFT") // DRAFT | PENDING_REVIEW | ACTIVE | PAUSED | COMPLETED | REJECTED | CANCELLED
+  budgetCents     Int
+  spentCents      Int       @default(0)
+  cpmCents        Int       @default(500)
+  currency        String    @default("EGP")
+  // Budget not delivered by the end date, credited back to the advertiser.
+  returnedCents   Int       @default(0)
+  paymentIntentId String?
+  reviewNote      String?
+  reviewedById    String?
+  reviewedAt      DateTime?
+  completedAt     DateTime?
+  targeting       String? // JSON
+  headline        String
+  body            String?
+  imageUrl        String?
+  destinationUrl  String
+  startAt         DateTime
+  endAt           DateTime
+  impressions     Int       @default(0)
+  clicks          Int       @default(0)
+  createdAt       DateTime  @default(now())
 
   advertiser User @relation(fields: [advertiserId], references: [id], onDelete: Cascade)
 
   @@index([status, startAt, endAt])
+  @@index([advertiserId, createdAt])
+  @@index([slot, status])
 }
 
 /// Every commercial rule the business may want to change without a deploy.
@@ -2236,10 +2351,95 @@ model NotificationPreference {
   inApp    Boolean @default(true)
   email    Boolean @default(true)
   push     Boolean @default(false)
+  /// WhatsApp or SMS to the verified phone number.
+  phone    Boolean @default(false)
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, category])
+}
+
+/// A discount code. PetMate funds it, so shops are paid in full either way.
+model Coupon {
+  id               String    @id @default(cuid())
+  code             String    @unique // upper case
+  description      String?
+  kind             String // PERCENT | FIXED
+  percentBps       Int       @default(0)
+  amountCents      Int       @default(0)
+  maxDiscountCents Int? // cap for PERCENT
+  minOrderCents    Int       @default(0)
+  currency         String    @default("EGP")
+  startsAt         DateTime  @default(now())
+  endsAt           DateTime?
+  maxRedemptions   Int? // across everyone
+  perUserLimit     Int       @default(1)
+  redemptionCount  Int       @default(0)
+  firstOrderOnly   Boolean   @default(false)
+  /// A personal code (a referral welcome) only its owner can use.
+  assignedUserId   String?
+  source           String    @default("ADMIN") // ADMIN | REFERRAL_WELCOME
+  active           Boolean   @default(true)
+  createdById      String?
+  createdAt        DateTime  @default(now())
+
+  redemptions CouponRedemption[]
+
+  @@index([assignedUserId])
+}
+
+model CouponRedemption {
+  id            String   @id @default(cuid())
+  couponId      String
+  userId        String
+  orderId       String   @unique
+  discountCents Int
+  createdAt     DateTime @default(now())
+
+  coupon Coupon @relation(fields: [couponId], references: [id], onDelete: Cascade)
+
+  @@index([couponId, userId])
+}
+
+/// Someone invited by an existing member. The inviter is rewarded once the
+/// new member's first order has been delivered and not refunded.
+model Referral {
+  id              String    @id @default(cuid())
+  referrerId      String
+  refereeId       String    @unique
+  status          String    @default("PENDING") // PENDING | REWARDED | VOID
+  rewardCents     Int       @default(0)
+  qualifyingOrder String?
+  voidReason      String?
+  createdAt       DateTime  @default(now())
+  rewardedAt      DateTime?
+
+  @@index([referrerId, status])
+  @@index([status, createdAt])
+}
+
+/// Outbox for WhatsApp and SMS, delivered by the worker like email.
+model OutboundMessage {
+  id          String    @id @default(cuid())
+  userId      String?
+  channel     String // WHATSAPP | SMS
+  to          String // E.164
+  kind        String // OTP | NOTIFICATION
+  body        String
+  template    String?
+  /// JSON array of template parameters (WhatsApp templates).
+  params      String?
+  status      String    @default("QUEUED") // QUEUED | SENDING | SENT | FAILED
+  provider    String?
+  providerRef String?
+  error       String?
+  attempts    Int       @default(0)
+  claimedAt   DateTime?
+  sentAt      DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([status, createdAt])
+  @@index([to, createdAt])
 }
 
 /// Transactional email outbox. Rows are written inside the business

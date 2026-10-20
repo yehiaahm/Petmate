@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { CheckCircle2, AlertTriangle, Info, XCircle, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/components/i18n/i18n-provider";
 
 /**
  * Toasts.
@@ -74,7 +75,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     <ToastContext.Provider value={value}>
       {children}
       <div
-        className="pointer-events-none fixed inset-x-0 bottom-0 z-[80] flex flex-col items-center gap-2 p-4 sm:inset-x-auto sm:right-0 sm:top-0 sm:bottom-auto sm:items-end"
+        className="pointer-events-none fixed inset-x-0 bottom-0 z-[80] flex flex-col items-center gap-2 p-4 sm:inset-x-auto sm:end-0 sm:top-0 sm:bottom-auto sm:items-end"
         aria-live="polite"
         aria-atomic="false"
       >
@@ -87,6 +88,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 }
 
 function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: (id: string) => void }) {
+  const { t } = useI18n();
   const { icon: Icon, className } = TONE_STYLES[toast.tone];
 
   useEffect(() => {
@@ -123,7 +125,7 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: (id: string)
         type="button"
         onClick={() => onDismiss(toast.id)}
         className="-m-1 rounded p-1 text-fg-subtle transition-colors hover:text-fg"
-        aria-label="Dismiss notification"
+        aria-label={t("Dismiss notification")}
       >
         <X className="size-4" aria-hidden />
       </button>

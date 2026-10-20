@@ -15,17 +15,22 @@ import {
   Shield,
   CreditCard,
   ChevronDown,
+  Megaphone,
+  Wallet,
+  Gift,
   CalendarHeart,
   BedDouble,
 } from "lucide-react";
+import { features } from "@/lib/features";
 import { Avatar, Badge } from "@/components/ui/primitives";
 import { api } from "@/lib/api-client";
-import { features } from "@/lib/features";
 import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 import type { SessionUser } from "@/lib/auth/session";
+import { useI18n } from "@/components/i18n/i18n-provider";
 
 export function UserMenu({ user }: { user: SessionUser }) {
+  const { t } = useI18n();
   const router = useRouter();
   const toast = useToast();
   const [open, setOpen] = useState(false);
@@ -54,7 +59,7 @@ export function UserMenu({ user }: { user: SessionUser }) {
       router.push("/");
       router.refresh();
     } catch {
-      toast.error("We could not sign you out", "Please try again.");
+      toast.error(t("We could not sign you out"), t("Please try again."));
       setSigningOut(false);
     }
   }
@@ -70,29 +75,32 @@ export function UserMenu({ user }: { user: SessionUser }) {
   const groups: { label?: string; items: { href: string; label: string; icon: typeof PawPrint }[] }[] = [
     {
       items: [
-        { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-        { href: "/dashboard/pets", label: "My pets", icon: PawPrint },
-        { href: "/dashboard/listings", label: "My listings", icon: Heart },
-        { href: "/dashboard/bookings", label: "Hotel & training bookings", icon: CalendarHeart },
-        { href: "/dashboard/orders", label: "Orders & purchases", icon: ShoppingBag },
+        { href: "/dashboard", label: t("Dashboard"), icon: LayoutDashboard },
+        { href: "/dashboard/pets", label: t("My pets"), icon: PawPrint },
+        { href: "/dashboard/listings", label: t("My listings"), icon: Heart },
+        { href: "/dashboard/bookings", label: t("Hotel & training bookings"), icon: CalendarHeart },
+        { href: "/dashboard/orders", label: t("Orders & purchases"), icon: ShoppingBag },
+        { href: "/dashboard/wallet", label: t("Wallet"), icon: Wallet },
+        { href: "/dashboard/advertising", label: t("Advertising"), icon: Megaphone },
+        { href: "/dashboard/referrals", label: t("Invite friends"), icon: Gift },
       ],
     },
     ...(isProvider
-      ? [{ label: "Pet care business", items: [{ href: "/provider", label: "Provider console", icon: BedDouble }] }]
+      ? [{ label: t("Pet care business"), items: [{ href: "/provider", label: t("Provider console"), icon: BedDouble }] }]
       : []),
     ...(isClinic
-      ? [{ label: "Clinic", items: [{ href: "/clinic", label: "Clinic console", icon: Stethoscope }] }]
+      ? [{ label: t("Clinic"), items: [{ href: "/clinic", label: t("Clinic console"), icon: Stethoscope }] }]
       : []),
     ...(isSeller
-      ? [{ label: "Shop", items: [{ href: "/sell", label: "Seller console", icon: Store }] }]
+      ? [{ label: t("Shop"), items: [{ href: "/sell", label: t("Seller console"), icon: Store }] }]
       : []),
     ...(isStaff
-      ? [{ label: "Staff", items: [{ href: "/admin", label: "Admin", icon: Shield }] }]
+      ? [{ label: t("Staff"), items: [{ href: "/admin", label: t("Admin"), icon: Shield }] }]
       : []),
     {
       items: [
-        { href: "/settings/billing", label: "Plan & billing", icon: CreditCard },
-        { href: "/settings", label: "Settings", icon: Settings },
+        { href: "/settings/billing", label: t("Plan & billing"), icon: CreditCard },
+        { href: "/settings", label: t("Settings"), icon: Settings },
       ],
     },
   ];
@@ -104,31 +112,31 @@ export function UserMenu({ user }: { user: SessionUser }) {
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
         aria-haspopup="menu"
-        className="flex items-center gap-1.5 rounded-full p-0.5 pr-1.5 transition-colors hover:bg-bg-sunken"
+        className="flex items-center gap-1.5 rounded-full p-0.5 pe-1.5 transition-colors hover:bg-bg-sunken"
       >
         <Avatar src={user.avatarUrl} name={user.name} size="sm" />
         <ChevronDown
           className={cn("size-3.5 text-fg-subtle transition-transform", open && "rotate-180")}
           aria-hidden
         />
-        <span className="sr-only">Open account menu</span>
+        <span className="sr-only">{t("Open account menu")}</span>
       </button>
 
       {open && (
         <div
           role="menu"
-          className="animate-sheet absolute right-0 top-full z-50 mt-2 w-64 origin-top-right overflow-hidden rounded-[var(--radius-card)] border border-[var(--border)] bg-bg-elevated shadow-[var(--shadow-pop)]"
+          className="animate-sheet absolute end-0 top-full z-50 mt-2 w-64 origin-top-right overflow-hidden rounded-[var(--radius-card)] border border-[var(--border)] bg-bg-elevated shadow-[var(--shadow-pop)] rtl:origin-top-left"
         >
           <div className="border-b border-[var(--border)] p-4">
             <p className="truncate text-sm font-semibold text-fg">{user.name}</p>
             <p className="mt-0.5 truncate text-xs text-fg-muted">{user.email}</p>
             <div className="mt-2 flex flex-wrap items-center gap-1.5">
               <Badge tone="brand" size="sm">
-                Trust {user.trustScore}
+                {t("Trust {score}", { score: user.trustScore })}
               </Badge>
               {!user.emailVerified && (
                 <Badge tone="warning" size="sm">
-                  Email unconfirmed
+                  {t("Email unconfirmed")}
                 </Badge>
               )}
             </div>
@@ -141,7 +149,7 @@ export function UserMenu({ user }: { user: SessionUser }) {
             >
               {group.label && (
                 <p className="px-4 pb-1 pt-1.5 text-[10px] font-semibold uppercase tracking-wider text-fg-subtle">
-                  {group.label}
+                  {t(group.label)}
                 </p>
               )}
               {group.items.map((item) => (
@@ -153,7 +161,7 @@ export function UserMenu({ user }: { user: SessionUser }) {
                   className="mx-1.5 flex items-center gap-3 rounded-xl px-2.5 py-2 text-sm text-fg-muted transition-colors hover:bg-brand-soft hover:text-brand-soft-fg"
                 >
                   <item.icon className="size-4 shrink-0" aria-hidden />
-                  {item.label}
+                  {t(item.label)}
                 </Link>
               ))}
             </div>
@@ -167,8 +175,8 @@ export function UserMenu({ user }: { user: SessionUser }) {
               disabled={signingOut}
               className="flex w-full items-center gap-3 px-4 py-2 text-sm text-fg-muted transition-colors hover:bg-bg-sunken hover:text-fg disabled:opacity-50"
             >
-              <LogOut className="size-4 shrink-0" aria-hidden />
-              {signingOut ? "Signing out…" : "Sign out"}
+              <LogOut className="rtl:-scale-x-100 size-4 shrink-0" aria-hidden />
+              {signingOut ? t("Signing out…") : t("Sign out")}
             </button>
           </div>
         </div>

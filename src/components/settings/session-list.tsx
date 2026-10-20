@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/primitives";
 import { useToast } from "@/components/ui/toast";
 import { api, ApiError } from "@/lib/api-client";
-import { relativeTime } from "@/lib/utils";
+import { useI18n } from "@/components/i18n/i18n-provider";
 
 export interface SessionRow {
   id: string;
@@ -19,6 +19,7 @@ export interface SessionRow {
 }
 
 export function SessionList({ sessions }: { sessions: SessionRow[] }) {
+  const { t, fmt } = useI18n();
   const router = useRouter();
   const toast = useToast();
   const [busy, setBusy] = useState<string | null>(null);
@@ -27,12 +28,12 @@ export function SessionList({ sessions }: { sessions: SessionRow[] }) {
     setBusy(sessionId);
     try {
       await api.post("/api/account", { action: "revoke-session", sessionId });
-      toast.success("Device signed out");
+      toast.success(t("Device signed out"));
       router.refresh();
     } catch (err) {
       toast.error(
-        "Could not sign that device out",
-        err instanceof ApiError ? err.message : "Please try again.",
+        t("Could not sign that device out"),
+        err instanceof ApiError ? err.message : t("Please try again."),
       );
     } finally {
       setBusy(null);
@@ -43,12 +44,12 @@ export function SessionList({ sessions }: { sessions: SessionRow[] }) {
     setBusy("all");
     try {
       await api.post("/api/account", { action: "revoke-all-sessions" });
-      toast.success("All other devices signed out");
+      toast.success(t("All other devices signed out"));
       router.refresh();
     } catch (err) {
       toast.error(
-        "Could not sign the other devices out",
-        err instanceof ApiError ? err.message : "Please try again.",
+        t("Could not sign the other devices out"),
+        err instanceof ApiError ? err.message : t("Please try again."),
       );
     } finally {
       setBusy(null);
@@ -68,13 +69,16 @@ export function SessionList({ sessions }: { sessions: SessionRow[] }) {
                 <span className="text-sm font-medium text-fg">{session.device}</span>
                 {session.current && (
                   <Badge tone="success" size="sm">
-                    This device
+                    {t("This device")}
                   </Badge>
                 )}
               </div>
-              <p className="mt-0.5 text-xs text-fg-subtle">
-                {session.ip ?? "Unknown address"} · last active{" "}
-                {relativeTime(new Date(session.lastSeenAt ?? session.createdAt))}
+              {/* "active 3 minutes ago" is computed on the server and again in the browser. */}
+              <p className="mt-0.5 text-xs text-fg-subtle" suppressHydrationWarning>
+                {t("{address} · last active {when}", {
+                  address: session.ip ?? t("Unknown address"),
+                  when: fmt.relative(session.lastSeenAt ?? session.createdAt),
+                })}
               </p>
             </div>
             {!session.current && (
@@ -85,7 +89,7 @@ export function SessionList({ sessions }: { sessions: SessionRow[] }) {
                 loadingText="…"
                 onClick={() => void revoke(session.id)}
               >
-                Sign out
+                {t("Sign out")}
               </Button>
             )}
           </li>
@@ -98,11 +102,11 @@ export function SessionList({ sessions }: { sessions: SessionRow[] }) {
             variant="outline"
             size="sm"
             loading={busy === "all"}
-            loadingText="Signing out…"
+            loadingText={t("Signing out…")}
             onClick={() => void revokeAll()}
           >
             <ShieldOff className="size-4" aria-hidden />
-            Sign out all other devices
+            {t("Sign out all other devices")}
           </Button>
         </div>
       )}

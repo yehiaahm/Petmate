@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/primitives";
 import { useToast } from "@/components/ui/toast";
 import { api, ApiError } from "@/lib/api-client";
+import { useI18n } from "@/components/i18n/i18n-provider";
 
 export function SandboxConfirm({
   providerRef,
@@ -16,6 +17,7 @@ export function SandboxConfirm({
   amount: string;
   returnTo: string;
 }) {
+  const { t } = useI18n();
   const router = useRouter();
   const toast = useToast();
 
@@ -29,7 +31,7 @@ export function SandboxConfirm({
     try {
       await api.post("/api/payments", { action: "confirm-sandbox", providerRef });
 
-      toast.success("Payment confirmed", `${amount} recorded in the ledger.`);
+      toast.success(t("Payment confirmed"), t("{amount} recorded in the ledger.", { amount }));
       router.push(returnTo);
       router.refresh();
     } catch (err) {
@@ -49,9 +51,9 @@ export function SandboxConfirm({
         size="lg"
         onClick={() => void confirm()}
         loading={working}
-        loadingText="Confirming…"
+        loadingText={t("Confirming…")}
       >
-        Confirm {amount}
+        {t("Confirm {amount}", { amount })}
       </Button>
 
       <Button
@@ -60,7 +62,7 @@ export function SandboxConfirm({
         onClick={() => router.back()}
         disabled={working}
       >
-        Cancel
+        {t("Cancel")}
       </Button>
     </div>
   );

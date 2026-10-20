@@ -3,6 +3,7 @@
 import { forwardRef, useId } from "react";
 import { AlertCircle, Check, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/components/i18n/i18n-provider";
 
 /**
  * Form controls.
@@ -35,6 +36,7 @@ export function Field({
   className,
   trailing,
 }: FieldProps) {
+  const { t } = useI18n();
   const id = useId();
   const hintId = `${id}-hint`;
   const errorId = `${id}-error`;
@@ -48,11 +50,11 @@ export function Field({
             <label htmlFor={id} className="text-sm font-medium text-fg">
               {label}
               {required && (
-                <span className="ml-0.5 text-[var(--danger)]" aria-hidden>
+                <span className="ms-0.5 text-[var(--danger)]" aria-hidden>
                   *
                 </span>
               )}
-              {required && <span className="sr-only"> (required)</span>}
+              {required && <span className="sr-only"> {t("(required)")}</span>}
             </label>
           )}
           {trailing && <span className="text-xs text-fg-subtle tabular">{trailing}</span>}
@@ -94,8 +96,8 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
         CONTROL_BASE,
         "h-11",
         invalid ? "border-[var(--danger)]" : "border-[var(--border-strong)]",
-        leading && "pl-10",
-        trailing && "pr-10",
+        leading && "ps-10",
+        trailing && "pe-10",
         className,
       )}
       {...props}
@@ -107,13 +109,13 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
   return (
     <div className="relative">
       {leading && (
-        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-fg-subtle">
+        <span className="pointer-events-none absolute start-3 top-1/2 -translate-y-1/2 text-fg-subtle">
           {leading}
         </span>
       )}
       {control}
       {trailing && (
-        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-fg-subtle">{trailing}</span>
+        <span className="absolute end-3 top-1/2 -translate-y-1/2 text-fg-subtle">{trailing}</span>
       )}
     </div>
   );
@@ -150,7 +152,7 @@ export const Select = forwardRef<
         aria-invalid={invalid || undefined}
         className={cn(
           CONTROL_BASE,
-          "h-11 cursor-pointer appearance-none pr-10",
+          "h-11 cursor-pointer appearance-none pe-10",
           invalid ? "border-[var(--danger)]" : "border-[var(--border-strong)]",
           className,
         )}
@@ -159,7 +161,7 @@ export const Select = forwardRef<
         {children}
       </select>
       <ChevronDown
-        className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-fg-subtle"
+        className="pointer-events-none absolute end-3 top-1/2 size-4 -translate-y-1/2 text-fg-subtle"
         aria-hidden
       />
     </div>
@@ -234,8 +236,11 @@ export function Switch({
       >
         <span
           className={cn(
-            "absolute top-0.5 size-5 rounded-full bg-white shadow-sm transition-transform duration-200",
-            checked ? "translate-x-5.5" : "translate-x-0.5",
+            // Anchored to the start edge explicitly: a button centres its
+            // content, so an un-inset knob started mid-track and the "on"
+            // translate pushed it off the end of the switch.
+            "absolute start-0 top-0.5 size-5 rounded-full bg-white shadow-sm transition-transform duration-200",
+            checked ? "translate-x-5.5 rtl:-translate-x-5.5" : "translate-x-0.5 rtl:-translate-x-0.5",
           )}
         />
       </button>
@@ -277,8 +282,8 @@ export function ToggleSwitch({
     >
       <span
         className={cn(
-          "absolute top-0.5 size-5 rounded-full bg-white shadow-sm transition-transform duration-200",
-          checked ? "translate-x-5.5" : "translate-x-0.5",
+          "absolute start-0 top-0.5 size-5 rounded-full bg-white shadow-sm transition-transform duration-200",
+          checked ? "translate-x-5.5 rtl:-translate-x-5.5" : "translate-x-0.5 rtl:-translate-x-0.5",
         )}
       />
     </button>
@@ -297,12 +302,14 @@ export function SegmentedControl<T extends string>({
   value: T;
   onChange: (v: T) => void;
   label: string;
-  className?: string;
+    className?: string;
 }) {
+  // Option labels often come from shared constants, so translate them here.
+  const { t } = useI18n();
   return (
     <div
       role="radiogroup"
-      aria-label={label}
+      aria-label={t(label)}
       className={cn(
         "inline-flex w-full rounded-[var(--radius-field)] border border-[var(--border)] bg-bg-sunken p-1",
         className,
@@ -324,8 +331,8 @@ export function SegmentedControl<T extends string>({
                 : "text-fg-muted hover:text-fg",
             )}
           >
-            {o.icon}
-            {o.label}
+                        {o.icon}
+            {t(o.label)}
           </button>
         );
       })}

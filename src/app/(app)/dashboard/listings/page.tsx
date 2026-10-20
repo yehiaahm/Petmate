@@ -5,16 +5,18 @@ import { Plus, TrendingUp, Eye, Heart, MessageSquare, FileText } from "lucide-re
 import { db } from "@/lib/db";
 import { requireAuth } from "@/lib/auth/rbac";
 import { getEntitlements } from "@/lib/billing/entitlements";
-import { formatMoney } from "@/lib/money";
-import { relativeTime } from "@/lib/utils";
 import { Card, Badge, EmptyState, PageHeader, StatusPill } from "@/components/ui/primitives";
 import { ButtonLink } from "@/components/ui/button";
 import { LISTING_INTENT_LABEL, type ListingIntent } from "@/lib/constants";
+import { getI18n } from "@/lib/i18n/server";
 
-export const metadata: Metadata = {
-  title: "My listings",
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return {
+  title: t("My listings"),
   robots: { index: false, follow: false },
 };
+}
 
 const STATUS_TONE: Record<string, "success" | "warning" | "neutral" | "danger" | "brand"> = {
   ACTIVE: "success",
@@ -29,6 +31,7 @@ const STATUS_TONE: Record<string, "success" | "warning" | "neutral" | "danger" |
 };
 
 export default async function MyListingsPage() {
+  const { t, fmt } = await getI18n();
   const auth = await requireAuth();
 
   const [listings, entitlements] = await Promise.all([
@@ -72,19 +75,21 @@ export default async function MyListingsPage() {
   return (
     <div className="container-page py-8">
       <PageHeader
-        eyebrow="Marketplace"
-        title="My listings"
+        eyebrow={t("Marketplace")}
+        title={t("My listings")}
         description={
           <>
-            {activeCount} of{" "}
-            {entitlements.activeListings >= 100_000 ? "unlimited" : entitlements.activeListings}{" "}
-            active listings used on the {entitlements.planName} plan.
+            {t("{used} of {limit} active listings used on the {plan} plan.", {
+              used: activeCount,
+              limit: entitlements.activeListings >= 100_000 ? t("unlimited") : entitlements.activeListings,
+              plan: entitlements.planName,
+            })}
           </>
         }
         action={
           <ButtonLink href="/dashboard/listings/new">
             <Plus className="size-4" aria-hidden />
-            New listing
+            {t("New listing")}
           </ButtonLink>
         }
       />
@@ -93,9 +98,9 @@ export default async function MyListingsPage() {
         <div className="mt-8">
           <EmptyState
             icon={<TrendingUp className="size-6" aria-hidden />}
-            title="No listings yet"
-            description="List a pet for sale, adoption or breeding. Every listing is tied to a pet profile, so the health record comes with it."
-            action={<ButtonLink href="/dashboard/listings/new">Create your first listing</ButtonLink>}
+            title={t("No listings yet")}
+            description={t("List a pet for sale, adoption or breeding. Every listing is tied to a pet profile, so the health record comes with it.")}
+            action={<ButtonLink href="/dashboard/listings/new">{t("Create your first listing")}</ButtonLink>}
           />
         </div>
       ) : (
@@ -103,13 +108,13 @@ export default async function MyListingsPage() {
           {listings.map((listing) => {
             const price =
               listing.intent === "SALE"
-                ? formatMoney(listing.priceCents, listing.currency)
+                ? fmt.money(listing.priceCents, listing.currency)
                 : listing.intent === "ADOPTION"
                   ? listing.adoptionFeeCents > 0
-                    ? formatMoney(listing.adoptionFeeCents, listing.currency)
+                    ? fmt.money(listing.adoptionFeeCents, listing.currency)
                     : "Free"
                   : listing.studFeeCents > 0
-                    ? formatMoney(listing.studFeeCents, listing.currency)
+                    ? fmt.money(listing.studFeeCents, listing.currency)
                     : "Negotiable";
 
             const featured = listing.featuredUntil && listing.featuredUntil > new Date();
@@ -143,12 +148,12 @@ export default async function MyListingsPage() {
                           </Link>
                           <p className="mt-0.5 text-sm text-fg-muted">
                             {listing.pet.name} ·{" "}
-                            {LISTING_INTENT_LABEL[listing.intent as ListingIntent]} · {price}
+                            {t(LISTING_INTENT_LABEL[listing.intent as ListingIntent])} · {price}
                           </p>
                         </div>
 
                         <div className="flex shrink-0 flex-wrap gap-1.5">
-                          {featured && <Badge tone="accent" size="sm">Featured</Badge>}
+                          {featured && <Badge tone="accent" size="sm">{t("Featured")}</Badge>}
                           <StatusPill tone={STATUS_TONE[listing.status] ?? "neutral"}>
                             {listing.status.replace("_", " ").toLowerCase()}
                           </StatusPill>
@@ -164,30 +169,30 @@ export default async function MyListingsPage() {
                       <dl className="mt-3 flex flex-wrap gap-x-5 gap-y-1.5 text-xs text-fg-muted">
                         <div className="flex items-center gap-1.5">
                           <Eye className="size-3.5" aria-hidden />
-                          <dt className="sr-only">Views</dt>
+                          <dt className="sr-only">{t("Views")}</dt>
                           <dd className="tabular">{listing.viewCount}</dd>
                         </div>
                         <div className="flex items-center gap-1.5">
                           <Heart className="size-3.5" aria-hidden />
-                          <dt className="sr-only">Saves</dt>
+                          <dt className="sr-only">{t("Saves")}</dt>
                           <dd className="tabular">{listing.favoriteCount}</dd>
                         </div>
                         <div className="flex items-center gap-1.5">
                           <MessageSquare className="size-3.5" aria-hidden />
-                          <dt className="sr-only">Enquiries</dt>
+                          <dt className="sr-only">{t("Enquiries")}</dt>
                           <dd className="tabular">{listing.inquiryCount}</dd>
                         </div>
                         {listing.intent === "ADOPTION" && (
                           <div className="flex items-center gap-1.5">
                             <FileText className="size-3.5" aria-hidden />
-                            <dt className="sr-only">Applications</dt>
+                            <dt className="sr-only">{t("Applications")}</dt>
                             <dd className="tabular">{listing._count.applications}</dd>
                           </div>
                         )}
                         {listing.publishedAt && (
                           <div className="flex items-center gap-1.5">
-                            <dt className="sr-only">Published</dt>
-                            <dd>Listed {relativeTime(listing.publishedAt)}</dd>
+                            <dt className="sr-only">{t("Published")}</dt>
+                            <dd>{t("Listed {when}", { when: fmt.relative(listing.publishedAt) })}</dd>
                           </div>
                         )}
                       </dl>
@@ -198,11 +203,11 @@ export default async function MyListingsPage() {
                           variant="outline"
                           size="sm"
                         >
-                          Manage
+                          {t("Manage")}
                         </ButtonLink>
                         {["ACTIVE", "RESERVED"].includes(listing.status) && (
                           <ButtonLink href={`/pets/${listing.slug}`} variant="ghost" size="sm">
-                            View public page
+                            {t("View public page")}
                           </ButtonLink>
                         )}
                         {listing.intent === "ADOPTION" && listing._count.applications > 0 && (
@@ -211,8 +216,7 @@ export default async function MyListingsPage() {
                             variant="ghost"
                             size="sm"
                           >
-                            {listing._count.applications} application
-                            {listing._count.applications === 1 ? "" : "s"}
+                            {t.plural(listing._count.applications, { one: "{count} application", other: "{count} applications" })}
                           </ButtonLink>
                         )}
                       </div>

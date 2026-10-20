@@ -6,7 +6,7 @@ import { Truck, BadgeCheck, Star, Package } from "lucide-react";
 import { getProductBySlug, searchProducts } from "@/lib/services/commerce.service";
 import { listReviews } from "@/lib/services/review.service";
 import { getAuth } from "@/lib/auth/session";
-import { formatMoney, formatRating } from "@/lib/money";
+import { formatRating } from "@/lib/money";
 import { parseJsonRecord } from "@/lib/json";
 import { clientEnv } from "@/lib/env";
 import { Card, Breadcrumbs, DataRow, Alert } from "@/components/ui/primitives";
@@ -14,6 +14,7 @@ import { ProductGallery } from "@/components/store/product-gallery";
 import { AddToCartButton } from "@/components/store/add-to-cart-button";
 import { ReviewList, RatingSummary } from "@/components/reviews/review-list";
 import { ReportButton } from "@/components/listings/report-button";
+import { getI18n } from "@/lib/i18n/server";
 
 type Params = Promise<{ slug: string }>;
 
@@ -38,6 +39,7 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
 }
 
 export default async function ProductPage({ params }: { params: Params }) {
+  const { t, fmt } = await getI18n();
   const { slug } = await params;
   const auth = await getAuth();
 
@@ -90,7 +92,7 @@ export default async function ProductPage({ params }: { params: Params }) {
           </div>
 
           <section className="mt-8">
-            <h2 className="font-display text-xl font-semibold text-fg">About this product</h2>
+            <h2 className="font-display text-xl font-semibold text-fg">{t("About this product")}</h2>
             <p className="mt-3 whitespace-pre-wrap text-[15px] leading-relaxed text-fg-muted">
               {product.description}
             </p>
@@ -98,14 +100,14 @@ export default async function ProductPage({ params }: { params: Params }) {
 
           {Object.keys(attributes).length > 0 && (
             <section className="mt-8">
-              <h2 className="font-display text-xl font-semibold text-fg">Details</h2>
+              <h2 className="font-display text-xl font-semibold text-fg">{t("Details")}</h2>
               <Card className="mt-3 p-5">
                 <dl className="divide-y divide-[var(--border)]">
                   {Object.entries(attributes).map(([key, value]) => (
                     <DataRow key={key} label={key} value={String(value)} />
                   ))}
                   {product.weightGrams && (
-                    <DataRow label="Weight" value={`${(product.weightGrams / 1000).toFixed(2)} kg`} />
+                    <DataRow label={t("Weight")} value={`${(product.weightGrams / 1000).toFixed(2)} kg`} />
                   )}
                 </dl>
               </Card>
@@ -114,9 +116,9 @@ export default async function ProductPage({ params }: { params: Params }) {
 
           {reviews.total > 0 && (
             <section className="mt-8">
-              <h2 className="font-display text-xl font-semibold text-fg">Reviews</h2>
+              <h2 className="font-display text-xl font-semibold text-fg">{t("Reviews")}</h2>
               <p className="mt-1 text-sm text-fg-muted">
-                Only buyers whose order was delivered can review this.
+                {t("Only buyers whose order was delivered can review this.")}
               </p>
 
               <Card className="mt-3 p-5">
@@ -134,7 +136,7 @@ export default async function ProductPage({ params }: { params: Params }) {
           )}
 
           <div className="mt-8 flex justify-end">
-            <ReportButton entityType="PRODUCT" entityId={product.id} label="Report this product" />
+            <ReportButton entityType="PRODUCT" entityId={product.id} label={t("Report this product")} />
           </div>
         </div>
 
@@ -153,7 +155,7 @@ export default async function ProductPage({ params }: { params: Params }) {
       {related.items.filter((p) => p.id !== product.id).length > 0 && (
         <section className="mt-16">
           <h2 className="font-display text-2xl font-semibold tracking-tight text-fg">
-            You might also need
+            {t("You might also need")}
           </h2>
           <ul className="mt-5 grid grid-cols-2 gap-4 lg:grid-cols-4">
             {related.items
@@ -180,7 +182,7 @@ export default async function ProductPage({ params }: { params: Params }) {
                         </h3>
                       </Link>
                       <p className="mt-1 font-semibold tabular text-fg">
-                        {formatMoney(item.priceCents, item.currency)}
+                        {fmt.money(item.priceCents, item.currency)}
                       </p>
                     </div>
                   </Card>
@@ -226,7 +228,7 @@ export default async function ProductPage({ params }: { params: Params }) {
   );
 }
 
-function ProductSummary({
+async function ProductSummary({
   product,
   defaultVariantId,
   outOfStock,
@@ -241,6 +243,7 @@ function ProductSummary({
   signedIn: boolean;
   freeShippingAt: number | null;
 }) {
+  const { t, fmt } = await getI18n();
   const discounted = product.compareAtCents && product.compareAtCents > product.priceCents;
 
   return (
@@ -261,31 +264,31 @@ function ProductSummary({
           <span className="font-semibold tabular text-fg">
             {formatRating(product.ratingAvgBps)}
           </span>
-          <span>({product.ratingCount} reviews)</span>
+          <span>({t.plural(product.ratingCount, { one: "{count} review", other: "{count} reviews" })})</span>
         </p>
       )}
 
       <div className="mt-4 flex items-baseline gap-2">
         <span className="font-display text-3xl font-semibold tabular text-fg">
-          {formatMoney(product.priceCents, product.currency)}
+          {fmt.money(product.priceCents, product.currency)}
         </span>
         {discounted && (
           <span className="text-sm text-fg-subtle line-through tabular">
-            {formatMoney(product.compareAtCents!, product.currency)}
+            {fmt.money(product.compareAtCents!, product.currency)}
           </span>
         )}
       </div>
 
       {lowStock && (
         <p className="mt-2 text-sm font-medium text-[var(--warning)]">
-          Only {product.stock} left
+          {t("Only {count} left", { count: product.stock })}
         </p>
       )}
 
       <div className="mt-5">
         {outOfStock ? (
-          <Alert tone="warning" title="Out of stock">
-            This item is not available right now.
+          <Alert tone="warning" title={t("Out of stock")}>
+            {t("This item is not available right now.")}
           </Alert>
         ) : defaultVariantId ? (
           <AddToCartButton variantId={defaultVariantId} signedIn={signedIn} fullWidth />
@@ -296,15 +299,17 @@ function ProductSummary({
         <p className="flex items-start gap-2 text-fg-muted">
           <Truck className="mt-0.5 size-4 shrink-0" aria-hidden />
           <span>
-            {formatMoney(product.shop.flatShippingCents, product.currency)} shipping
             {freeShippingAt
-              ? `, free over ${formatMoney(freeShippingAt, product.currency)}`
-              : ""}
+              ? t("{amount} shipping, free over {threshold}", {
+                  amount: fmt.money(product.shop.flatShippingCents, product.currency),
+                  threshold: fmt.money(freeShippingAt, product.currency),
+                })
+              : t("{amount} shipping", { amount: fmt.money(product.shop.flatShippingCents, product.currency) })}
           </span>
         </p>
         <p className="flex items-start gap-2 text-fg-muted">
           <Package className="mt-0.5 size-4 shrink-0" aria-hidden />
-          <span>Dispatched by {product.shop.name}</span>
+          <span>{t("Dispatched by {shop}", { shop: product.shop.name })}</span>
         </p>
       </div>
 
@@ -321,11 +326,11 @@ function ProductSummary({
           >
             {product.shop.name}
             {product.shop.verifiedAt && (
-              <BadgeCheck className="size-3.5 text-[var(--success)]" aria-label="Verified shop" />
+              <BadgeCheck className="size-3.5 text-[var(--success)]" aria-label={t("Verified shop")} />
             )}
           </Link>
           <p className="text-xs text-fg-muted">
-            {product.shop.orderCount > 0 && `${product.shop.orderCount} orders`}
+            {product.shop.orderCount > 0 && t.plural(product.shop.orderCount, { one: "{count} order", other: "{count} orders" })}
             {product.shop.ratingCount > 0 &&
               ` · ${formatRating(product.shop.ratingAvgBps)}★ (${product.shop.ratingCount})`}
           </p>

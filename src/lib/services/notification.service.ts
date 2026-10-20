@@ -3,6 +3,9 @@ import { db, type DbClient } from "@/lib/db";
 import { clientEnv } from "@/lib/env";
 import { logger } from "@/lib/logger";
 import { queueEmail, emailTemplates, type RenderedEmail } from "@/lib/email";
+import { queueMessage, resolveChannel, type Channel } from "@/lib/messaging";
+import { translateFor } from "@/lib/i18n/server";
+import { isLocale, DEFAULT_LOCALE } from "@/lib/i18n/config";
 import {
   MANDATORY_NOTIFICATION_CATEGORIES,
   NOTIFICATION_CATEGORY,
@@ -53,6 +56,8 @@ export async function notify(input: NotifyInput, client: DbClient = db): Promise
       });
     }
 
+    if (prefs.phone) await queuePhoneNotification(input, client);
+
     if (input.email && prefs.email) {
       const user = await client.user.findUnique({
         where: { id: input.userId },
@@ -78,25 +83,60 @@ export async function notifyMany(inputs: NotifyInput[], client: DbClient = db): 
   await Promise.allSettled(inputs.map((i) => notify(i, client)));
 }
 
+/** Categories that reach the phone unless the person turns them off. */
+export const PHONE_DEFAULT_CATEGORIES: NotificationCategory[] = ["ORDER", "DELIVERY", "APPOINTMENT", "SECURITY"];
+
 async function resolvePreferences(
   userId: string,
   category: NotificationCategory,
   client: DbClient,
-): Promise<{ inApp: boolean; email: boolean }> {
-  if (MANDATORY_NOTIFICATION_CATEGORIES.includes(category)) {
-    return { inApp: true, email: true };
-  }
-
+): Promise<{ inApp: boolean; email: boolean; phone: boolean }> {
   const pref = await client.notificationPreference.findUnique({
     where: { userId_category: { userId, category } },
-    select: { inApp: true, email: true },
+    select: { inApp: true, email: true, phone: true },
   });
+
+  if (MANDATORY_NOTIFICATION_CATEGORIES.includes(category)) {
+    return { inApp: true, email: true, phone: pref?.phone ?? true };
+  }
 
   // Opt-out by default for marketing, opt-in for everything operational.
   if (!pref) {
-    return category === "MARKETING" ? { inApp: true, email: false } : { inApp: true, email: true };
+    return category === "MARKETING"
+      ? { inApp: true, email: false, phone: false }
+      : { inApp: true, email: true, phone: PHONE_DEFAULT_CATEGORIES.includes(category) };
   }
   return pref;
+}
+
+/**
+ * A short WhatsApp or SMS for what just happened, in the recipient's own
+ * language, with a link to act on it. Only to a number they verified.
+ */
+async function queuePhoneNotification(input: NotifyInput, client: DbClient) {
+  const user = await client.user.findUnique({
+    where: { id: input.userId },
+    select: { phone: true, phoneVerifiedAt: true, phoneChannel: true, locale: true, deletedAt: true, status: true },
+  });
+  if (!user?.phone || !user.phoneVerifiedAt || user.deletedAt || user.status === "BANNED") return;
+
+  const locale = isLocale(user.locale) ? user.locale : DEFAULT_LOCALE;
+  const title = translateFor(locale, input.title);
+  const body = input.body ? translateFor(locale, input.body) : "";
+  const text = [title, body].filter(Boolean).join(" — ").slice(0, 600);
+  const link = `${clientEnv.NEXT_PUBLIC_APP_URL}${input.url ?? "/dashboard"}`;
+
+  await queueMessage(
+    {
+      userId: input.userId,
+      to: user.phone,
+      channel: resolveChannel((user.phoneChannel as Channel) || "WHATSAPP"),
+      kind: "NOTIFICATION",
+      body: `PetMate: ${text}\n${link}`,
+      params: [text, link],
+    },
+    client,
+  );
 }
 
 /** Creates the default preference rows for a new account. */
@@ -108,6 +148,7 @@ export async function seedNotificationPreferences(userId: string, client: DbClie
       inApp: true,
       email: category !== "MARKETING",
       push: false,
+      phone: PHONE_DEFAULT_CATEGORIES.includes(category),
     })),
   });
 }

@@ -1,3 +1,4 @@
+import { getI18n } from "@/lib/i18n/server";
 import { LogoMark } from "./logo";
 
 /**
@@ -5,7 +6,8 @@ import { LogoMark } from "./logo";
  * the brand doing something rather than a blank screen — and it appears the
  * instant a link is tapped, which is most of what "fast" feels like.
  */
-export function PageLoader() {
+export async function PageLoader() {
+  const { t } = await getI18n();
   return (
     <div className="flex min-h-[60dvh] flex-col items-center justify-center gap-5" role="status">
       <div className="relative">
@@ -24,7 +26,7 @@ export function PageLoader() {
           />
         ))}
       </div>
-      <span className="sr-only">Loading…</span>
+      <span className="sr-only">{t("Loading…")}</span>
     </div>
   );
 }

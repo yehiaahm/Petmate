@@ -14,15 +14,20 @@ import { db } from "@/lib/db";
 import { getSellerAnalytics } from "@/lib/services/analytics.service";
 import { getEarnings } from "@/lib/payments/ledger-core";
 import { getSettings } from "@/lib/settings";
-import { bpsToPercent, formatMoney } from "@/lib/money";
+import { bpsToPercent } from "@/lib/money";
 import { PageHeader, Card, CardHeader, Stat, Badge, EmptyState } from "@/components/ui/primitives";
 import { ButtonLink } from "@/components/ui/button";
-import { formatDate, compactNumber } from "@/lib/utils";
+import { compactNumber } from "@/lib/utils";
+import { PLATFORM_CURRENCY } from "@/lib/currency";
+import { getI18n } from "@/lib/i18n/server";
 
-export const metadata: Metadata = {
-  title: "Seller console",
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return {
+  title: t("Seller console"),
   robots: { index: false, follow: false },
 };
+}
 
 const LISTING_TONE: Record<string, "success" | "warning" | "info" | "neutral" | "danger"> = {
   ACTIVE: "success",
@@ -37,6 +42,7 @@ const LISTING_TONE: Record<string, "success" | "warning" | "info" | "neutral" | 
 };
 
 export default async function SellerConsolePage() {
+  const { t, fmt } = await getI18n();
   const auth = await requireAuth();
 
   const now = new Date();
@@ -44,7 +50,7 @@ export default async function SellerConsolePage() {
 
   const [analytics, earnings, settings, shops, openApplications, pendingSales] = await Promise.all([
     getSellerAnalytics(auth.user.id, { from, to: now }),
-    getEarnings("USER", auth.user.id, auth.user.currency),
+    getEarnings("USER", auth.user.id, PLATFORM_CURRENCY),
     getSettings(),
     db.shop.findMany({
       where: { ownerUserId: auth.user.id, deletedAt: null },
@@ -81,13 +87,13 @@ export default async function SellerConsolePage() {
   return (
     <div className="container-page max-w-5xl py-8 lg:py-10">
       <PageHeader
-        eyebrow="Seller console"
-        title="Your selling"
-        description={`Listings, orders and what you are owed. PetMate takes ${bpsToPercent(settings.commissionPetSaleBps)} of a completed pet sale and ${bpsToPercent(settings.commissionProductBps)} of a product order — and nothing at all on a listing that does not sell.`}
+        eyebrow={t("Seller console")}
+        title={t("Your selling")}
+        description={t("Listings, orders and what you are owed. PetMate takes {percent} of a completed pet sale and {percent2} of a product order — and nothing at all on a listing that does not sell.", { percent: bpsToPercent(settings.commissionPetSaleBps), percent2: bpsToPercent(settings.commissionProductBps) })}
         action={
           <ButtonLink href="/dashboard/listings/new">
             <Plus className="size-4" aria-hidden />
-            New listing
+            {t("New listing")}
           </ButtonLink>
         }
       />
@@ -98,7 +104,7 @@ export default async function SellerConsolePage() {
             <li>
               <Link href="/dashboard/orders" className="block">
                 <Card interactive className="p-4">
-                  <p className="text-sm text-fg-muted">Sales awaiting handover</p>
+                  <p className="text-sm text-fg-muted">{t("Sales awaiting handover")}</p>
                   <p className="mt-1 font-display text-2xl font-semibold tabular text-accent">
                     {pendingSales}
                   </p>
@@ -110,7 +116,7 @@ export default async function SellerConsolePage() {
             <li>
               <Link href="/dashboard/listings" className="block">
                 <Card interactive className="p-4">
-                  <p className="text-sm text-fg-muted">Applications to read</p>
+                  <p className="text-sm text-fg-muted">{t("Applications to read")}</p>
                   <p className="mt-1 font-display text-2xl font-semibold tabular text-accent">
                     {openApplications}
                   </p>
@@ -122,7 +128,7 @@ export default async function SellerConsolePage() {
             <li>
               <Link href="/sell/orders" className="block">
                 <Card interactive className="p-4">
-                  <p className="text-sm text-fg-muted">Orders to ship</p>
+                  <p className="text-sm text-fg-muted">{t("Orders to ship")}</p>
                   <p className="mt-1 font-display text-2xl font-semibold tabular text-accent">
                     {unfulfilled}
                   </p>
@@ -135,25 +141,25 @@ export default async function SellerConsolePage() {
 
       <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Stat
-          label="Views (30d)"
+          label={t("Views (30d)")}
           value={compactNumber(analytics.totals.views)}
           icon={<Eye className="size-4" aria-hidden />}
         />
         <Stat
-          label="Saved"
+          label={t("Saved")}
           value={compactNumber(analytics.totals.favorites)}
           icon={<Heart className="size-4" aria-hidden />}
         />
         <Stat
-          label="Enquiries"
+          label={t("Enquiries")}
           value={compactNumber(analytics.totals.conversations)}
-          hint={`${analytics.viewToInquiry}% of views`}
+          hint={t("{viewToInquiry}% of views", { viewToInquiry: analytics.viewToInquiry })}
           icon={<MessageSquare className="size-4" aria-hidden />}
         />
         <Stat
-          label="Earned (30d)"
-          value={formatMoney(analytics.totals.earningsCents, auth.user.currency)}
-          hint={`${analytics.totals.sales} pet sales · ${analytics.totals.productsSold} products`}
+          label={t("Earned (30d)")}
+          value={fmt.money(analytics.totals.earningsCents, PLATFORM_CURRENCY)}
+          hint={t("{sales} pet sales · {productsSold} products", { sales: analytics.totals.sales, productsSold: analytics.totals.productsSold })}
           icon={<TrendingUp className="size-4" aria-hidden />}
         />
       </div>
@@ -161,11 +167,11 @@ export default async function SellerConsolePage() {
       <div className="mt-6 grid gap-5 lg:grid-cols-[1fr_300px] lg:items-start">
         <Card>
           <CardHeader
-            title="Your listings"
-            description="Ranked by views. Enquiry rate is enquiries per hundred views — a low rate on high views is usually the price or the photos, not the demand."
+            title={t("Your listings")}
+            description={t("Ranked by views. Enquiry rate is enquiries per hundred views — a low rate on high views is usually the price or the photos, not the demand.")}
             action={
               <ButtonLink href="/dashboard/listings" variant="outline" size="sm">
-                Manage
+                {t("Manage")}
               </ButtonLink>
             }
           />
@@ -174,26 +180,26 @@ export default async function SellerConsolePage() {
               <EmptyState
                 className="border-0 py-8"
                 icon={<Tag className="size-5" aria-hidden />}
-                title="Nothing listed yet"
-                description="A listing is created from a pet record, so the health history and lineage come with it rather than being retyped."
-                action={<ButtonLink href="/dashboard/listings/new">Create a listing</ButtonLink>}
+                title={t("Nothing listed yet")}
+                description={t("A listing is created from a pet record, so the health history and lineage come with it rather than being retyped.")}
+                action={<ButtonLink href="/dashboard/listings/new">{t("Create a listing")}</ButtonLink>}
               />
             ) : (
               <div className="-mx-5 overflow-x-auto px-5">
-                <table className="w-full text-left text-sm">
+                <table className="w-full text-start text-sm">
                   <thead>
                     <tr className="border-b border-[var(--border)] text-xs text-fg-subtle">
-                      <th scope="col" className="py-2 pr-3 font-medium">
-                        Listing
+                      <th scope="col" className="py-2 pe-3 font-medium">
+                        {t("Listing")}
                       </th>
-                      <th scope="col" className="py-2 pr-3 text-right font-medium">
-                        Views
+                      <th scope="col" className="py-2 pe-3 text-end font-medium">
+                        {t("Views")}
                       </th>
-                      <th scope="col" className="py-2 pr-3 text-right font-medium">
-                        Saved
+                      <th scope="col" className="py-2 pe-3 text-end font-medium">
+                        {t("Saved")}
                       </th>
-                      <th scope="col" className="py-2 text-right font-medium">
-                        Enquiry rate
+                      <th scope="col" className="py-2 text-end font-medium">
+                        {t("Enquiry rate")}
                       </th>
                     </tr>
                   </thead>
@@ -203,32 +209,32 @@ export default async function SellerConsolePage() {
                         key={listing.id}
                         className="border-b border-[var(--border)] last:border-0"
                       >
-                        <td className="py-2.5 pr-3">
+                        <td className="py-2.5 pe-3">
                           <Link
                             href={`/dashboard/listings/${listing.id}`}
                             className="font-medium text-fg hover:underline"
                           >
                             {listing.title}
                           </Link>
-                          <span className="ml-2 inline-block align-middle">
+                          <span className="ms-2 inline-block align-middle">
                             <Badge tone={LISTING_TONE[listing.status] ?? "neutral"} size="sm">
                               {listing.status.replaceAll("_", " ").toLowerCase()}
                             </Badge>
                           </span>
                           <span className="block text-xs text-fg-subtle">
-                            {formatMoney(listing.priceCents, listing.currency)}
+                            {fmt.money(listing.priceCents, listing.currency)}
                             {listing.publishedAt
-                              ? ` · published ${formatDate(listing.publishedAt)}`
-                              : " · not published"}
+                              ? ` · ${t("published {date}", { date: fmt.date(listing.publishedAt) })}`
+                              : ` · ${t("not published")}`}
                           </span>
                         </td>
-                        <td className="py-2.5 pr-3 text-right tabular text-fg-muted">
+                        <td className="py-2.5 pe-3 text-end tabular text-fg-muted">
                           {listing.viewCount}
                         </td>
-                        <td className="py-2.5 pr-3 text-right tabular text-fg-muted">
+                        <td className="py-2.5 pe-3 text-end tabular text-fg-muted">
                           {listing.favoriteCount}
                         </td>
-                        <td className="py-2.5 text-right tabular text-fg-muted">
+                        <td className="py-2.5 text-end tabular text-fg-muted">
                           {listing.conversionRate}%
                         </td>
                       </tr>
@@ -242,22 +248,21 @@ export default async function SellerConsolePage() {
 
         <aside className="space-y-5">
           <Card>
-            <CardHeader title="Balance" />
+            <CardHeader title={t("Balance")} />
             <div className="p-5">
               <p className="font-display text-2xl font-semibold tabular text-fg">
-                {formatMoney(earnings.availableCents, earnings.currency)}
+                {fmt.money(earnings.availableCents, earnings.currency)}
               </p>
               <p className="mt-0.5 text-xs text-fg-subtle">
-                available · {formatMoney(earnings.pendingCents, earnings.currency)} pending
+                {t("available · {amount} pending", { amount: fmt.money(earnings.pendingCents, earnings.currency) })}
               </p>
               <p className="mt-3 text-xs leading-relaxed text-fg-subtle">
-                Money from a sale sits in pending until the dispute window closes, because a refund
-                has to come from somewhere.
+                {t("Money from a sale sits in pending until the dispute window closes, because a refund has to come from somewhere.")}
               </p>
               <div className="mt-4">
                 <ButtonLink href="/dashboard/wallet" variant="outline" size="sm" fullWidth>
                   <Wallet className="size-4" aria-hidden />
-                  Wallet
+                  {t("Wallet")}
                 </ButtonLink>
               </div>
             </div>
@@ -265,33 +270,40 @@ export default async function SellerConsolePage() {
 
           <Card>
             <CardHeader
-              title="Shops"
+              title={t("Shops")}
               action={
                 shops.length > 0 ? (
                   <ButtonLink href="/sell/orders" variant="outline" size="sm">
-                    Orders
+                    {t("Orders")}
                   </ButtonLink>
                 ) : undefined
               }
             />
             <div className="p-5">
               {shops.length === 0 ? (
-                <p className="text-sm leading-relaxed text-fg-muted">
-                  You do not have a shop. A shop is for products — food, medication, beds — and is
-                  separate from listing an animal.
-                </p>
+                <>
+                  <p className="text-sm leading-relaxed text-fg-muted">
+                    {t("You do not have a shop. A shop is for products — food, medication, beds — and is separate from listing an animal.")}
+                  </p>
+                  <div className="mt-4">
+                    <ButtonLink href="/sell/shops/new" variant="outline" size="sm" fullWidth>
+                      <Plus className="size-4" aria-hidden />
+                      {t("Open a shop")}
+                    </ButtonLink>
+                  </div>
+                </>
               ) : (
                 <ul className="space-y-2">
                   {shops.map((shop) => (
                     <li key={shop.id} className="flex items-center justify-between gap-3">
                       <Link
-                        href={`/store?shopId=${shop.id}`}
+                        href={`/sell/shops/${shop.id}`}
                         className="min-w-0 truncate text-sm font-medium text-fg hover:underline"
                       >
                         {shop.name}
                       </Link>
                       <span className="shrink-0 text-xs text-fg-subtle tabular">
-                        {shop._count.products} products
+                        {shop.status === "ACTIVE" ? t.plural(shop._count.products, { one: "{count} product", other: "{count} products" }) : t("In review")}
                       </span>
                     </li>
                   ))}
@@ -301,29 +313,28 @@ export default async function SellerConsolePage() {
           </Card>
 
           <Card>
-            <CardHeader title="What you are charged" />
+            <CardHeader title={t("What you are charged")} />
             <div className="p-5">
               <ul className="space-y-1.5 text-sm text-fg-muted">
                 <li className="flex justify-between gap-3">
-                  <span>Pet sales</span>
+                  <span>{t("Pet sales")}</span>
                   <span className="font-medium tabular text-fg">
                     {bpsToPercent(settings.commissionPetSaleBps)}
                   </span>
                 </li>
                 <li className="flex justify-between gap-3">
-                  <span>Products</span>
+                  <span>{t("Products")}</span>
                   <span className="font-medium tabular text-fg">
                     {bpsToPercent(settings.commissionProductBps)}
                   </span>
                 </li>
                 <li className="flex justify-between gap-3">
-                  <span>Adoption fees</span>
-                  <span className="font-medium text-[var(--success)]">free</span>
+                  <span>{t("Adoption fees")}</span>
+                  <span className="font-medium text-[var(--success)]">{t("free")}</span>
                 </li>
               </ul>
               <p className="mt-3 text-xs leading-relaxed text-fg-subtle">
-                Charged only on completion. A cancelled or refunded transaction reverses its
-                commission with it.
+                {t("Charged only on completion. A cancelled or refunded transaction reverses its commission with it.")}
               </p>
             </div>
           </Card>

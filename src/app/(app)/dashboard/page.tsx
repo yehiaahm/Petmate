@@ -23,20 +23,24 @@ import { requireAuth } from "@/lib/auth/rbac";
 import { getTrustBreakdown } from "@/lib/services/trust.service";
 import { getRecommendedListings } from "@/lib/services/search.service";
 import { getPendingReviews } from "@/lib/services/review.service";
-import { formatAge, formatDate } from "@/lib/utils";
 import { healthScoreLabel } from "@/lib/services/health.service";
 import { Card, EmptyState, PageHeader, Badge, StatusPill } from "@/components/ui/primitives";
 import { ButtonLink } from "@/components/ui/button";
 import { ListingCard, ListingGrid } from "@/components/listings/listing-card";
 import { TrustMeter } from "@/components/dashboard/trust-meter";
 import { SPECIES_LABEL, type Species } from "@/lib/constants";
+import { getI18n } from "@/lib/i18n/server";
 
-export const metadata: Metadata = {
-  title: "Dashboard",
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return {
+  title: t("Dashboard"),
   robots: { index: false, follow: false },
 };
+}
 
 export default async function DashboardPage() {
+  const { t, fmt } = await getI18n();
   const auth = await requireAuth();
   const userId = auth.user.id;
   const now = new Date();
@@ -184,16 +188,16 @@ export default async function DashboardPage() {
   return (
     <div className="container-page py-8">
       <PageHeader
-        title={`Good to see you, ${firstName}`}
+        title={t("Good to see you, {firstName}", { firstName })}
         description={
           pets.length === 0
-            ? "Start by adding your first pet. Everything else on PetMate builds on that record."
-            : "Here is what needs you today."
+            ? t("Start by adding your first pet. Everything else on PetMate builds on that record.")
+            : t("Here is what needs you today.")
         }
         action={
           <ButtonLink href="/dashboard/pets/new">
             <Plus className="size-4" aria-hidden />
-            Add a pet
+            {t("Add a pet")}
           </ButtonLink>
         }
       />
@@ -217,8 +221,8 @@ export default async function DashboardPage() {
                 >
                   <action.icon className="size-[18px]" aria-hidden />
                 </span>
-                <span className="min-w-0 flex-1 text-sm font-medium text-fg">{action.label}</span>
-                <ArrowRight className="size-4 shrink-0 text-fg-subtle" aria-hidden />
+                <span className="min-w-0 flex-1 text-sm font-medium text-fg">{t(action.label)}</span>
+                <ArrowRight className="rtl:-scale-x-100 size-4 shrink-0 text-fg-subtle" aria-hidden />
               </Link>
             </li>
           ))}
@@ -229,10 +233,10 @@ export default async function DashboardPage() {
         <div className="min-w-0 space-y-8">
           <section>
             <div className="mb-4 flex items-center justify-between gap-4">
-              <h2 className="font-display text-xl font-semibold text-fg">Your pets</h2>
+              <h2 className="font-display text-xl font-semibold text-fg">{t("Your pets")}</h2>
               {pets.length > 0 && (
                 <Link href="/dashboard/pets" className="text-sm font-semibold text-brand hover:underline">
-                  See all
+                  {t("See all")}
                 </Link>
               )}
             </div>
@@ -240,12 +244,12 @@ export default async function DashboardPage() {
             {pets.length === 0 ? (
               <EmptyState
                 icon={<PawPrint className="size-6" aria-hidden />}
-                title="No pets yet"
-                description="A pet profile is the foundation: health records, reminders, listings and breeding all hang off it. It takes about a minute."
+                title={t("No pets yet")}
+                description={t("A pet profile is the foundation: health records, reminders, listings and breeding all hang off it. It takes about a minute.")}
                 action={
                   <ButtonLink href="/dashboard/pets/new">
                     <Plus className="size-4" aria-hidden />
-                    Add your first pet
+                    {t("Add your first pet")}
                   </ButtonLink>
                 }
               />
@@ -277,20 +281,20 @@ export default async function DashboardPage() {
                             {pet.name}
                           </p>
                           <p className="truncate text-xs text-fg-muted">
-                            {pet.breed?.name ?? pet.breedText ?? SPECIES_LABEL[pet.species as Species]} ·{" "}
-                            {formatAge(pet.birthDate)}
+                            {pet.breed?.name ?? pet.breedText ?? t(SPECIES_LABEL[pet.species as Species])} ·{" "}
+                            {fmt.age(pet.birthDate)}
                           </p>
                           <div className="mt-2 flex flex-wrap gap-1.5">
                             <StatusPill tone={health.tone} className="text-[10px]">
-                              {health.label}
+                              {t(health.label)}
                             </StatusPill>
                             {pet.availability !== "NOT_AVAILABLE" && (
                               <Badge tone="brand" size="sm">
                                 {pet.availability === "FOR_SALE"
-                                  ? "Listed"
+                                  ? t("Listed")
                                   : pet.availability === "FOR_ADOPTION"
-                                    ? "Adoption"
-                                    : "Breeding"}
+                                    ? t("Adoption")
+                                    : t("Breeding")}
                               </Badge>
                             )}
                           </div>
@@ -305,7 +309,7 @@ export default async function DashboardPage() {
 
           {dueReminders.length > 0 && (
             <section>
-              <h2 className="mb-4 font-display text-xl font-semibold text-fg">Coming up</h2>
+              <h2 className="mb-4 font-display text-xl font-semibold text-fg">{t("Coming up")}</h2>
               <Card>
                 <ul className="divide-y divide-[var(--border)]">
                   {dueReminders.map((reminder) => {
@@ -330,11 +334,10 @@ export default async function DashboardPage() {
                               {reminder.pet.name}: {reminder.title}
                             </p>
                             <p className="text-xs text-fg-muted">
-                              {overdue ? "Overdue since " : "Due "}
-                              {formatDate(reminder.dueAt, "long")}
+                              {overdue ? t("Overdue since {date}", { date: fmt.date(reminder.dueAt, "long") }) : t("Due {date}", { date: fmt.date(reminder.dueAt, "long") })}
                             </p>
                           </div>
-                          {overdue && <Badge tone="danger" size="sm">Overdue</Badge>}
+                          {overdue && <Badge tone="danger" size="sm">{t("Overdue")}</Badge>}
                         </Link>
                       </li>
                     );
@@ -344,7 +347,7 @@ export default async function DashboardPage() {
                   <div className="border-t border-[var(--border)] p-3">
                     <ButtonLink href="/clinics" variant="ghost" size="sm" fullWidth>
                       <Stethoscope className="size-4" aria-hidden />
-                      Book a clinic visit
+                      {t("Book a clinic visit")}
                     </ButtonLink>
                   </div>
                 )}
@@ -352,12 +355,47 @@ export default async function DashboardPage() {
             </section>
           )}
 
+          {upcomingAppointments.length > 0 && (
+            <section>
+              <h2 className="mb-4 font-display text-xl font-semibold text-fg">
+                {t("Upcoming appointments")}
+              </h2>
+              <Card>
+                <ul className="divide-y divide-[var(--border)]">
+                  {upcomingAppointments.map((appointment) => (
+                    <li key={appointment.id}>
+                      <Link
+                        href={`/dashboard/appointments/${appointment.id}`}
+                        className="flex items-center gap-3 p-4 transition-colors hover:bg-bg-sunken"
+                      >
+                        <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-brand-soft text-brand-soft-fg">
+                          <CalendarDays className="size-4" aria-hidden />
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium text-fg">
+                            {appointment.pet.name} · {appointment.service.name}
+                          </p>
+                          <p className="truncate text-xs text-fg-muted">
+                            {appointment.clinic.name} · {fmt.date(appointment.startAt, "long")}
+                          </p>
+                        </div>
+                        {appointment.status === "PENDING_PAYMENT" && (
+                          <Badge tone="warning" size="sm">{t("Unpaid")}</Badge>
+                        )}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </Card>
+            </section>
+          )}
+
           {careBookings.length > 0 && (
             <section>
               <div className="mb-4 flex items-baseline justify-between gap-3">
-                <h2 className="font-display text-xl font-semibold text-fg">Hotel and training</h2>
+                <h2 className="font-display text-xl font-semibold text-fg">{t("Hotel and training")}</h2>
                 <Link href="/dashboard/bookings" className="text-sm font-medium text-brand hover:underline">
-                  All bookings
+                  {t("All bookings")}
                 </Link>
               </div>
               <Card>
@@ -376,45 +414,12 @@ export default async function DashboardPage() {
                             {b.pet.name} · {b.unit?.name ?? b.program?.name}
                           </p>
                           <p className="truncate text-xs text-fg-muted">
-                            {b.provider.name} · {formatDate(b.startAt, "long")}
+                            {b.provider.name} · {fmt.date(b.startAt, "long")}
                           </p>
                         </div>
-                        {b.status === "PENDING_PAYMENT" && <Badge tone="warning" size="sm">Unpaid</Badge>}
-                        {b.status === "IN_CARE" && <Badge tone="brand" size="sm">{b.kind === "BOARDING" ? "In care" : "In progress"}</Badge>}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </Card>
-            </section>
-          )}
-
-          {upcomingAppointments.length > 0 && (
-            <section>
-              <h2 className="mb-4 font-display text-xl font-semibold text-fg">
-                Upcoming appointments
-              </h2>
-              <Card>
-                <ul className="divide-y divide-[var(--border)]">
-                  {upcomingAppointments.map((appointment) => (
-                    <li key={appointment.id}>
-                      <Link
-                        href={`/dashboard/appointments/${appointment.id}`}
-                        className="flex items-center gap-3 p-4 transition-colors hover:bg-bg-sunken"
-                      >
-                        <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-brand-soft text-brand-soft-fg">
-                          <CalendarDays className="size-4" aria-hidden />
-                        </span>
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-medium text-fg">
-                            {appointment.pet.name} · {appointment.service.name}
-                          </p>
-                          <p className="truncate text-xs text-fg-muted">
-                            {appointment.clinic.name} · {formatDate(appointment.startAt, "long")}
-                          </p>
-                        </div>
-                        {appointment.status === "PENDING_PAYMENT" && (
-                          <Badge tone="warning" size="sm">Unpaid</Badge>
+                        {b.status === "PENDING_PAYMENT" && <Badge tone="warning" size="sm">{t("Unpaid")}</Badge>}
+                        {b.status === "IN_CARE" && (
+                          <Badge tone="brand" size="sm">{b.kind === "BOARDING" ? t("In care") : t("In progress")}</Badge>
                         )}
                       </Link>
                     </li>
@@ -428,9 +433,15 @@ export default async function DashboardPage() {
             <section>
               <div className="mb-4">
                 <h2 className="font-display text-xl font-semibold text-fg">
-                  {recommended.personalised ? "Picked for you" : "Popular right now"}
+                  {recommended.personalised ? t("Picked for you") : t("Popular right now")}
                 </h2>
-                <p className="mt-0.5 text-sm text-fg-muted">{recommended.basis}</p>
+                <p className="mt-0.5 text-sm text-fg-muted">
+                  {recommended.interests?.length
+                    ? t("Based on your interest in {interest}", {
+                        interest: recommended.interests.map((x) => t(x).toLowerCase()).join(t(", ")),
+                      })
+                    : t(recommended.basis)}
+                </p>
               </div>
               <ListingGrid>
                 {recommended.items.slice(0, 4).map((listing) => (
@@ -445,7 +456,7 @@ export default async function DashboardPage() {
           <TrustMeter trust={trust} />
 
           <Card className="p-5">
-            <h2 className="font-display text-base font-semibold text-fg">At a glance</h2>
+            <h2 className="font-display text-base font-semibold text-fg">{t("At a glance")}</h2>
             <dl className="mt-3 space-y-2.5">
               {[
                 { label: "Active listings", value: activeListings, href: "/dashboard/listings" },
@@ -455,7 +466,7 @@ export default async function DashboardPage() {
                 <div key={stat.label} className="flex items-center justify-between gap-3">
                   <dt className="text-sm text-fg-muted">
                     <Link href={stat.href} className="hover:text-fg hover:underline">
-                      {stat.label}
+                      {t(stat.label)}
                     </Link>
                   </dt>
                   <dd className="text-sm font-semibold tabular text-fg">{stat.value}</dd>
@@ -465,7 +476,7 @@ export default async function DashboardPage() {
           </Card>
 
           <Card className="p-5">
-            <h2 className="font-display text-base font-semibold text-fg">Quick actions</h2>
+            <h2 className="font-display text-base font-semibold text-fg">{t("Quick actions")}</h2>
             <div className="mt-3 space-y-2">
               {[
                 { href: "/dashboard/listings/new", label: "List a pet", icon: TrendingUp },
@@ -481,7 +492,7 @@ export default async function DashboardPage() {
                   className="flex items-center gap-2.5 rounded-[var(--radius-field)] px-3 py-2 text-sm text-fg-muted transition-colors hover:bg-bg-sunken hover:text-fg"
                 >
                   <action.icon className="size-4 shrink-0" aria-hidden />
-                  {action.label}
+                  {t(action.label)}
                 </Link>
               ))}
             </div>

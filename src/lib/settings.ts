@@ -49,6 +49,15 @@ export interface SettingsShape {
   featuredListing7dCents: number;
   featuredListing30dCents: number;
 
+  /** Price per thousand ad impressions on the home page, minor units. */
+  adCpmHomeCents: number;
+  /** Price per thousand impressions inside search results. */
+  adCpmSearchCents: number;
+  /** Price per thousand impressions beside the vet directory. */
+  adCpmClinicsCents: number;
+  /** Smallest budget a campaign may be bought with, minor units. */
+  adMinBudgetCents: number;
+
   /** Listings above this price go to manual review before going live. */
   manualReviewPriceCents: number;
   /** Require every new listing to be reviewed before publication. */
@@ -59,12 +68,29 @@ export interface SettingsShape {
   /** Smallest payout a seller may request, minor units. */
   minPayoutCents: number;
 
+  /** Buyers may pay cash on delivery at shops that accept it. */
+  codEnabled: boolean;
+  /** Largest basket that may be paid on delivery, minor units. */
+  codMaxOrderCents: number;
+
+  /** Members can invite others with a personal link. */
+  referralEnabled: boolean;
+  /** Wallet credit for the inviter once the invitee's first order is delivered. */
+  referralRewardCents: number;
+  /** The invitee's welcome discount on their first order, basis points. */
+  referralWelcomeBps: number;
+  /** Cap on that welcome discount, minor units. */
+  referralWelcomeMaxCents: number;
+  /** Smallest first order that earns the inviter their reward. */
+  referralMinOrderCents: number;
+  /** Most rewards one member can earn in 30 days. */
+  referralMonthlyCap: number;
+
   /** Platform-wide switch for accepting new registrations. */
   registrationOpen: boolean;
   /** Read-only mode for maintenance windows. */
   maintenanceMode: boolean;
 
-  defaultCurrency: string;
   supportEmail: string;
 }
 
@@ -84,19 +110,34 @@ export const DEFAULT_SETTINGS: SettingsShape = {
   freeBreedingRequestLimit: 5,
   freeSavedSearchLimit: 3,
 
-  featuredListing7dCents: 1200,
-  featuredListing30dCents: 3900,
+  // Amounts are in the platform currency's minor unit (EGP piastres).
+  featuredListing7dCents: 14_900, // EGP 149
+  featuredListing30dCents: 44_900, // EGP 449
 
-  manualReviewPriceCents: 500_000, // $5,000
+  adCpmHomeCents: 6_000, // EGP 60 per 1,000 impressions
+  adCpmSearchCents: 4_500, // EGP 45
+  adCpmClinicsCents: 4_000, // EGP 40
+  adMinBudgetCents: 50_000, // EGP 500
+
+  manualReviewPriceCents: 10_000_000, // EGP 100,000
   reviewAllListings: false,
 
   payoutHoldDays: 7,
-  minPayoutCents: 2500,
+  minPayoutCents: 20_000, // EGP 200
+
+  codEnabled: true,
+  codMaxOrderCents: 500_000, // EGP 5,000
+
+  referralEnabled: true,
+  referralRewardCents: 5_000, // EGP 50
+  referralWelcomeBps: 1000, // 10%
+  referralWelcomeMaxCents: 10_000, // EGP 100
+  referralMinOrderCents: 20_000, // EGP 200
+  referralMonthlyCap: 20,
 
   registrationOpen: true,
   maintenanceMode: false,
 
-  defaultCurrency: "USD",
   supportEmail: "support@petmate.app",
 };
 
@@ -106,22 +147,33 @@ export const SETTING_DESCRIPTIONS: Record<keyof SettingsShape, string> = {
   commissionAppointmentBps: "Commission taken from each vet booking, in basis points.",
   commissionBreedingBps: "Commission taken from paid breeding arrangements, in basis points.",
   commissionCareBps: "Commission taken from pet hotel and training bookings, in basis points.",
-  transactionFeeCents: "Flat fee added to every transaction, in cents.",
+  transactionFeeCents: "Flat fee added to every transaction, in the currency's minor unit.",
   escrowAutoReleaseHours: "Hours a pet sale is held in escrow before releasing automatically.",
   disputeWindowDays: "Days a buyer has to open a dispute after completion.",
   listingDurationDays: "Days a listing stays active before expiring.",
   freeActiveListingLimit: "Active listings allowed on the free plan.",
   freeBreedingRequestLimit: "Open breeding requests allowed on the free plan.",
   freeSavedSearchLimit: "Saved searches with alerts allowed on the free plan.",
-  featuredListing7dCents: "Price of a 7-day featured placement, in cents.",
-  featuredListing30dCents: "Price of a 30-day featured placement, in cents.",
+  featuredListing7dCents: "Price of a 7-day featured placement, in the currency's minor unit.",
+  featuredListing30dCents: "Price of a 30-day featured placement, in the currency's minor unit.",
+  adCpmHomeCents: "Price per 1,000 ad impressions on the home page, in the currency's minor unit.",
+  adCpmSearchCents: "Price per 1,000 ad impressions in search results, in the currency's minor unit.",
+  adCpmClinicsCents: "Price per 1,000 ad impressions in the vet directory, in the currency's minor unit.",
+  adMinBudgetCents: "Smallest budget an ad campaign can be bought with, in the currency's minor unit.",
   manualReviewPriceCents: "Listings priced above this go to manual review.",
   reviewAllListings: "Send every new listing to manual review before publishing.",
   payoutHoldDays: "Days seller earnings are held before becoming available.",
-  minPayoutCents: "Minimum payout a seller can request, in cents.",
+  minPayoutCents: "Minimum payout a seller can request, in the currency's minor unit.",
+  codEnabled: "Allow cash on delivery at shops that accept it.",
+  codMaxOrderCents: "Largest basket that can be paid on delivery, in the currency's minor unit.",
+  referralEnabled: "Let members invite others with a personal link.",
+  referralRewardCents: "Wallet credit for the inviter once the new member's first order is delivered, in the currency's minor unit.",
+  referralWelcomeBps: "The new member's discount on their first order, in basis points.",
+  referralWelcomeMaxCents: "Largest welcome discount, in the currency's minor unit.",
+  referralMinOrderCents: "Smallest first order that earns the inviter a reward, in the currency's minor unit.",
+  referralMonthlyCap: "Most referral rewards one member can earn in 30 days.",
   registrationOpen: "Allow new account registrations.",
   maintenanceMode: "Put the platform in read-only maintenance mode.",
-  defaultCurrency: "Currency used when a user has not chosen one.",
   supportEmail: "Address shown to users for support enquiries.",
 };
 
@@ -191,7 +243,13 @@ export function settingCategory(key: keyof SettingsShape): string {
   if (key.startsWith("commission") || key === "transactionFeeCents") return "COMMISSION";
   if (key.startsWith("featured")) return "MONETISATION";
   if (key.startsWith("free")) return "LIMITS";
-  if (key.startsWith("escrow") || key.startsWith("dispute") || key.startsWith("payout") || key === "minPayoutCents")
+  if (
+    key.startsWith("escrow") ||
+    key.startsWith("dispute") ||
+    key.startsWith("payout") ||
+    key.startsWith("cod") ||
+    key === "minPayoutCents"
+  )
     return "PAYMENTS";
   if (key.startsWith("listing") || key === "reviewAllListings" || key === "manualReviewPriceCents")
     return "MARKETPLACE";

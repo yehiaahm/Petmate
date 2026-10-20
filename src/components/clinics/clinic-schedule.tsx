@@ -10,8 +10,8 @@ import { Card, Badge, EmptyState, Alert } from "@/components/ui/primitives";
 import { Field, Textarea } from "@/components/ui/field";
 import { useToast } from "@/components/ui/toast";
 import { api, ApiError } from "@/lib/api-client";
-import { formatMoney } from "@/lib/money";
-import { formatDateTime, relativeTime, cn } from "@/lib/utils";
+import { cn } from "@/lib/utils";
+import { useI18n } from "@/components/i18n/i18n-provider";
 
 export interface ScheduleAppointment {
   id: string;
@@ -45,6 +45,7 @@ const TONE: Record<string, "info" | "warning" | "success" | "danger" | "neutral"
 };
 
 export function ClinicSchedule({ appointments }: { appointments: ScheduleAppointment[] }) {
+  const { t, fmt } = useI18n();
   const router = useRouter();
   const toast = useToast();
 
@@ -63,8 +64,8 @@ export function ClinicSchedule({ appointments }: { appointments: ScheduleAppoint
         clinicNotes: clinicNotes.trim() || undefined,
       });
       toast.success(
-        "Appointment completed",
-        "The payment has been released to your balance and the visit is on the animal's record.",
+        t("Appointment completed"),
+        t("The payment has been released to your balance and the visit is on the animal's record."),
       );
       setCompleting(null);
       setOutcome("");
@@ -72,7 +73,7 @@ export function ClinicSchedule({ appointments }: { appointments: ScheduleAppoint
       router.refresh();
     } catch (err) {
       toast.error(
-        "Could not complete that",
+        t("Could not complete that"),
         err instanceof ApiError ? err.message : "Please try again.",
       );
     } finally {
@@ -85,8 +86,8 @@ export function ClinicSchedule({ appointments }: { appointments: ScheduleAppoint
       <EmptyState
         className="border-0 py-10"
         icon={<CalendarDays className="size-5" aria-hidden />}
-        title="Nothing on the calendar"
-        description="Bookings appear here the moment someone takes a slot. Add services and opening hours below to become bookable."
+        title={t("Nothing on the calendar")}
+        description={t("Bookings appear here the moment someone takes a slot. Add services and opening hours below to become bookable.")}
       />
     );
   }
@@ -145,8 +146,8 @@ export function ClinicSchedule({ appointments }: { appointments: ScheduleAppoint
                   </p>
 
                   <p className="mt-0.5 text-xs text-fg-subtle">
-                    {formatDateTime(appointment.startAt)} ·{" "}
-                    {past ? relativeTime(start) : `in ${relativeTime(start).replace("in ", "")}`}{" "}
+                    {fmt.dateTime(appointment.startAt)} ·{" "}
+                    {past ? fmt.relative(start) : `in ${fmt.relative(start).replace("in ", "")}`}{" "}
                     · {appointment.customerName}
                     {appointment.customerPhone && (
                       <>
@@ -170,18 +171,18 @@ export function ClinicSchedule({ appointments }: { appointments: ScheduleAppoint
 
                   <div className="mt-2 flex flex-wrap items-center gap-3">
                     <span className="text-sm font-semibold tabular text-fg">
-                      {formatMoney(appointment.priceCents, appointment.currency)}
+                      {fmt.money(appointment.priceCents, appointment.currency)}
                     </span>
                     <Link
                       href={`/dashboard/pets/${appointment.petId}/health`}
                       className="text-xs font-medium text-brand hover:underline"
                     >
-                      Health record
+                      {t("Health record")}
                     </Link>
                     {closable && !open && (
                       <Button size="sm" onClick={() => setCompleting(appointment.id)}>
                         <CheckCircle2 className="size-4" aria-hidden />
-                        Mark complete
+                        {t("Mark complete")}
                       </Button>
                     )}
                   </div>
@@ -190,16 +191,16 @@ export function ClinicSchedule({ appointments }: { appointments: ScheduleAppoint
                     <div className="mt-4 space-y-3 border-t border-[var(--border)] pt-4">
                       <Alert tone="info">
                         <p>
-                          Completing this releases{" "}
-                          {formatMoney(appointment.priceCents, appointment.currency)} less
-                          commission to your balance, and writes the visit onto{" "}
-                          {appointment.petName}&rsquo;s permanent record as clinic-verified.
+                          {t("Completing this releases {amount} less commission to your balance, and writes the visit onto {name}’s permanent record as clinic-verified.", {
+                            amount: fmt.money(appointment.priceCents, appointment.currency),
+                            name: appointment.petName,
+                          })}
                         </p>
                       </Alert>
 
                       <Field
-                        label="Outcome"
-                        hint="The owner sees this. Plain language, not shorthand."
+                        label={t("Outcome")}
+                        hint={t("The owner sees this. Plain language, not shorthand.")}
                       >
                         {({ id, invalid }) => (
                           <Textarea
@@ -209,14 +210,14 @@ export function ClinicSchedule({ appointments }: { appointments: ScheduleAppoint
                             maxLength={1000}
                             value={outcome}
                             onChange={(e) => setOutcome(e.target.value)}
-                            placeholder="Healthy. Second vaccination given, due again in 12 months."
+                            placeholder={t("Healthy. Second vaccination given, due again in 12 months.")}
                           />
                         )}
                       </Field>
 
                       <Field
-                        label="Clinical notes"
-                        hint="Visible to your clinic only, never to the owner."
+                        label={t("Clinical notes")}
+                        hint={t("Visible to your clinic only, never to the owner.")}
                       >
                         {({ id, invalid }) => (
                           <Textarea
@@ -234,13 +235,13 @@ export function ClinicSchedule({ appointments }: { appointments: ScheduleAppoint
                         <Button
                           size="sm"
                           loading={busy === appointment.id}
-                          loadingText="Completing…"
+                          loadingText={t("Completing…")}
                           onClick={() => complete(appointment.id)}
                         >
-                          Complete appointment
+                          {t("Complete appointment")}
                         </Button>
                         <Button size="sm" variant="ghost" onClick={() => setCompleting(null)}>
-                          Cancel
+                          {t("Cancel")}
                         </Button>
                       </div>
                     </div>

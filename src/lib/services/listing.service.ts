@@ -6,7 +6,7 @@ import { conflict, notFound, unprocessable } from "@/lib/errors";
 import { assertOwnsListing, assertOwnsPet } from "@/lib/auth/rbac";
 import type { AuthContext } from "@/lib/auth/session";
 import { addDays, uniqueSlug } from "@/lib/utils";
-import { buildSearchText } from "@/lib/search/text";
+import { buildSearchText, speciesSearchWords } from "@/lib/search/text";
 import { enforceRateLimit } from "@/lib/rate-limit";
 import { getSettings } from "@/lib/settings";
 import { assertCanCreateListing } from "@/lib/billing/entitlements";
@@ -18,7 +18,7 @@ import {
   optionalText,
   cuidSchema,
   centsSchema,
-  currencySchema,
+  priceCurrencySchema,
 } from "@/lib/validation/common";
 import { LISTING_INTENT, LIMITS } from "@/lib/constants";
 
@@ -46,7 +46,7 @@ const listingFields = z.object({
   priceCents: centsSchema.default(0),
   adoptionFeeCents: centsSchema.default(0),
   studFeeCents: centsSchema.default(0),
-  currency: currencySchema.default("USD"),
+  currency: priceCurrencySchema,
   negotiable: z.boolean().default(false),
   country: optionalText(60),
   region: optionalText(80),
@@ -163,7 +163,7 @@ export async function createListing(auth: AuthContext, input: CreateListingInput
           input.title,
           input.description,
           full.name,
-          full.species,
+          speciesSearchWords(full.species),
           full.breed?.name,
           full.breedText,
           input.city ?? full.city,
@@ -312,7 +312,7 @@ export async function updateListing(
         title,
         description,
         current.pet.name,
-        current.pet.species,
+        speciesSearchWords(current.pet.species),
         current.pet.breed?.name,
         current.pet.breedText,
         input.city ?? current.city,

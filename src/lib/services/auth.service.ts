@@ -20,7 +20,10 @@ import {
 } from "@/lib/rate-limit";
 import { awardTrustSignal } from "./trust.service";
 import { seedNotificationPreferences } from "./notification.service";
+import { recordReferral } from "./referral.service";
 import { getSettings } from "@/lib/settings";
+import { getLocale } from "@/lib/i18n/server";
+import { PLATFORM_CURRENCY } from "@/lib/currency";
 import { generateToken, slugify, readableCode, addDays } from "@/lib/utils";
 import type { Role } from "@/lib/constants";
 
@@ -46,7 +49,7 @@ const DUMMY_HASH =
   "scrypt$131072$8$1$AAAAAAAAAAAAAAAAAAAAAA$" +
   "d2hlbi10aGUtYWNjb3VudC1kb2VzLW5vdC1leGlzdC13ZS1zdGlsbC1kby10aGUtd29yaw";
 
-function normalizeEmail(email: string): string {
+export function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
@@ -66,6 +69,8 @@ export interface RegisterInput {
   acceptedTerms: boolean;
   ip?: string | null;
   userAgent?: string | null;
+  /** From the invite cookie, if they arrived through someone's link. */
+  referralCode?: string | null;
 }
 
 export async function register(input: RegisterInput): Promise<{ userId: string }> {
@@ -116,6 +121,8 @@ export async function register(input: RegisterInput): Promise<{ userId: string }
   const passwordHash = await hashPassword(input.password);
   const handle = await generateUniqueHandle(input.name);
   const role = input.role ?? "USER";
+  // The language they signed up in is the language their email arrives in.
+  const locale = await getLocale();
 
   const user = await db.$transaction(async (tx) => {
     const created = await tx.user.create({
@@ -126,7 +133,8 @@ export async function register(input: RegisterInput): Promise<{ userId: string }
         name: input.name.trim(),
         handle,
         acceptedTermsAt: new Date(),
-        currency: settings.defaultCurrency,
+        currency: PLATFORM_CURRENCY,
+        locale,
         roles: {
           create:
             role === "USER"
@@ -138,6 +146,7 @@ export async function register(input: RegisterInput): Promise<{ userId: string }
     });
 
     await seedNotificationPreferences(created.id, tx);
+    await recordReferral(created.id, input.referralCode, tx);
 
     await audit(
       {
@@ -159,7 +168,7 @@ export async function register(input: RegisterInput): Promise<{ userId: string }
   return { userId: user.id };
 }
 
-async function generateUniqueHandle(name: string): Promise<string> {
+export async function generateUniqueHandle(name: string): Promise<string> {
   const base = slugify(name, 24) || "member";
 
   for (let attempt = 0; attempt < 5; attempt++) {
@@ -271,7 +280,11 @@ export interface LoginInput {
   userAgent?: string | null;
 }
 
-export async function login(input: LoginInput): Promise<SessionUser> {
+export type LoginResult =
+  | { kind: "SIGNED_IN"; user: SessionUser }
+  | { kind: "TWO_FACTOR"; challenge: string };
+
+export async function login(input: LoginInput): Promise<LoginResult> {
   const email = normalizeEmail(input.email);
 
   await enforceRateLimit("login", email);
@@ -304,6 +317,7 @@ export async function login(input: LoginInput): Promise<SessionUser> {
       lat: true,
       lng: true,
       deletedAt: true,
+      twoFactorEnabledAt: true,
       roles: { select: { role: true } },
     },
   });
@@ -342,22 +356,55 @@ export async function login(input: LoginInput): Promise<SessionUser> {
       .catch((e) => logger.exception("password rehash failed", e, { userId: user.id }));
   }
 
+  // The password was right, but it is only the first factor. No session
+  // exists until the second one is checked.
+  if (user.twoFactorEnabledAt) {
+    const { issueTwoFactorChallenge } = await import("./two-factor.service");
+    return { kind: "TWO_FACTOR", challenge: await issueTwoFactorChallenge(user.id, email) };
+  }
+
+  return { kind: "SIGNED_IN", user: await finishLogin(user, { email, ip: input.ip, userAgent: input.userAgent }) };
+}
+
+type LoginUser = {
+  id: string;
+  email: string;
+  name: string;
+  handle: string;
+  avatarUrl: string | null;
+  status: string;
+  emailVerifiedAt: Date | null;
+  trustScore: number;
+  currency: string;
+  city: string | null;
+  country: string | null;
+  lat: number | null;
+  lng: number | null;
+  roles: { role: string }[];
+};
+
+/** Opens the session once every factor has been checked. */
+export async function finishLogin(
+  user: LoginUser,
+  context: { email: string; ip?: string | null; userAgent?: string | null; method?: string },
+): Promise<SessionUser> {
   const { token, expiresAt } = await createSession(user.id, {
-    ip: input.ip,
-    userAgent: input.userAgent,
+    ip: context.ip,
+    userAgent: context.userAgent,
   });
   await setSessionCookie(token, expiresAt);
 
   await Promise.all([
-    recordLoginAttempt(email, true, { ip: input.ip }),
+    recordLoginAttempt(context.email, true, { ip: context.ip }),
     db.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } }),
     audit({
       action: "auth.login",
       actorId: user.id,
       entityType: "USER",
       entityId: user.id,
-      ip: input.ip,
-      userAgent: input.userAgent,
+      summary: context.method,
+      ip: context.ip,
+      userAgent: context.userAgent,
     }),
   ]);
 

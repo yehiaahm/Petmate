@@ -18,11 +18,12 @@ import { recordListingView } from "@/lib/services/listing.service";
 import { getPublicHealthSummary } from "@/lib/services/health.service";
 import { getPublicTrust } from "@/lib/services/trust.service";
 import { searchListings } from "@/lib/services/search.service";
-import { formatMoney } from "@/lib/money";
-import { formatAge, formatDate, splitTags, relativeTime } from "@/lib/utils";
+import { splitTags } from "@/lib/utils";
 import { clientEnv } from "@/lib/env";
 import {
-  SPECIES_LABEL,
+    SPECIES_LABEL,
+  SPECIES_PLURAL,
+
   VERIFICATION_LEVEL_LABEL,
   trustTier,
   TRUST_TIER_LABEL,
@@ -36,6 +37,7 @@ import { ReportButton } from "@/components/listings/report-button";
 import { ListingCard, ListingGrid } from "@/components/listings/listing-card";
 import { ReviewList } from "@/components/reviews/review-list";
 import { listReviews } from "@/lib/services/review.service";
+import { getI18n } from "@/lib/i18n/server";
 
 type Params = Promise<{ slug: string }>;
 
@@ -114,14 +116,20 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   const { slug } = await params;
   const listing = await loadListing(slug);
 
-  if (!listing) return { title: "Listing not found" };
+    const { t, fmt } = await getI18n();
+  if (!listing) return { title: t("Listing not found") };
 
-  const breed = listing.pet.breed?.name ?? listing.pet.breedText ?? SPECIES_LABEL[listing.pet.species as Species];
   const location = [listing.city, listing.country].filter(Boolean).join(", ");
   const price =
-    listing.intent === "SALE" ? ` — ${formatMoney(listing.priceCents, listing.currency)}` : "";
+    listing.intent === "SALE" ? ` — ${fmt.money(listing.priceCents, listing.currency)}` : "";
 
-  const description = `${listing.pet.name}, a ${formatAge(listing.pet.birthDate).toLowerCase()} ${breed}${location ? ` in ${location}` : ""}. ${listing.description.slice(0, 140)}`;
+  const summary = t(location ? "{name}, a {age} {breed} in {location}." : "{name}, a {age} {breed}.", {
+    name: listing.pet.name,
+    age: fmt.age(listing.pet.birthDate).toLowerCase(),
+    breed: listing.pet.breed?.name ?? listing.pet.breedText ?? t(SPECIES_LABEL[listing.pet.species as Species]),
+    location,
+  });
+  const description = `${summary} ${listing.description.slice(0, 140)}`;
 
   const image = listing.pet.photos[0]?.url;
 
@@ -151,6 +159,7 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
 }
 
 export default async function ListingPage({ params }: { params: Params }) {
+  const { t, fmt } = await getI18n();
   const { slug } = await params;
   const [listing, auth] = await Promise.all([loadListing(slug), getAuth()]);
 
@@ -188,20 +197,20 @@ export default async function ListingPage({ params }: { params: Params }) {
     source: "DIRECT",
   }).catch(() => undefined);
 
-  const breedName = listing.pet.breed?.name ?? listing.pet.breedText ?? SPECIES_LABEL[listing.pet.species as Species];
+  const breedName = listing.pet.breed?.name ?? listing.pet.breedText ?? t(SPECIES_LABEL[listing.pet.species as Species]);
   const temperament = splitTags(listing.pet.temperament);
   const tier = trustTier(listing.seller.trustScore);
   const isBreeder = listing.seller.roles.some((r) => r.role === "BREEDER");
 
   const priceLabel =
     listing.intent === "SALE"
-      ? formatMoney(listing.priceCents, listing.currency)
+      ? fmt.money(listing.priceCents, listing.currency)
       : listing.intent === "ADOPTION"
         ? listing.adoptionFeeCents > 0
-          ? formatMoney(listing.adoptionFeeCents, listing.currency)
+          ? fmt.money(listing.adoptionFeeCents, listing.currency)
           : "Free to a good home"
         : listing.studFeeCents > 0
-          ? formatMoney(listing.studFeeCents, listing.currency)
+          ? fmt.money(listing.studFeeCents, listing.currency)
           : "Terms negotiable";
 
   return (
@@ -209,7 +218,7 @@ export default async function ListingPage({ params }: { params: Params }) {
       <Breadcrumbs
         items={[
           { label: "Pets", href: "/pets" },
-          { label: SPECIES_LABEL[listing.pet.species as Species], href: `/pets?species=${listing.pet.species}` },
+          { label: t(SPECIES_LABEL[listing.pet.species as Species]), href: `/pets?species=${listing.pet.species}` },
           ...(listing.pet.breed
             ? [{ label: listing.pet.breed.name, href: `/breeds/${listing.pet.breed.slug}` }]
             : []),
@@ -219,7 +228,9 @@ export default async function ListingPage({ params }: { params: Params }) {
 
       {!publiclyVisible && (
         <Alert tone="warning" className="mb-5" icon={<Info className="size-4" aria-hidden />}>
-          This listing is {listing.status.toLowerCase().replace("_", " ")} and is only visible to you.
+          {t("This listing is {status} and is only visible to you.", {
+            status: t(listing.status.toLowerCase().replace("_", " ")),
+          })}
         </Alert>
       )}
 
@@ -231,15 +242,15 @@ export default async function ListingPage({ params }: { params: Params }) {
             <div className="flex flex-wrap items-center gap-2">
               <Badge tone={listing.intent === "ADOPTION" ? "success" : "brand"}>
                 {listing.intent === "SALE"
-                  ? "For sale"
+                  ? t("For sale")
                   : listing.intent === "ADOPTION"
-                    ? "For adoption"
-                    : "Available for breeding"}
+                    ? t("For adoption")
+                    : t("Available for breeding")}
               </Badge>
-              {listing.status === "RESERVED" && <Badge tone="warning">Reserved</Badge>}
+              {listing.status === "RESERVED" && <Badge tone="warning">{t("Reserved")}</Badge>}
               {listing.pet.verificationLevel !== "NONE" && (
                 <Badge tone="success" icon={<BadgeCheck className="size-3" aria-hidden />}>
-                  {VERIFICATION_LEVEL_LABEL[listing.pet.verificationLevel as VerificationLevel]}
+                  {t(VERIFICATION_LEVEL_LABEL[listing.pet.verificationLevel as VerificationLevel])}
                 </Badge>
               )}
             </div>
@@ -249,10 +260,10 @@ export default async function ListingPage({ params }: { params: Params }) {
             </h1>
 
             <p className="mt-2 text-[15px] text-fg-muted">
-              {breedName} · {listing.pet.sex === "MALE" ? "Male" : listing.pet.sex === "FEMALE" ? "Female" : "Sex unknown"} ·{" "}
-              {formatAge(listing.pet.birthDate)}
-              {listing.pet.birthDateIsEstimate && " (estimated)"}
-              {listing.pet.isNeutered && " · Neutered"}
+              {breedName} · {listing.pet.sex === "MALE" ? t("Male") : listing.pet.sex === "FEMALE" ? t("Female") : t("Sex unknown")} ·{" "}
+              {fmt.age(listing.pet.birthDate)}
+              {listing.pet.birthDateIsEstimate && ` (${t("estimated")})`}
+              {listing.pet.isNeutered && ` · ${t("Neutered")}`}
             </p>
 
             <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-sm text-fg-muted">
@@ -265,10 +276,10 @@ export default async function ListingPage({ params }: { params: Params }) {
               {listing.publishedAt && (
                 <span className="flex items-center gap-1.5">
                   <CalendarDays className="size-4" aria-hidden />
-                  Listed {relativeTime(listing.publishedAt)}
+                  {t("Listed {when}", { when: fmt.relative(listing.publishedAt) })}
                 </span>
               )}
-              <span className="tabular">{listing.viewCount} views</span>
+              <span className="tabular">{t.plural(listing.viewCount, { one: "{count} view", other: "{count} views" })}</span>
             </div>
           </div>
 
@@ -278,7 +289,7 @@ export default async function ListingPage({ params }: { params: Params }) {
 
           <section className="mt-8">
             <h2 className="font-display text-xl font-semibold text-fg">
-              About {listing.pet.name}
+              {t("About {name}", { name: listing.pet.name })}
             </h2>
             <div className="prose-petmate mt-3 space-y-4 text-[15px] leading-relaxed text-fg-muted">
               {listing.description.split("\n\n").map((paragraph, i) => (
@@ -288,11 +299,11 @@ export default async function ListingPage({ params }: { params: Params }) {
 
             {temperament.length > 0 && (
               <div className="mt-5">
-                <h3 className="text-sm font-semibold text-fg">Temperament</h3>
+                <h3 className="text-sm font-semibold text-fg">{t("Temperament")}</h3>
                 <ul className="mt-2 flex flex-wrap gap-2">
                   {temperament.map((trait) => (
                     <li key={trait}>
-                      <Badge tone="neutral">{trait}</Badge>
+                      <Badge tone="neutral">{t(trait)}</Badge>
                     </li>
                   ))}
                 </ul>
@@ -301,13 +312,13 @@ export default async function ListingPage({ params }: { params: Params }) {
           </section>
 
           <section className="mt-8">
-            <h2 className="font-display text-xl font-semibold text-fg">Details</h2>
+            <h2 className="font-display text-xl font-semibold text-fg">{t("Details")}</h2>
             <Card className="mt-3 p-5">
               <dl className="divide-y divide-[var(--border)]">
-                <DataRow label="PetMate passport" value={<span className="font-mono text-xs">{listing.pet.passportNo}</span>} />
-                <DataRow label="Species" value={SPECIES_LABEL[listing.pet.species as Species]} />
+                <DataRow label={t("PetMate passport")} value={<span className="font-mono text-xs">{listing.pet.passportNo}</span>} />
+                <DataRow label={t("Species")} value={t(SPECIES_LABEL[listing.pet.species as Species])} />
                 <DataRow
-                  label="Breed"
+                  label={t("Breed")}
                   value={
                     listing.pet.breed ? (
                       <Link href={`/breeds/${listing.pet.breed.slug}`} className="text-brand hover:underline">
@@ -319,23 +330,23 @@ export default async function ListingPage({ params }: { params: Params }) {
                   }
                 />
                 <DataRow
-                  label="Date of birth"
+                  label={t("Date of birth")}
                   value={
                     listing.pet.birthDate
-                      ? `${formatDate(listing.pet.birthDate, "long")}${listing.pet.birthDateIsEstimate ? " (est.)" : ""}`
+                      ? `${fmt.date(listing.pet.birthDate, "long")}${listing.pet.birthDateIsEstimate ? " (est.)" : ""}`
                       : "Not recorded"
                   }
                 />
-                {listing.pet.weightKg && <DataRow label="Weight" value={`${listing.pet.weightKg} kg`} />}
-                {listing.pet.color && <DataRow label="Colour" value={listing.pet.color} />}
-                <DataRow label="Neutered" value={listing.pet.isNeutered ? "Yes" : "No"} />
+                {listing.pet.weightKg && <DataRow label={t("Weight")} value={`${listing.pet.weightKg} kg`} />}
+                {listing.pet.color && <DataRow label={t("Colour")} value={listing.pet.color} />}
+                <DataRow label={t("Neutered")} value={listing.pet.isNeutered ? "Yes" : "No"} />
                 <DataRow
-                  label="Microchip"
+                  label={t("Microchip")}
                   value={
                     listing.pet.microchipId ? (
-                      <Badge tone="success" size="sm">Registered</Badge>
+                      <Badge tone="success" size="sm">{t("Registered")}</Badge>
                     ) : (
-                      <span className="text-fg-subtle">Not recorded</span>
+                      <span className="text-fg-subtle">{t("Not recorded")}</span>
                     )
                   }
                 />
@@ -347,10 +358,10 @@ export default async function ListingPage({ params }: { params: Params }) {
             <section className="mt-8">
               <h2 className="flex items-center gap-2 font-display text-xl font-semibold text-fg">
                 <Dna className="size-5 text-brand" aria-hidden />
-                Parentage
+                {t("Parentage")}
               </h2>
               <p className="mt-1 text-sm text-fg-muted">
-                Recorded on PetMate, which means the lineage is checkable rather than claimed.
+                {t("Recorded on PetMate, which means the lineage is checkable rather than claimed.")}
               </p>
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
                 {[
@@ -361,7 +372,7 @@ export default async function ListingPage({ params }: { params: Params }) {
                   .map((entry) => (
                     <Card key={entry.label} className="p-4">
                       <p className="text-xs font-semibold uppercase tracking-wider text-fg-subtle">
-                        {entry.label}
+                        {t(entry.label)}
                       </p>
                       <Link
                         href={`/p/${entry.pet!.id}`}
@@ -380,7 +391,7 @@ export default async function ListingPage({ params }: { params: Params }) {
 
           <section className="mt-8">
             <h2 className="font-display text-xl font-semibold text-fg">
-              About the {isBreeder ? "breeder" : "owner"}
+              {isBreeder ? t("About the breeder") : t("About the owner")}
             </h2>
             <Card className="mt-3 p-5">
               <div className="flex items-start gap-4">
@@ -394,16 +405,16 @@ export default async function ListingPage({ params }: { params: Params }) {
                       {listing.seller.name}
                     </Link>
                     <StatusPill tone={listing.seller.trustScore >= 60 ? "success" : listing.seller.trustScore >= 30 ? "brand" : "neutral"}>
-                      {TRUST_TIER_LABEL[tier]} · {listing.seller.trustScore}
+                      {t(TRUST_TIER_LABEL[tier])} · {listing.seller.trustScore}
                     </StatusPill>
                   </div>
 
                   <p className="mt-1 text-sm text-fg-muted">
-                    Member since {formatDate(listing.seller.createdAt, "long")}
+                    {t("Member since {date}", { date: fmt.date(listing.seller.createdAt, "long") })}
                     {listing.seller.completedSales > 0 &&
-                      ` · ${listing.seller.completedSales} completed ${listing.seller.completedSales === 1 ? "sale" : "sales"}`}
+                      ` · ${t.plural(listing.seller.completedSales, { one: "{count} completed sale", other: "{count} completed sales" })}`}
                     {listing.seller.ratingCount > 0 &&
-                      ` · ${(listing.seller.ratingAvgBps / 100).toFixed(1)}★ from ${listing.seller.ratingCount} reviews`}
+                      ` · ${t.plural(listing.seller.ratingCount, { one: "{rating}★ from {count} review", other: "{rating}★ from {count} reviews" }, { rating: (listing.seller.ratingAvgBps / 100).toFixed(1) })}`}
                   </p>
 
                   {listing.seller.bio && (
@@ -415,7 +426,7 @@ export default async function ListingPage({ params }: { params: Params }) {
                       {sellerTrust.badges.map((badge) => (
                         <li key={badge}>
                           <Badge tone="success" size="sm" icon={<ShieldCheck className="size-3" aria-hidden />}>
-                            {badge}
+                            {t(badge)}
                           </Badge>
                         </li>
                       ))}
@@ -429,10 +440,10 @@ export default async function ListingPage({ params }: { params: Params }) {
           {reviews.items.length > 0 && (
             <section className="mt-8">
               <h2 className="font-display text-xl font-semibold text-fg">
-                Reviews of this seller
+                {t("Reviews of this seller")}
               </h2>
               <p className="mt-1 text-sm text-fg-muted">
-                Only people who completed a transaction on PetMate can leave one.
+                {t("Only people who completed a transaction on PetMate can leave one.")}
               </p>
               <div className="mt-3">
                 <ReviewList reviews={reviews.items} />
@@ -443,14 +454,12 @@ export default async function ListingPage({ params }: { params: Params }) {
           <section className="mt-8">
             <Alert
               tone="info"
-              title="Staying safe"
+              title={t("Staying safe")}
               icon={<Lock className="size-4" aria-hidden />}
             >
-              Keep messages and payment on PetMate. Your money is held in escrow until you have met{" "}
-              {listing.pet.name} and confirmed the handover. Anyone asking you to pay by bank
-              transfer, gift card or crypto is running a scam —{" "}
+              {t("Keep messages and payment on PetMate. Your money is held in escrow until you have met {name} and confirmed the handover. Anyone asking you to pay by bank transfer, gift card or crypto is running a scam —", { name: listing.pet.name })}{" "}
               <Link href="/trust" className="font-semibold underline">
-                read how this works
+                {t("read how this works")}
               </Link>
               .
             </Alert>
@@ -491,7 +500,7 @@ export default async function ListingPage({ params }: { params: Params }) {
       {similar.items.filter((l) => l.id !== listing.id).length > 0 && (
         <section className="mt-16">
           <h2 className="font-display text-2xl font-semibold tracking-tight text-fg">
-            Similar {SPECIES_LABEL[listing.pet.species as Species].toLowerCase()}s
+            {t("Similar {species}", { species: t(SPECIES_PLURAL[listing.pet.species as Species]).toLowerCase() })}
           </h2>
           <div className="mt-5">
             <ListingGrid>
@@ -548,13 +557,14 @@ export default async function ListingPage({ params }: { params: Params }) {
   );
 }
 
-function HealthPanel({
+async function HealthPanel({
   health,
   pet,
 }: {
   health: Awaited<ReturnType<typeof getPublicHealthSummary>>;
   pet: { healthScore: number; name: string; verificationLevel: string };
 }) {
+  const { t, fmt } = await getI18n();
   const tone =
     pet.healthScore >= 75 ? "success" : pet.healthScore >= 45 ? "warning" : "danger";
 
@@ -564,45 +574,45 @@ function HealthPanel({
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border)] bg-bg-sunken px-5 py-3.5">
           <h2 className="flex items-center gap-2 font-display text-base font-semibold text-fg">
             <Stethoscope className="size-4 text-brand" aria-hidden />
-            Health record
+            {t("Health record")}
           </h2>
           <StatusPill tone={tone}>
             {pet.healthScore >= 75
-              ? "Well documented"
+              ? t("Well documented")
               : pet.healthScore >= 45
-                ? "Partly documented"
+                ? t("Partly documented")
                 : health.recordCount > 0
-                  ? "Little documentation"
-                  : "No records yet"}
+                  ? t("Little documentation")
+                  : t("No records yet")}
           </StatusPill>
         </div>
 
         <div className="grid gap-px bg-[var(--border)] sm:grid-cols-3">
           <HealthStat
-            label="Vaccinations"
+            label={t("Vaccinations")}
             value={
               health.vaccinated
                 ? health.vaccinationsCurrent
-                  ? "Up to date"
-                  : "Overdue"
-                : "None recorded"
+                                    ? t("Up to date")
+                  : t("Overdue")
+                : t("None recorded")
             }
             tone={health.vaccinated ? (health.vaccinationsCurrent ? "good" : "warn") : "none"}
             icon={<Syringe className="size-4" aria-hidden />}
           />
           <HealthStat
-            label="Clinic-verified entries"
+            label={t("Clinic-verified entries")}
             value={
               health.clinicVerifiedCount > 0
-                ? `${health.clinicVerifiedCount} of ${health.recordCount}`
-                : "None"
+                ? t("{count} of {total}", { count: health.clinicVerifiedCount, total: health.recordCount })
+                : t("None")
             }
             tone={health.clinicVerifiedCount > 0 ? "good" : "none"}
             icon={<BadgeCheck className="size-4" aria-hidden />}
           />
           <HealthStat
-            label="Last check-up"
-            value={health.lastCheckupAt ? formatDate(health.lastCheckupAt) : "Not recorded"}
+            label={t("Last check-up")}
+            value={health.lastCheckupAt ? fmt.date(health.lastCheckupAt) : t("Not recorded")}
             tone={health.lastCheckupAt ? "good" : "none"}
             icon={<CalendarDays className="size-4" aria-hidden />}
           />
@@ -613,20 +623,20 @@ function HealthPanel({
             {health.clinicVerifiedCount > 0 ? (
               <>
                 <span className="font-semibold text-fg">
-                  {health.clinicVerifiedCount} {health.clinicVerifiedCount === 1 ? "entry was" : "entries were"} written by a clinic
+                  {t.plural(health.clinicVerifiedCount, { one: "{count} entry was written by a clinic", other: "{count} entries were written by a clinic" })}
                 </span>{" "}
-                through its own PetMate account, not typed in by the seller. The full record
-                transfers to you on completion.
+                {t("through its own PetMate account, not typed in by the seller. The full record transfers to you on completion.")}
               </>
             ) : health.recordCount > 0 ? (
               <>
-                All {health.recordCount} entries were added by the owner and have not been
-                confirmed by a clinic. Ask to see the original paperwork before you commit.
+                {t.plural(health.recordCount, {
+                  one: "The {count} entry was added by the owner and has not been confirmed by a clinic. Ask to see the original paperwork before you commit.",
+                  other: "All {count} entries were added by the owner and have not been confirmed by a clinic. Ask to see the original paperwork before you commit.",
+                })}
               </>
             ) : (
               <>
-                No health records have been added. That is not necessarily a red flag for a very
-                young animal, but ask what veterinary care has been given.
+                {t("No health records have been added. That is not necessarily a red flag for a very young animal, but ask what veterinary care has been given.")}
               </>
             )}
           </p>
@@ -660,7 +670,7 @@ function HealthStat({
           }
         >
           {icon}
-        </span>
+                </span>
         {label}
       </p>
       <p className="mt-1 text-sm font-semibold text-fg">{value}</p>

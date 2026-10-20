@@ -322,6 +322,32 @@
     text-wrap: balance;
   }
 
+  /* Arabic ----------------------------------------------------------------
+     Arabic letters join, so any letter-spacing breaks the words apart, and
+     the Latin stylistic sets above mean nothing to an Arabic face. The Latin
+     faces stay in each stack so an English brand name or a number inside an
+     Arabic sentence still renders in the product's own type. */
+  html[lang="ar"] {
+    --font-display: var(--font-arabic-display), var(--font-outfit), ui-sans-serif, system-ui, sans-serif;
+    --font-sans: var(--font-arabic), var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
+  }
+  html[lang="ar"] body {
+    font-feature-settings: normal;
+    line-height: 1.7;
+  }
+  html[lang="ar"] :is(h1, h2, h3, h4, .font-display) {
+    letter-spacing: 0;
+    line-height: 1.4;
+  }
+  html[lang="ar"] [class*="tracking-"] {
+    letter-spacing: 0;
+  }
+
+  /* Arrows and chevrons point along the reading direction. */
+  [dir="rtl"] .flip-rtl {
+    transform: scaleX(-1);
+  }
+
   p {
     text-wrap: pretty;
   }
@@ -495,8 +521,12 @@
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
-    /* Tracking adds trailing space after the last letter; this cancels it. */
-    margin-right: -0.2em;
+    /* The wordmark is Latin in both languages, so it always runs left to
+       right. Tracking adds trailing space after the last letter; the negative
+       end margin cancels it. */
+    direction: ltr;
+    unicode-bidi: isolate;
+    margin-inline-end: -0.2em;
   }
 
   /* Draw-on animation for the mark: cat, then dog, then the ear loop. */
@@ -598,13 +628,17 @@
   }
 
   /* Skip link — present on every page, visible only on keyboard focus. */
+  /* Parked off the start edge, which is the unscrollable side in both
+     directions. A physical `left: -9999px` is unreachable in LTR but is the
+     scrollable side in RTL, where it gave every Arabic page ten thousand
+     pixels of sideways scroll. */
   .skip-link {
     position: absolute;
-    left: -9999px;
+    inset-inline-start: -9999px;
     z-index: 100;
   }
   .skip-link:focus {
-    left: 1rem;
+    inset-inline-start: 1rem;
     top: 1rem;
     padding: 0.75rem 1rem;
     background: var(--brand);
@@ -707,6 +741,10 @@
     width: max-content;
     animation: marquee var(--marquee-speed, 40s) linear infinite;
   }
+  /* In RTL the track overflows to the left, so it travels the other way. */
+  [dir="rtl"] .marquee-track {
+    animation-name: marquee-rtl;
+  }
   .marquee:hover .marquee-track {
     animation-play-state: paused;
   }
@@ -724,6 +762,13 @@
   }
   .animate-slide-in-right {
     animation: slideInRight 420ms var(--ease-out-soft) both;
+  }
+  /* Slides in from the end edge: the right in LTR, the left in RTL. */
+  .animate-slide-in-end {
+    animation: slideInRight 420ms var(--ease-out-soft) both;
+  }
+  [dir="rtl"] .animate-slide-in-end {
+    animation-name: slideInLeft;
   }
   .animate-slide-up {
     animation: slideUp 460ms var(--ease-out-soft) both;
@@ -826,6 +871,10 @@
   from { transform: translateX(100%); }
   to { transform: none; }
 }
+@keyframes slideInLeft {
+  from { transform: translateX(-100%); }
+  to { transform: none; }
+}
 @keyframes slideUp {
   from { transform: translateY(100%); opacity: 0.6; }
   to { transform: none; opacity: 1; }
@@ -850,6 +899,9 @@
 }
 @keyframes marquee {
   to { transform: translateX(-50%); }
+}
+@keyframes marquee-rtl {
+  to { transform: translateX(50%); }
 }
 @keyframes shimmer {
   0% { background-position: 100% 0; }

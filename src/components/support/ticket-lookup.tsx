@@ -6,6 +6,7 @@ import { Ticket } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/field";
 import { Card } from "@/components/ui/primitives";
+import { useI18n } from "@/components/i18n/i18n-provider";
 
 /**
  * Jumps to an existing ticket.
@@ -15,6 +16,7 @@ import { Card } from "@/components/ui/primitives";
  * navigation shortcut and deliberately does no lookup of its own.
  */
 export function TicketLookup({ signedIn }: { signedIn: boolean }) {
+  const { t } = useI18n();
   const router = useRouter();
   const [reference, setReference] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -33,10 +35,10 @@ export function TicketLookup({ signedIn }: { signedIn: boolean }) {
     <Card className="p-5">
       <div className="flex items-center gap-2">
         <Ticket className="size-4 text-fg-subtle" aria-hidden />
-        <h3 className="text-sm font-semibold text-fg">Track a request</h3>
+        <h3 className="text-sm font-semibold text-fg">{t("Track a request")}</h3>
       </div>
       <form onSubmit={onSubmit} className="mt-3 space-y-3" noValidate>
-        <Field label="Reference" error={error}>
+        <Field label={t("Reference")} error={error}>
           {({ id, invalid }) => (
             <Input
               id={id}
@@ -52,14 +54,14 @@ export function TicketLookup({ signedIn }: { signedIn: boolean }) {
           )}
         </Field>
         <Button type="submit" variant="outline" size="sm" fullWidth>
-          Open
+          {t("Open")}
         </Button>
       </form>
       {signedIn && (
         <p className="mt-3 text-xs text-fg-subtle">
-          Your previous requests are listed in{" "}
+          {t("Your previous requests are listed in")}{" "}
           <a href="/settings/support" className="font-medium text-brand hover:underline">
-            Settings → Support
+            {t("Settings → Support")}
           </a>
           .
         </p>

@@ -10,12 +10,16 @@ import {
 } from "@/lib/services/support.service";
 import { SupportThread, type ThreadTicket } from "@/components/support/support-thread";
 import { Breadcrumbs } from "@/components/ui/primitives";
+import { getI18n } from "@/lib/i18n/server";
 
-export const metadata: Metadata = {
-  title: "Support request",
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return {
+  title: t("Support request"),
   // A ticket is private to two parties; it has no business in an index.
   robots: { index: false, follow: false },
 };
+}
 
 const REFERENCE = /^SUP-[A-Z0-9]{4,16}$/;
 
@@ -24,6 +28,7 @@ export default async function SupportTicketPage({
 }: {
   params: Promise<{ reference: string }>;
 }) {
+  const { t } = await getI18n();
   const [{ reference }, auth] = await Promise.all([params, getAuth()]);
 
   const ref = reference.toUpperCase();
@@ -72,7 +77,7 @@ export default async function SupportTicketPage({
         </>
       ) : (
         <h1 className="mt-4 font-display text-3xl font-semibold tracking-tight text-fg">
-          Your support request
+          {t("Your support request")}
         </h1>
       )}
 

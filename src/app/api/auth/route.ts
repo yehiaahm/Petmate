@@ -10,6 +10,7 @@ import {
   requestPasswordReset,
   resetPassword,
 } from "@/lib/services/auth.service";
+import { completeTwoFactorLogin } from "@/lib/services/two-factor.service";
 import { destroySession, getAuth } from "@/lib/auth/session";
 import { emailSchema, passwordSchema, safeText } from "@/lib/validation/common";
 
@@ -36,6 +37,11 @@ const bodySchema = z.discriminatedUnion("action", [
     email: emailSchema,
     password: z.string().min(1).max(200),
   }),
+  z.object({
+    action: z.literal("login-2fa"),
+    challenge: z.string().min(20).max(200),
+    code: z.string().trim().min(6).max(20),
+  }),
   z.object({ action: z.literal("logout") }),
   z.object({ action: z.literal("verify-email"), token: z.string().min(10).max(200) }),
   z.object({ action: z.literal("resend-verification") }),
@@ -49,7 +55,7 @@ const bodySchema = z.discriminatedUnion("action", [
 
 export const POST = route({
   body: bodySchema,
-  async handler({ body, ip, userAgent }) {
+  async handler({ body, ip, userAgent, request }) {
     switch (body.action) {
       case "register": {
         await register({
@@ -60,6 +66,7 @@ export const POST = route({
           acceptedTerms: body.acceptedTerms,
           ip,
           userAgent,
+          referralCode: /(?:^|;\s*)pm_ref=([A-Z0-9]{5,12})(?:;|$)/.exec(request.headers.get("cookie") ?? "")?.[1] ?? null,
         });
         // Registration never signs the account in: confirming the email is the
         // first step, and it is also what proves the address is real.
@@ -70,12 +77,20 @@ export const POST = route({
       }
 
       case "login": {
-        const user = await login({
+        const result = await login({
           email: body.email,
           password: body.password,
           ip,
           userAgent,
         });
+        // With two-step sign-in on, the password earns a challenge, not a session.
+        return result.kind === "TWO_FACTOR"
+          ? { ok: true, twoFactorRequired: true, challenge: result.challenge }
+          : { ok: true, user: result.user };
+      }
+
+      case "login-2fa": {
+        const user = await completeTwoFactorLogin({ challenge: body.challenge, code: body.code, ip, userAgent });
         return { ok: true, user };
       }
 

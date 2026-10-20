@@ -1,11 +1,12 @@
 import "server-only";
 import { db } from "@/lib/db";
 import { boundingBox, haversineKm, ageInMonths } from "@/lib/utils";
-import { searchTextClauses, parseSearchTerms, relevanceScore } from "@/lib/search/text";
+import { searchTextClauses, parseSearchTerms, relevanceScore, cityVariants } from "@/lib/search/text";
 import { interpretQuery } from "@/lib/search/intent";
-import { LIMITS, PUBLIC_LISTING_STATUSES, type Species } from "@/lib/constants";
+import { LIMITS, PUBLIC_LISTING_STATUSES, SPECIES_LABEL, SPECIES_PLURAL, type Species } from "@/lib/constants";
 import { logger } from "@/lib/logger";
 import { features } from "@/lib/features";
+import { getVisibilityBoosts } from "@/lib/billing/entitlements";
 
 /**
  * Listing discovery.
@@ -15,8 +16,8 @@ import { features } from "@/lib/features";
  * location box) and only then applies the text match and in-memory ranking to a
  * bounded page. Nothing in this file scans the table.
  *
- * Ranking is explicit rather than magical: paid placement, then recency-decayed
- * quality, then relevance. A seller can read this and know what to improve,
+ * Ranking is explicit rather than magical: recency-decayed quality and
+ * relevance, multiplied by paid placement and the seller's plan boost. A seller can read this and know what to improve,
  * which is the only kind of ranking a marketplace can defend.
  */
 
@@ -181,7 +182,7 @@ async function runSearch(
     ...(params.sellerId ? { sellerId: params.sellerId } : {}),
     ...(params.excludeSellerId ? { sellerId: { not: params.excludeSellerId } } : {}),
     ...textWhere(textMatch ?? (params.query ? { text: params.query, mode: "and" as const } : undefined)),
-    ...(params.city ? { city: params.city } : {}),
+    ...(params.city ? { city: { in: cityVariants(params.city) } } : {}),
     ...(params.country ? { country: params.country } : {}),
     ...(params.minPriceCents != null || params.maxPriceCents != null
       ? {
@@ -275,6 +276,12 @@ async function runSearch(
       )
     : new Set<string>();
 
+  // Plan boosts only matter when the page is ranked in memory; a price or date
+  // sort is the order the buyer asked for and a subscription does not change it.
+  const boosts = needsPostRanking
+    ? await getVisibilityBoosts(rows.map((r) => r.seller.id))
+    : new Map<string, number>();
+
   let cards: (ListingCard & { _rank: number })[] = rows.map((row) => {
     const distanceKm =
       box && params.lat != null && params.lng != null && row.lat != null && row.lng != null
@@ -324,6 +331,7 @@ async function runSearch(
         sellerTrust: row.seller.trustScore,
         favoriteCount: row.favoriteCount,
         distanceKm,
+        planBoost: boosts.get(row.seller.id) ?? 1,
         relevance: params.query
           ? relevanceScore(params.query, { title: row.title, secondary: row.description })
           : 0,
@@ -396,7 +404,8 @@ async function runSearch(
  * Paid placement is a multiplier rather than an override: a featured listing
  * with no photos and an untrusted seller still loses to a great organic one.
  * Selling visibility is fine; selling the ability to outrank quality is how a
- * marketplace rots.
+ * marketplace rots. The same holds for a plan's boost, which is capped at
+ * `MAX_VISIBILITY_BOOST` in the entitlements module.
  */
 /** Text predicate: every term (and) or at least one term (or). Empty text adds nothing. */
 function textWhere(match?: { text: string; mode: "and" | "or" }) {
@@ -406,8 +415,10 @@ function textWhere(match?: { text: string; mode: "and" | "or" }) {
   return match.mode === "and" ? { AND: clauses } : { OR: clauses };
 }
 
-function rankScore(input: {
+export function rankScore(input: {
   featured: boolean;
+  /** The seller's plan multiplier; 1 for the free tier. */
+  planBoost?: number;
   publishedAt: Date | null;
   healthScore: number;
   verificationLevel: string;
@@ -444,6 +455,7 @@ function rankScore(input: {
     score += Math.max(0, 20 - input.distanceKm / 10);
   }
 
+  score *= input.planBoost ?? 1;
   return input.featured ? score * 1.35 : score;
 }
 
@@ -549,7 +561,7 @@ export async function searchSuggestions(query: string, limit = 8) {
     ...breeds.map((b) => ({
       type: "breed" as const,
       label: b.name,
-      sublabel: b.species,
+      sublabel: SPECIES_LABEL[b.species as Species] ?? b.species,
       href: `/breeds/${b.slug}`,
     })),
     ...listings.map((l) => ({
@@ -586,7 +598,7 @@ export async function searchSuggestions(query: string, limit = 8) {
 export async function getRecommendedListings(
   userId: string | null,
   opts: { limit?: number; lat?: number | null; lng?: number | null; country?: string | null } = {},
-): Promise<{ items: ListingCard[]; personalised: boolean; basis: string }> {
+): Promise<{ items: ListingCard[]; personalised: boolean; basis: string; interests?: string[] }> {
   const limit = opts.limit ?? 12;
 
   if (!userId) {
@@ -684,16 +696,22 @@ export async function getRecommendedListings(
   const seen = new Set(interactedIds);
   const fresh = results.items.filter((l) => !seen.has(l.id)).slice(0, limit);
 
-  const basisParts: string[] = [];
+    const basisParts: string[] = [];
   if (topSpecies.length) {
     basisParts.push(topSpecies.map((s) => s.toLowerCase().replace("_", " ")).join(" and "));
   }
   if (breedIds.size) basisParts.push("breeds you have looked at");
+  // The same reasons as phrases a screen can translate one by one.
+  const interests = [
+    ...topSpecies.map((s) => SPECIES_PLURAL[s as Species] ?? s),
+    ...(breedIds.size ? ["breeds you have looked at"] : []),
+  ];
 
   return {
     items: fresh.length ? fresh : results.items.slice(0, limit),
     personalised: true,
     basis: basisParts.length ? `Based on your interest in ${basisParts.join(", ")}` : "Picked for you",
+    interests,
   };
 }
 
@@ -811,7 +829,7 @@ export async function runSavedSearches(limit = 50): Promise<number> {
           publishedAt: { gt: since },
           ...(filters.intent ? { intent: filters.intent } : {}),
           ...(filters.country ? { country: filters.country } : {}),
-          ...(filters.city ? { city: filters.city } : {}),
+          ...(filters.city ? { city: { in: cityVariants(filters.city) } } : {}),
           ...(filters.species?.length ? { pet: { species: { in: filters.species } } } : {}),
           ...(filters.maxPriceCents ? { priceCents: { lte: filters.maxPriceCents } } : {}),
         },

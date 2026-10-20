@@ -1,12 +1,16 @@
 import type { Metadata } from "next";
 import { LegalPage, type LegalSection } from "@/components/legal/legal-page";
+import { getI18n } from "@/lib/i18n/server";
 
-export const metadata: Metadata = {
-  title: "Privacy policy",
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return {
+  title: t("Privacy policy"),
   description:
-    "What PetMate collects, why, who can see it, how long we keep it, and how to get it deleted.",
+    t("What PetMate collects, why, who can see it, how long we keep it, and how to get it deleted."),
   alternates: { canonical: "/privacy" },
 };
+}
 
 const sections: LegalSection[] = [
   {
@@ -100,8 +104,10 @@ const sections: LegalSection[] = [
   {
     heading: "Cookies",
     paragraphs: [
-      "We use two: a session cookie that keeps you signed in, and a CSRF token that stops another site submitting forms as you. Both are strictly necessary for the service to work.",
-      "We do not use advertising or cross-site tracking cookies, which is why you are not being asked to dismiss a consent banner.",
+      "Without asking, we use only these: a session cookie that keeps you signed in, a CSRF token that stops another site submitting forms as you, a cookie that remembers the language you chose, and one that remembers your cookie choice. The service needs them to work as you set it up.",
+      "Sponsored placements on PetMate are chosen by the page they appear on, never by who is looking. To count an ad once per visitor we use a one-way hash of the CSRF token, kept for at most 30 minutes and never linked to your account.",
+      "Analytics cookies from Google Analytics and the Meta Pixel are used only if you allow them in the cookie choice, to measure which of our adverts bring people to PetMate. They receive the pages you visit and, for purchases, the amount and an order reference; never your name, email, phone number or address. You can change your choice at any time from \"Cookie settings\" at the bottom of every page.",
+      "Errors that happen on our servers or in your browser are reported to our error-monitoring service (Sentry) with the technical details needed to fix them. Passwords, tokens, cookies and contact details are removed before anything is sent.",
     ],
   },
   {
@@ -112,11 +118,12 @@ const sections: LegalSection[] = [
   },
 ];
 
-export default function PrivacyPage() {
+export default async function PrivacyPage() {
+  const { t, fmt } = await getI18n();
   return (
     <LegalPage
-      title="Privacy policy"
-      updated="20 September 2026"
+      title={t("Privacy policy")}
+      updated={fmt.date("2026-09-20T12:00:00Z", "long")}
       intro="This explains what PetMate collects, why, and what control you have. It is written to be specific: where we say 'not public', that is enforced in code, not policy."
       sections={sections}
     />

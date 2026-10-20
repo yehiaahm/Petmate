@@ -53,6 +53,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   }
   if (can("admin:finance")) {
     operations.push({ href: "/admin/finance", label: "Finance", icon: "landmark", badge: counts.payouts });
+    operations.push({ href: "/admin/coupons", label: "Coupons", icon: "tag" });
   }
 
   const dataSections: NavSection[] = RESOURCE_GROUPS.map((group) => ({

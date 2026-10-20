@@ -8,6 +8,7 @@ import { Field, Input, Select, Textarea, Checkbox } from "@/components/ui/field"
 import { Alert } from "@/components/ui/primitives";
 import { useToast } from "@/components/ui/toast";
 import { api, ApiError } from "@/lib/api-client";
+import { useI18n } from "@/components/i18n/i18n-provider";
 
 /**
  * Adoption application.
@@ -30,6 +31,7 @@ export function AdoptionApplicationForm({
   petName: string;
   questions: { id: string; prompt: string; required: boolean }[];
 }) {
+  const { t } = useI18n();
   const router = useRouter();
   const toast = useToast();
 
@@ -85,7 +87,7 @@ export function AdoptionApplicationForm({
 
       onClose();
       toast.success(
-        "Application sent",
+        t("Application sent"),
         `${petName}'s current owner will be in touch. You can follow it under your applications.`,
       );
       router.push("/dashboard/applications");
@@ -115,13 +117,13 @@ export function AdoptionApplicationForm({
     <Modal
       open={open}
       onClose={onClose}
-      title={`Apply to adopt ${petName}`}
-      description={`Step ${step} of 2 · ${step === 1 ? "Your household" : "About you"}`}
+      title={t("Apply to adopt {petName}", { petName })}
+      description={t("Step {step} of 2 · {section}", { step, section: step === 1 ? t("Your household") : t("About you") })}
       size="lg"
     >
       <div className="space-y-5">
         {error && (
-          <Alert tone="danger" title="Check your answers">
+          <Alert tone="danger" title={t("Check your answers")}>
             {error}
           </Alert>
         )}
@@ -129,12 +131,11 @@ export function AdoptionApplicationForm({
         {step === 1 ? (
           <>
             <Alert tone="info">
-              These questions are what most rescues decide on. Answer honestly — a mismatch found
-              now is far better than a pet returned in three months.
+              {t("These questions are what most rescues decide on. Answer honestly — a mismatch found now is far better than a pet returned in three months.")}
             </Alert>
 
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Your home" required error={fieldErrors.homeType}>
+              <Field label={t("Your home")} required error={fieldErrors.homeType}>
                 {({ id, invalid }) => (
                   <Select
                     id={id}
@@ -142,18 +143,18 @@ export function AdoptionApplicationForm({
                     value={form.homeType}
                     onChange={(e) => set("homeType", e.target.value as typeof form.homeType)}
                   >
-                    <option value="HOUSE">House</option>
-                    <option value="APARTMENT">Apartment</option>
-                    <option value="FARM">Farm or smallholding</option>
-                    <option value="OTHER">Something else</option>
+                    <option value="HOUSE">{t("House")}</option>
+                    <option value="APARTMENT">{t("Apartment")}</option>
+                    <option value="FARM">{t("Farm or smallholding")}</option>
+                    <option value="OTHER">{t("Something else")}</option>
                   </Select>
                 )}
               </Field>
 
               <Field
-                label="Hours alone on a typical day"
+                label={t("Hours alone on a typical day")}
                 required
-                hint="Be realistic, not aspirational."
+                hint={t("Be realistic, not aspirational.")}
                 error={fieldErrors.hoursAloneDaily}
               >
                 {({ id, invalid }) => (
@@ -172,17 +173,17 @@ export function AdoptionApplicationForm({
 
             <div className="space-y-3">
               <Checkbox
-                label="I have a secure garden or yard"
+                label={t("I have a secure garden or yard")}
                 checked={form.hasYard}
                 onChange={(e) => set("hasYard", e.target.checked)}
               />
               <Checkbox
-                label="I already have other pets"
+                label={t("I already have other pets")}
                 checked={form.hasOtherPets}
                 onChange={(e) => set("hasOtherPets", e.target.checked)}
               />
               {form.hasOtherPets && (
-                <Field label="Tell us about them">
+                <Field label={t("Tell us about them")}>
                   {({ id }) => (
                     <Textarea
                       id={id}
@@ -190,59 +191,59 @@ export function AdoptionApplicationForm({
                       maxLength={500}
                       value={form.otherPetsInfo}
                       onChange={(e) => set("otherPetsInfo", e.target.value)}
-                      placeholder="Two neutered cats, 6 and 9, both used to dogs."
+                      placeholder={t("Two neutered cats, 6 and 9, both used to dogs.")}
                     />
                   )}
                 </Field>
               )}
               <Checkbox
-                label="There are children in the home"
+                label={t("There are children in the home")}
                 checked={form.hasChildren}
                 onChange={(e) => set("hasChildren", e.target.checked)}
               />
               {form.hasChildren && (
-                <Field label="Their ages">
+                <Field label={t("Their ages")}>
                   {({ id }) => (
                     <Input
                       id={id}
                       maxLength={100}
                       value={form.childrenAges}
                       onChange={(e) => set("childrenAges", e.target.value)}
-                      placeholder="4 and 9"
+                      placeholder={t("4 and 9")}
                     />
                   )}
                 </Field>
               )}
             </div>
 
-            <Field label="Your experience with animals" required>
+            <Field label={t("Your experience with animals")} required>
               {({ id }) => (
                 <Select
                   id={id}
                   value={form.experienceLevel}
                   onChange={(e) => set("experienceLevel", e.target.value as typeof form.experienceLevel)}
                 >
-                  <option value="FIRST_TIME">This would be my first pet</option>
-                  <option value="SOME">I have had pets before</option>
-                  <option value="EXPERIENCED">I have kept this species for years</option>
+                  <option value="FIRST_TIME">{t("This would be my first pet")}</option>
+                  <option value="SOME">{t("I have had pets before")}</option>
+                  <option value="EXPERIENCED">{t("I have kept this species for years")}</option>
                 </Select>
               )}
             </Field>
 
             <div className="flex justify-end gap-2 pt-1">
               <Button variant="ghost" onClick={onClose}>
-                Cancel
+                {t("Cancel")}
               </Button>
               <Button onClick={() => setStep(2)} disabled={!canContinue}>
-                Continue
+                {t("Continue")}
               </Button>
             </div>
           </>
         ) : (
           <>
             <Field
-              label="Pets you have had before"
-              hint="What happened to them is the question behind this one."
+              label={t("Pets you have had before")}
+              hint={t("What happened to them is the question behind this one.")}
             >
               {({ id }) => (
                 <Textarea
@@ -251,15 +252,15 @@ export function AdoptionApplicationForm({
                   maxLength={1000}
                   value={form.previousPets}
                   onChange={(e) => set("previousPets", e.target.value)}
-                  placeholder="A collie cross from 2009 until she died of old age in 2022."
+                  placeholder={t("A collie cross from 2009 until she died of old age in 2022.")}
                 />
               )}
             </Field>
 
             <Field
-              label={`Why ${petName}?`}
+              label={t("Why {petName}?", { petName })}
               required
-              hint="At least 50 characters. Say what your days look like and where they would fit."
+              hint={t("At least 50 characters. Say what your days look like and where they would fit.")}
               error={fieldErrors.motivation}
               trailing={`${form.motivation.length}/2000`}
             >
@@ -271,7 +272,7 @@ export function AdoptionApplicationForm({
                   maxLength={2000}
                   value={form.motivation}
                   onChange={(e) => set("motivation", e.target.value)}
-                  placeholder={`I work from home four days a week and walk every morning. ${petName}'s description sounds like the quiet companion I am looking for, and I have the time to let her settle at her own pace.`}
+                  placeholder={t("I work from home four days a week and walk every morning. {petName}'s description sounds like the quiet companion I am looking for, and I have the time to let her settle at her own pace.", { petName })}
                 />
               )}
             </Field>
@@ -298,23 +299,23 @@ export function AdoptionApplicationForm({
             ))}
 
             <Checkbox
-              label="I understand this is a long-term commitment"
-              hint={`If my circumstances change, I will contact ${petName}'s rescue rather than rehoming privately.`}
+              label={t("I understand this is a long-term commitment")}
+              hint={t("If my circumstances change, I will contact {petName}'s rescue rather than rehoming privately.", { petName })}
               checked={form.agreedToTerms}
               onChange={(e) => set("agreedToTerms", e.target.checked)}
             />
 
             <div className="flex justify-between gap-2 pt-1">
               <Button variant="ghost" onClick={() => setStep(1)}>
-                Back
+                {t("Back")}
               </Button>
               <Button
                 onClick={() => void submit()}
                 loading={submitting}
-                loadingText="Sending…"
+                loadingText={t("Sending…")}
                 disabled={!canSubmit}
               >
-                Send application
+                {t("Send application")}
               </Button>
             </div>
           </>

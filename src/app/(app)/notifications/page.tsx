@@ -3,13 +3,18 @@ import { requireAuth } from "@/lib/auth/rbac";
 import { listNotifications, unreadNotificationCount } from "@/lib/services/notification.service";
 import { NotificationFeed } from "@/components/notifications/notification-feed";
 import { PageHeader } from "@/components/ui/primitives";
+import { getI18n } from "@/lib/i18n/server";
 
-export const metadata: Metadata = {
-  title: "Notifications",
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return {
+  title: t("Notifications"),
   robots: { index: false, follow: false },
 };
+}
 
 export default async function NotificationsPage() {
+  const { t } = await getI18n();
   const auth = await requireAuth();
 
   const [notifications, unread] = await Promise.all([
@@ -20,11 +25,11 @@ export default async function NotificationsPage() {
   return (
     <div className="container-page max-w-3xl py-8 lg:py-10">
       <PageHeader
-        title="Notifications"
+        title={t("Notifications")}
         description={
           unread > 0
-            ? `${unread} unread. Marking them read here does not change your email settings.`
-            : "You are up to date."
+            ? t("{count} unread. Marking them read here does not change your email settings.", { count: unread })
+            : t("You are up to date.")
         }
       />
 

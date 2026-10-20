@@ -9,6 +9,7 @@ import { ButtonLink } from "@/components/ui/button";
 import { HealthTimeline } from "@/components/pets/health-timeline";
 import type { Species } from "@/lib/constants";
 import { features } from "@/lib/features";
+import { getI18n } from "@/lib/i18n/server";
 
 type Params = Promise<{ id: string }>;
 
@@ -22,6 +23,7 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
 }
 
 export default async function PetHealthPage({ params }: { params: Params }) {
+  const { t } = await getI18n();
   const { id } = await params;
   const auth = await requireAuth();
 
@@ -45,14 +47,14 @@ export default async function PetHealthPage({ params }: { params: Params }) {
       />
 
       <PageHeader
-        eyebrow="Lifelong record"
-        title={`${timeline.pet.name}'s health record`}
-        description="This record follows the animal for life. If they are ever rehomed or sold through PetMate, it goes with them."
+        eyebrow={t("Lifelong record")}
+        title={t("{name}'s health record", { name: timeline.pet.name })}
+        description={t("This record follows the animal for life. If they are ever rehomed or sold through PetMate, it goes with them.")}
         action={
           features.clinics ? (
             <ButtonLink href="/clinics" variant="outline">
               <Stethoscope className="size-4" aria-hidden />
-              Book a vet
+              {t("Book a vet")}
             </ButtonLink>
           ) : undefined
         }
@@ -61,30 +63,30 @@ export default async function PetHealthPage({ params }: { params: Params }) {
       <div className="mt-6 grid gap-4 sm:grid-cols-3">
         <Card className="p-4">
           <p className="text-xs font-medium uppercase tracking-wider text-fg-subtle">
-            Documentation
+            {t("Documentation")}
           </p>
           <p className="mt-1 font-display text-2xl font-semibold tabular text-fg">
             {timeline.pet.healthScore}
           </p>
           <StatusPill tone={health.tone} className="mt-1.5">
-            {health.label}
+            {t(health.label)}
           </StatusPill>
         </Card>
 
         <Card className="p-4">
           <p className="text-xs font-medium uppercase tracking-wider text-fg-subtle">
-            Clinic verified
+            {t("Clinic verified")}
           </p>
           <p className="mt-1 font-display text-2xl font-semibold tabular text-fg">
             {timeline.summary.clinicVerifiedCount}
           </p>
           <p className="mt-1.5 text-xs text-fg-muted">
-            of {timeline.records.length} {timeline.records.length === 1 ? "entry" : "entries"}
+            {t.plural(timeline.records.length, { one: "of {count} entry", other: "of {count} entries" })}
           </p>
         </Card>
 
         <Card className="p-4">
-          <p className="text-xs font-medium uppercase tracking-wider text-fg-subtle">Overdue</p>
+          <p className="text-xs font-medium uppercase tracking-wider text-fg-subtle">{t("Overdue")}</p>
           <p
             className={`mt-1 font-display text-2xl font-semibold tabular ${
               timeline.summary.overdueCount > 0 ? "text-[var(--danger)]" : "text-fg"
@@ -93,7 +95,7 @@ export default async function PetHealthPage({ params }: { params: Params }) {
             {timeline.summary.overdueCount}
           </p>
           <p className="mt-1.5 text-xs text-fg-muted">
-            {timeline.summary.vaccinationsUpToDate ? "Vaccinations current" : "Check vaccinations"}
+            {timeline.summary.vaccinationsUpToDate ? t("Vaccinations current") : t("Check vaccinations")}
           </p>
         </Card>
       </div>
@@ -101,8 +103,7 @@ export default async function PetHealthPage({ params }: { params: Params }) {
       {timeline.summary.ownerReportedCount > 0 && timeline.summary.clinicVerifiedCount === 0 && (
         <div className="mt-5">
           <Alert tone="info" icon={<Info className="size-4" aria-hidden />}>
-            Every entry here is self-reported. Booking through PetMate means the clinic writes
-            directly into this record, and those entries carry a verified mark that buyers trust.
+            {t("Every entry here is self-reported. Booking through PetMate means the clinic writes directly into this record, and those entries carry a verified mark that buyers trust.")}
           </Alert>
         </div>
       )}

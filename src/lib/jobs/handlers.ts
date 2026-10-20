@@ -12,6 +12,11 @@ import { awardAccountAgeSignals } from "@/lib/services/trust.service";
 import { pruneAuthArtifacts } from "@/lib/services/auth.service";
 import { pruneAnalytics } from "@/lib/services/analytics.service";
 import { autoReleaseEscrow } from "@/lib/services/petorder.service";
+import { autoReleaseBreedingFee } from "@/lib/services/breeding-fee.service";
+import { settleFinishedCampaigns } from "@/lib/services/ad.service";
+import { processMessageQueue } from "@/lib/messaging";
+import { qualifyReferrals } from "@/lib/services/referral.service";
+import { bookCarrierShipment, syncCarrierShipments } from "@/lib/services/carrier.service";
 import { cancelOrder } from "@/lib/services/commerce.service";
 import { expireSubscription } from "@/lib/services/subscription.service";
 import { releaseSellerHold, releaseClinicHold, releaseCareEarnings } from "@/lib/payments/settlement";
@@ -111,6 +116,36 @@ const handlers: Record<JobType, Handler> = {
     if (!petOrderId) return "missing petOrderId";
     await autoReleaseEscrow(petOrderId);
     return "checked";
+  },
+
+  async "breeding.releaseFee"(payload) {
+    const requestId = String(payload.requestId ?? "");
+    if (!requestId) return "missing requestId";
+    return autoReleaseBreedingFee(requestId);
+  },
+
+  async "messages.process"() {
+    const { sent, failed } = await processMessageQueue();
+    return `${sent} sent, ${failed} failed`;
+  },
+
+  async "delivery.book"(payload) {
+    const deliveryId = String(payload.deliveryId ?? "");
+    if (!deliveryId) return "missing deliveryId";
+    return bookCarrierShipment(deliveryId);
+  },
+
+  async "delivery.sync"() {
+    return `${await syncCarrierShipments()} updated`;
+  },
+
+  async "referrals.qualify"() {
+    return `${await qualifyReferrals()} rewarded`;
+  },
+
+  async "ads.settle"() {
+    const closed = await settleFinishedCampaigns();
+    return `${closed} campaigns closed`;
   },
 
   async "payouts.release"(payload) {

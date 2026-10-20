@@ -6,12 +6,15 @@ import { requireAuth } from "@/lib/auth/rbac";
 import { db } from "@/lib/db";
 import { PageHeader, Card, Badge, EmptyState, Alert } from "@/components/ui/primitives";
 import { ButtonLink } from "@/components/ui/button";
-import { formatDate } from "@/lib/utils";
+import { getI18n } from "@/lib/i18n/server";
 
-export const metadata: Metadata = {
-  title: "Clinic console",
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return {
+  title: t("Clinic console"),
   robots: { index: false, follow: false },
 };
+}
 
 const STATUS_TONE: Record<string, "success" | "warning" | "danger" | "neutral"> = {
   ACTIVE: "success",
@@ -21,6 +24,7 @@ const STATUS_TONE: Record<string, "success" | "warning" | "danger" | "neutral"> 
 };
 
 export default async function ClinicIndexPage() {
+  const { t, fmt } = await getI18n();
   const auth = await requireAuth();
 
   // Ownership and membership both count: a vet who works at a clinic gets the
@@ -50,12 +54,12 @@ export default async function ClinicIndexPage() {
   return (
     <div className="container-page max-w-3xl py-8 lg:py-10">
       <PageHeader
-        title="Clinic console"
-        description="Calendars, patients and earnings for the practices you are part of."
+        title={t("Clinic console")}
+        description={t("Calendars, patients and earnings for the practices you are part of.")}
         action={
           <ButtonLink href="/clinic/new">
             <Plus className="size-4" aria-hidden />
-            Register a clinic
+            {t("Register a clinic")}
           </ButtonLink>
         }
       />
@@ -64,9 +68,9 @@ export default async function ClinicIndexPage() {
         {clinics.length === 0 ? (
           <EmptyState
             icon={<Stethoscope className="size-5" aria-hidden />}
-            title="You are not part of a clinic yet"
-            description="Register one and we will verify the licence before it goes live. That check is what makes the clinic-verified badge on health records mean anything."
-            action={<ButtonLink href="/clinic/new">Register your clinic</ButtonLink>}
+            title={t("You are not part of a clinic yet")}
+            description={t("Register one and we will verify the licence before it goes live. That check is what makes the clinic-verified badge on health records mean anything.")}
+            action={<ButtonLink href="/clinic/new">{t("Register your clinic")}</ButtonLink>}
           />
         ) : (
           <ul className="space-y-3">
@@ -83,18 +87,19 @@ export default async function ClinicIndexPage() {
                           </Badge>
                           {clinic.ownerUserId !== auth.user.id && (
                             <Badge tone="neutral" size="sm">
-                              staff
+                              {t("staff")}
                             </Badge>
                           )}
                         </div>
                         <p className="mt-0.5 text-sm text-fg-muted">
                           {[clinic.city, clinic.country].filter(Boolean).join(", ") ||
-                            "Location not set"}
+                            t("Location not set")}
                         </p>
                         <p className="mt-0.5 text-xs text-fg-subtle tabular">
-                          {clinic._count.appointments} appointments · {clinic._count.vets} vets ·{" "}
-                          {clinic._count.services} services · registered{" "}
-                          {formatDate(clinic.createdAt)}
+                          {t.plural(clinic._count.appointments, { one: "{count} appointment", other: "{count} appointments" })} ·{" "}
+                          {t.plural(clinic._count.vets, { one: "{count} vet", other: "{count} vets" })} ·{" "}
+                          {t.plural(clinic._count.services, { one: "{count} service", other: "{count} services" })} ·{" "}
+                          {t("registered {date}", { date: fmt.date(clinic.createdAt) })}
                         </p>
                       </div>
                     </div>
@@ -106,8 +111,7 @@ export default async function ClinicIndexPage() {
                         icon={<Clock className="size-4" aria-hidden />}
                       >
                         <p>
-                          Waiting on licence verification. You can set up services, vets and hours
-                          now; the clinic appears in search the moment it clears.
+                          {t("Waiting on licence verification. You can set up services, vets and hours now; the clinic appears in search the moment it clears.")}
                         </p>
                       </Alert>
                     )}
@@ -119,8 +123,7 @@ export default async function ClinicIndexPage() {
                         icon={<AlertTriangle className="size-4" aria-hidden />}
                       >
                         <p>
-                          Suspended. Existing appointments stand, but no new bookings can be made.
-                          Contact support to appeal.
+                          {t("Suspended. Existing appointments stand, but no new bookings can be made. Contact support to appeal.")}
                         </p>
                       </Alert>
                     )}

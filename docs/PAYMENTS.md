@@ -9,6 +9,13 @@ Every monetary value is an `Int` in the currency's minor unit. Field names end
 in `Cents`. There is no float arithmetic on money anywhere, and no `Decimal`
 column, because the schema has to run on SQLite too.
 
+There is one currency per deployment, `NEXT_PUBLIC_CURRENCY` (EGP for the
+Egyptian launch; see `src/lib/currency.ts`). There is no exchange-rate engine,
+and the ledger keeps a separate balance per currency, so a price in a second
+currency would not be converted — it would open a second, disconnected set of
+books. Price schemas therefore accept only the platform currency, and every
+balance, payout and report is read in it.
+
 Rates are basis points (`Bps`), 100 = 1%. `commissionBps(amountCents, bps)`
 rounds once, at the end, and the caller never does the arithmetic inline.
 
@@ -63,6 +70,88 @@ escrowed:
 money.** The two cannot come apart: there is no state where the seller has been
 paid but still owns the record, or the reverse.
 
+## Stud fees
+
+A paid breeding arrangement (`feeType = FEE`, `feeCents > 0`) settles through
+PetMate. The fee sits on the breeding request as `feeStatus`:
+
+```
+NONE ─ both agree paid terms ─▶ DUE ─ payer pays ─▶ HELD ─┬─ released ─▶ RELEASED
+                                                          ├─ cancelled ─▶ REFUNDED
+                                                          └─ reported ──▶ FROZEN ─ staff ─▶ RELEASED | REFUNDED
+```
+
+- The owner of the male is paid; the other owner pays, whoever sent the request.
+- Paying posts `ESCROW_HOLD` (gateway → escrow). Commission is the
+  `commissionBreedingBps` setting less the **stud owner's** plan
+  `commissionDiscountBps`, fixed on the request when checkout starts.
+- The breeding cannot be recorded as done while the fee is `DUE`.
+- Recorded by the payer: released at once. Recorded by the stud's owner: the
+  payer has a review window (the escrow setting, capped at 72 hours) and the
+  `breeding.releaseFee` job pays out when it closes.
+- Release posts `ESCROW_RELEASE` (escrow → commission + the stud owner's
+  available balance). Cancelling by the stud's owner refunds in full; the payer
+  cannot cancel a held fee, only report a problem, which freezes it and opens a
+  high-priority payment ticket. Staff decide it from Admin → Finance.
+- A payment that arrives after the fee stopped being owed is booked and
+  refunded straight away. A refund the gateway refuses leaves the fee
+  `REFUND_PENDING`, which staff retry from the same queue.
+
+## Advertising
+
+Self-serve campaigns (`/dashboard/advertising`) are paid up front and billed
+per thousand impressions at the price fixed when bought (`adCpm*Cents`).
+
+- Paying posts a `CHARGE` (gateway → platform revenue) and moves the campaign
+  from `DRAFT` to `PENDING_REVIEW`; a payment for a discarded draft is refunded.
+- Staff approve or reject from Admin → Moderation; rejecting refunds in full.
+- An impression is counted when half the ad has been on screen for a second,
+  once per visitor per campaign per 30 minutes (`countOnce`, which is never
+  disabled by configuration and fails closed), and at most 40 per network.
+- The campaign closes when its budget is delivered, its end date passes (the
+  `ads.settle` job) or the advertiser ends it. Undelivered budget is returned
+  to the advertiser's wallet with an `ADJUSTMENT` (revenue → user available).
+- Ads are selected by slot and even pacing only; no personal data is used.
+
+## Coupons and referrals
+
+PetMate funds every discount and referral reward from the
+`PLATFORM/PROMOTIONS` account, which runs negative by design; shops are always
+credited full price.
+
+- **Online order with a coupon:** gateway −(total − discount), revenue
+  +commission, shop +earnings (+shipping), promotions −discount.
+- **Cash on delivery:** the shop collects the discounted amount; at delivery
+  its balance is charged the commission and credited its share of the
+  discount (`OrderItem.discountCents`), and promotions is debited that share.
+- A coupon use is claimed inside the order's transaction with the usage cap in
+  the WHERE clause; cancelling the order releases it. Refunds of discounted
+  orders reverse through `clawBackOrderEarnings` and net to zero for the
+  platform.
+- **Referrals:** `/r/CODE` remembers the inviter for 30 days. The new member
+  gets a personal first-order code at sign-up. The `referrals.qualify` job
+  credits the inviter's wallet (promotions → user available) once the new
+  member's first order of at least `referralMinOrderCents` has been delivered
+  for 14 days and their phone is verified, up to `referralMonthlyCap` rewards
+  per 30 days.
+
+## Courier (Bosta)
+
+A shop can connect its own Bosta account (shop console → Courier). From then:
+
+- every new order's parcel for that shop is booked with Bosta by the
+  `delivery.book` job (not inside checkout), with `cod` set to exactly what the
+  shop's COD settlement expects: its goods + shipping share − its coupon share;
+- Bosta's webhooks (`/api/webhooks/bosta/{shopId}`, authenticated by the
+  per-shop secret sent as the Authorization header) move the parcel through
+  the same status logic as manual updates; "delivered" runs
+  `settleCashOnDelivery`, "returned" restocks and cancels an unpaid COD parcel;
+- repeated, late or unknown states are recorded without moving anything, and
+  `delivery.sync` asks Bosta about parcels that have gone quiet;
+- the shop cannot move a Bosta parcel by hand, and Bosta pays the COD cash to
+  the shop's Bosta account; PetMate's commission is charged against the shop
+  balance as for any COD order.
+
 ## Exactly-once settlement
 
 Three mechanisms, each guarding a different failure:
@@ -100,7 +189,53 @@ that price ignored.
 - Post to the ledger like everything else, so the books still balance
   afterwards.
 
+## Refunds of store orders
+
+A store order's money was split at settlement: commission to the platform,
+goods and shipping to each shop's pending balance. A refund therefore first
+takes the shops' share back (`clawBackOrderEarnings`) — from pending if the
+hold window has not passed, otherwise from available, which may go into debit —
+and only then returns the money through the gateway. The platform's own share
+of the refund is its commission being reversed. Cancelling a paid order that
+has not shipped does all of this automatically; so does a dispute refund.
+
+## Cash on delivery
+
+Most Egyptian e-commerce is paid at the door, so a shop can opt in
+(`Shop.acceptsCod`) and buyers can choose it when every shop in the basket
+takes cash and the total is under `codMaxOrderCents`.
+
+1. The order is `CONFIRMED`, not `PAID`: it goes to the shops straight away and
+   nothing is written to the ledger, because no money has moved.
+2. When a shop's parcel is delivered — confirmed with the buyer's code by the
+   courier, or marked delivered by a shop that delivers itself — that shop
+   holds the cash. Its commission is charged against its balance:
+
+```
+COMMISSION — Commission on cash collected for PM-XXXX
+    SHOP/AVAILABLE            -30.00
+    PLATFORM/REVENUE          +30.00
+```
+
+   `CodCollection` records the cash collected, and its unique
+   `(orderId, shopId)` index makes the charge happen once whichever path
+   reports the delivery first.
+3. A refused or returned parcel puts the stock back; there is nothing to refund.
+
+A shop in debit cannot request a payout until its online sales cover it.
+
 ## Providers
+
+`PAYMENT_PROVIDER=paymob` is the gateway for Egypt. The server creates an
+Intention (`POST /v1/intention/`, `Authorization: Token <secret key>`) and the
+buyer pays on Paymob's hosted Unified Checkout, so card and wallet details
+never reach PetMate. The payment is confirmed only by the Transaction
+Processed callback at `/api/webhooks/paymob`, whose `hmac` query parameter is
+an HMAC-SHA512 over twenty of the transaction's fields in Paymob's documented
+order; the redirect back to the site is only UX. A callback whose amount or
+currency differs from the intent is flagged, never settled. Refunds go through
+`/api/acceptance/void_refund/refund` with the transaction id kept from the
+callback.
 
 `PAYMENT_PROVIDER=ledger` is the default. It settles through the internal
 ledger and shows a clearly labelled sandbox confirmation screen that says no

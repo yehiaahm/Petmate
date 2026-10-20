@@ -2,11 +2,11 @@ import Link from "next/link";
 import Image from "next/image";
 import { BadgeCheck, MapPin, PawPrint, ShieldCheck, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/primitives";
-import { formatMoney } from "@/lib/money";
-import { formatAge, formatDistance, cn } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import { SPECIES_LABEL, type Species } from "@/lib/constants";
 import type { ListingCard as ListingCardData } from "@/lib/services/search.service";
 import { FavoriteButton } from "./favorite-button";
+import { getI18n } from "@/lib/i18n/server";
 
 /**
  * The listing card.
@@ -16,7 +16,7 @@ import { FavoriteButton } from "./favorite-button";
  * how well documented the animal's health is, and how far away it is. A
  * classifieds card shows a price; this one shows whether you can trust it.
  */
-export function ListingCard({
+export async function ListingCard({
   listing,
   priority = false,
   showFavorite = true,
@@ -27,25 +27,26 @@ export function ListingCard({
   showFavorite?: boolean;
   className?: string;
 }) {
+  const { t, fmt } = await getI18n();
   const verified =
     listing.pet.verificationLevel === "CLINIC_VERIFIED" ||
     listing.pet.verificationLevel === "DOCUMENTED";
 
   const price =
     listing.intent === "SALE"
-      ? formatMoney(listing.priceCents, listing.currency)
+      ? fmt.money(listing.priceCents, listing.currency)
       : listing.intent === "ADOPTION"
         ? listing.adoptionFeeCents > 0
-          ? `${formatMoney(listing.adoptionFeeCents, listing.currency)} fee`
-          : "Free to a good home"
+          ? t("{amount} fee", { amount: fmt.money(listing.adoptionFeeCents, listing.currency) })
+          : t("Free to a good home")
         : listing.studFeeCents > 0
-          ? `${formatMoney(listing.studFeeCents, listing.currency)} stud fee`
-          : "Terms negotiable";
+          ? t("{amount} stud fee", { amount: fmt.money(listing.studFeeCents, listing.currency) })
+          : t("Terms negotiable");
 
   const location =
     listing.distanceKm != null
-      ? formatDistance(listing.distanceKm)
-      : [listing.city, listing.country].filter(Boolean).join(", ") || "Location not set";
+      ? fmt.distance(listing.distanceKm)
+      : [listing.city, listing.country].filter(Boolean).join(", ") || t("Location not set");
 
   return (
     <article
@@ -62,7 +63,7 @@ export function ListingCard({
           {listing.pet.photo ? (
             <Image
               src={listing.pet.photo.url}
-              alt={listing.pet.photo.alt ?? `${listing.pet.name}, a ${listing.pet.breedName ?? SPECIES_LABEL[listing.pet.species as Species]}`}
+              alt={listing.pet.photo.alt ?? t("{name}, a {breed}", { name: listing.pet.name, breed: listing.pet.breedName ?? t(SPECIES_LABEL[listing.pet.species as Species]) })}
               fill
               sizes="(max-width: 640px) 80vw, (max-width: 1024px) 50vw, 25vw"
               priority={priority}
@@ -71,6 +72,7 @@ export function ListingCard({
           ) : (
             <div className="flex size-full items-center justify-center text-fg-subtle">
               <PawPrint className="size-10 opacity-40" aria-hidden />
+              <span className="sr-only">{t("No photo")}</span>
             </div>
           )}
           {/* Legibility scrim for the price pill. */}
@@ -80,25 +82,25 @@ export function ListingCard({
           />
         </div>
 
-        <div className="absolute left-2 top-2 flex max-w-[calc(100%-3rem)] flex-wrap gap-1.5">
+        <div className="absolute start-2 top-2 flex max-w-[calc(100%-3rem)] flex-wrap gap-1.5">
           {listing.featured && (
             <Badge tone="accent" size="sm" icon={<Sparkles className="size-3" aria-hidden />} className="shadow-sm">
-              Featured
+              {t("Featured")}
             </Badge>
           )}
           {listing.status === "RESERVED" && (
             <Badge tone="warning" size="sm" className="shadow-sm">
-              Reserved
+              {t("Reserved")}
             </Badge>
           )}
           {verified && (
             <Badge tone="success" size="sm" icon={<BadgeCheck className="size-3" aria-hidden />} className="shadow-sm">
-              {listing.pet.verificationLevel === "CLINIC_VERIFIED" ? "Vet verified" : "Documented"}
+              {listing.pet.verificationLevel === "CLINIC_VERIFIED" ? t("Vet verified") : t("Documented")}
             </Badge>
           )}
         </div>
 
-        <p className="absolute bottom-2 left-2 right-2 flex">
+        <p className="absolute inset-x-2 bottom-2 flex">
           <span
             className={cn(
               "truncate rounded-full px-2.5 py-1 text-[13px] font-bold tabular shadow-sm backdrop-blur-md",
@@ -113,7 +115,7 @@ export function ListingCard({
       </Link>
 
       {showFavorite && (
-        <div className="absolute right-3.5 top-3.5 z-10">
+        <div className="absolute end-3.5 top-3.5 z-10">
           <FavoriteButton listingId={listing.id} initial={listing.isFavorited} />
         </div>
       )}
@@ -126,13 +128,15 @@ export function ListingCard({
         </h3>
 
         <p className="mt-0.5 truncate text-[13px] text-fg-muted">
-          {listing.pet.breedName ?? SPECIES_LABEL[listing.pet.species as Species]}
+          {/* Isolated, so an English breed name in an Arabic line does not pull
+              the age's digits away from their unit. */}
+          <bdi>{listing.pet.breedName ?? t(SPECIES_LABEL[listing.pet.species as Species])}</bdi>
           <span className="hidden @[14rem]:inline">
             {" · "}
-            {listing.pet.sex === "MALE" ? "Male" : listing.pet.sex === "FEMALE" ? "Female" : "Unknown"}
+            {listing.pet.sex === "MALE" ? t("Male") : listing.pet.sex === "FEMALE" ? t("Female") : t("Unknown")}
           </span>
           {" · "}
-          {formatAge(listing.pet.birthDate)}
+          {fmt.age(listing.pet.birthDate)}
         </p>
 
         <div className="mt-auto space-y-2.5 pt-3">
@@ -147,10 +151,10 @@ export function ListingCard({
             </span>
             <span
               className="hidden shrink-0 items-center gap-1 rounded-full bg-brand-soft px-2 py-0.5 font-semibold text-brand-soft-fg @[14rem]:flex"
-              title="Seller trust score"
+              title={t("Seller trust score")}
             >
               <ShieldCheck className="size-3" aria-hidden />
-              Trust {listing.seller.trustScore}
+              {t("Trust {score}", { score: listing.seller.trustScore })}
             </span>
           </div>
         </div>
@@ -159,7 +163,8 @@ export function ListingCard({
   );
 }
 
-function HealthMeter({ score }: { score: number }) {
+async function HealthMeter({ score }: { score: number }) {
+  const { t } = await getI18n();
   const tone =
     score >= 75
       ? "from-[var(--color-mint)] to-[var(--color-lagoon-500)]"
@@ -181,16 +186,16 @@ function HealthMeter({ score }: { score: number }) {
   return (
     <div>
       <div className="flex items-center justify-between gap-2 text-[11px] text-fg-subtle">
-        <span className="hidden @[14rem]:inline">Health record</span>
-        <span className="truncate font-medium text-fg-muted">{label}</span>
+        <span className="hidden @[14rem]:inline">{t("Health record")}</span>
+        <span className="truncate font-medium text-fg-muted">{t(label)}</span>
       </div>
       <div
         className="mt-1 h-1.5 overflow-hidden rounded-full bg-bg-inset"
         role="img"
-        aria-label={`Health record score ${score} out of 100: ${label}`}
+        aria-label={t("Health record score {score} out of 100: {label}", { score, label })}
       >
         <div
-          className={cn("h-full rounded-full bg-gradient-to-r", tone)}
+          className={cn("h-full rounded-full bg-gradient-to-r rtl:bg-gradient-to-l", tone)}
           style={{ width: `${Math.max(4, score)}%` }}
         />
       </div>

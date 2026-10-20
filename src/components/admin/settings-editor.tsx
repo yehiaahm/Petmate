@@ -9,6 +9,7 @@ import { Field, Input, ToggleSwitch } from "@/components/ui/field";
 import { useToast } from "@/components/ui/toast";
 import { api, ApiError } from "@/lib/api-client";
 import { formatMoney, bpsToPercent } from "@/lib/money";
+import { PLATFORM_CURRENCY } from "@/lib/currency";
 
 export interface SettingField {
   key: string;
@@ -27,7 +28,7 @@ export interface SettingGroup {
 function preview(key: string, value: string | number | boolean): string | null {
   if (typeof value !== "number") return null;
   if (key.endsWith("Bps")) return bpsToPercent(value);
-  if (key.endsWith("Cents")) return formatMoney(value, "USD");
+  if (key.endsWith("Cents")) return formatMoney(value, PLATFORM_CURRENCY);
   if (key.endsWith("Hours")) {
     const days = value / 24;
     return Number.isInteger(days) ? `${days} day${days === 1 ? "" : "s"}` : `${value} hours`;

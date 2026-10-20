@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import { stringifyJson } from "@/lib/json";
 import { addDays, startOfDayUTC } from "@/lib/utils";
+import { PLATFORM_CURRENCY } from "@/lib/currency";
 
 /**
  * Analytics.
@@ -179,7 +180,7 @@ export async function getPlatformMetrics(range: DateRange): Promise<PlatformMetr
       purchases: petOrders._count,
       rate: listingViews ? Math.round((petOrders._count / listingViews) * 10000) / 100 : 0,
     },
-    currency: "USD",
+    currency: PLATFORM_CURRENCY,
   };
 }
 

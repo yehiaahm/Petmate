@@ -1,9 +1,15 @@
 import type { Metadata, Viewport } from "next";
-import { Montserrat, Outfit, Plus_Jakarta_Sans } from "next/font/google";
+import { headers } from "next/headers";
+import { Montserrat, Outfit, Plus_Jakarta_Sans, IBM_Plex_Sans_Arabic, Noto_Kufi_Arabic } from "next/font/google";
 import "./globals.css";
 import { ThemeScript } from "@/components/theme-script";
 import { ToastProvider } from "@/components/ui/toast";
+import { I18nProvider } from "@/components/i18n/i18n-provider";
 import { clientEnv } from "@/lib/env";
+import { getI18n } from "@/lib/i18n/server";
+import { messagesFor } from "@/lib/i18n/messages";
+import { ErrorReporter } from "@/components/monitoring/error-reporter";
+import { Analytics } from "@/components/analytics/analytics";
 
 /**
  * Outfit carries the headlines: a rounded geometric sans that sits naturally
@@ -32,16 +38,40 @@ const montserrat = Montserrat({
   weight: ["600"],
 });
 
+/**
+ * Arabic has its own pair, chosen for the same jobs: Noto Kufi Arabic is a
+ * structured display face for headlines, IBM Plex Sans Arabic a calm UI text
+ * face with clear numerals. Neither is preloaded — the CSS only asks for them
+ * on an Arabic page, so English visitors never download them.
+ */
+const kufi = Noto_Kufi_Arabic({
+  subsets: ["arabic"],
+  display: "swap",
+  variable: "--font-arabic-display",
+  weight: ["500", "600", "700"],
+  preload: false,
+});
+
+const plexArabic = IBM_Plex_Sans_Arabic({
+  subsets: ["arabic"],
+  display: "swap",
+  variable: "--font-arabic",
+  weight: ["400", "500", "600", "700"],
+  preload: false,
+});
+
 const appUrl = clientEnv.NEXT_PUBLIC_APP_URL;
 
-export const metadata: Metadata = {
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return {
   metadataBase: new URL(appUrl),
   title: {
-    default: "PetMate — Find, care for and rehome pets with confidence",
+    default: t("PetMate — Find, care for and rehome pets with confidence"),
     template: "%s · PetMate",
   },
   description:
-    "PetMate is where pets get a verified identity. Buy, adopt and find breeding matches from people you can check, keep a lifelong health record, book a pet hotel or a trainer and shop what your pet needs — in one place.",
+    t("PetMate is where pets get a verified identity. Buy, adopt and find breeding matches from people you can check, keep a lifelong health record, book a pet hotel or a trainer and shop what your pet needs — in one place."),
   applicationName: "PetMate",
   keywords: [
     "pets for sale",
@@ -74,6 +104,7 @@ export const metadata: Metadata = {
   manifest: "/manifest.webmanifest",
   alternates: { canonical: "/" },
 };
+}
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -85,17 +116,29 @@ export const viewport: Viewport = {
   ],
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const [{ locale, dir, t }, requestHeaders] = await Promise.all([getI18n(), headers()]);
+  const nonce = requestHeaders.get("x-nonce") ?? undefined;
+
   return (
-    <html lang="en" suppressHydrationWarning className={`${outfit.variable} ${jakarta.variable} ${montserrat.variable}`}>
+    <html
+      lang={locale}
+      dir={dir}
+      suppressHydrationWarning
+      className={`${outfit.variable} ${jakarta.variable} ${montserrat.variable} ${kufi.variable} ${plexArabic.variable}`}
+    >
       <head>
-        <ThemeScript />
+        <ThemeScript nonce={nonce} />
       </head>
       <body className="min-h-dvh bg-bg text-fg antialiased">
         <a href="#main" className="skip-link">
-          Skip to main content
+          {t("Skip to main content")}
         </a>
-        <ToastProvider>{children}</ToastProvider>
+        <I18nProvider locale={locale} messages={messagesFor(locale)}>
+          <ToastProvider>{children}</ToastProvider>
+          <ErrorReporter />
+          <Analytics />
+        </I18nProvider>
       </body>
     </html>
   );

@@ -5,9 +5,12 @@ import { db } from "@/lib/db";
 import { listPendingPayouts } from "@/lib/payments/payout.service";
 import { assertLedgerBalanced, getBalance } from "@/lib/payments/ledger-core";
 import { PayoutQueue } from "@/components/admin/payout-queue";
+import { BreedingFeeQueue } from "@/components/admin/breeding-fee-queue";
+import { listBreedingFeesNeedingReview } from "@/lib/services/breeding-fee.service";
 import { PageHeader, Card, CardHeader, Stat, Badge, Alert } from "@/components/ui/primitives";
 import { formatMoney } from "@/lib/money";
 import { formatDate } from "@/lib/utils";
+import { PLATFORM_CURRENCY } from "@/lib/currency";
 
 export const metadata: Metadata = {
   title: "Finance",
@@ -17,11 +20,11 @@ export const metadata: Metadata = {
 export default async function FinancePage() {
   await requirePermission("admin:finance");
 
-  const [payouts, ledger, escrowHeld, revenue, recentRefunds] = await Promise.all([
+  const [payouts, ledger, escrowHeld, revenue, recentRefunds, heldFees] = await Promise.all([
     listPendingPayouts(),
     assertLedgerBalanced(),
-    getBalance({ ownerType: "ESCROW", ownerId: "escrow", kind: "ESCROW", currency: "USD" }),
-    getBalance({ ownerType: "PLATFORM", ownerId: "platform", kind: "REVENUE", currency: "USD" }),
+    getBalance({ ownerType: "ESCROW", ownerId: "escrow", kind: "ESCROW", currency: PLATFORM_CURRENCY }),
+    getBalance({ ownerType: "PLATFORM", ownerId: "platform", kind: "REVENUE", currency: PLATFORM_CURRENCY }),
     db.refund.findMany({
       orderBy: { createdAt: "desc" },
       take: 10,
@@ -34,6 +37,7 @@ export default async function FinancePage() {
         createdAt: true,
       },
     }),
+    listBreedingFeesNeedingReview(),
   ]);
 
   // Resolve the owner of each pending payout so the queue shows a name rather
@@ -99,15 +103,15 @@ export default async function FinancePage() {
       )}
 
       <div className="mt-6 grid gap-3 sm:grid-cols-3">
-        <Stat label="Held in escrow" value={formatMoney(escrowHeld, "USD")} hint="Not ours" />
+        <Stat label="Held in escrow" value={formatMoney(escrowHeld, PLATFORM_CURRENCY)} hint="Not ours" />
         <Stat
           label="Platform revenue"
-          value={formatMoney(Math.abs(revenue), "USD")}
+          value={formatMoney(Math.abs(revenue), PLATFORM_CURRENCY)}
           hint="Commission and fees, all time"
         />
         <Stat
           label="Payouts waiting"
-          value={formatMoney(pendingTotal, "USD")}
+          value={formatMoney(pendingTotal, PLATFORM_CURRENCY)}
           hint={`${payouts.length} request${payouts.length === 1 ? "" : "s"}`}
           icon={<Receipt className="size-4" aria-hidden />}
         />
@@ -119,7 +123,7 @@ export default async function FinancePage() {
           action={
             ledger.ok ? (
               <Badge tone="success">
-                <CheckCircle2 className="mr-1 size-3.5" aria-hidden />
+                <CheckCircle2 className="me-1 size-3.5" aria-hidden />
                 Balanced
               </Badge>
             ) : (
@@ -158,6 +162,32 @@ export default async function FinancePage() {
         </div>
       </section>
 
+      <section className="mt-6">
+        <h2 className="font-display text-xl font-semibold text-fg">Stud fees on hold</h2>
+        <p className="mt-1 text-sm text-fg-muted">
+          The fee is in escrow. The payer&rsquo;s report is a payment support ticket carrying the
+          request id; read both sides there before deciding.
+        </p>
+        <div className="mt-4">
+          <BreedingFeeQueue
+            fees={heldFees.map((f) => {
+              const payerIsInitiator = f.feePayerUserId === f.initiatorUser.id;
+              return {
+                id: f.id,
+                feeStatus: f.feeStatus,
+                feeCents: f.feeCents,
+                payoutCents: f.feePayoutCents,
+                currency: f.currency,
+                pairing: `${f.initiatorPet.name} × ${f.receiverPet.name}`,
+                payer: payerIsInitiator ? f.initiatorUser.name : f.receiverUser.name,
+                payee: payerIsInitiator ? f.receiverUser.name : f.initiatorUser.name,
+                updatedAt: f.updatedAt.toISOString(),
+              };
+            })}
+          />
+        </div>
+      </section>
+
       <Card className="mt-6">
         <CardHeader title="Recent refunds" />
         <div className="p-5">
@@ -171,7 +201,7 @@ export default async function FinancePage() {
                     {refund.reason.replaceAll("_", " ").toLowerCase()} ·{" "}
                     <span className="text-xs">{refund.status.toLowerCase()}</span>
                   </span>
-                  <span className="shrink-0 text-right">
+                  <span className="shrink-0 text-end">
                     <span className="block text-sm font-semibold tabular text-fg">
                       {formatMoney(refund.amountCents, refund.currency)}
                     </span>

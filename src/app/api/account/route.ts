@@ -2,7 +2,9 @@ import { z } from "zod";
 import { route } from "@/lib/api";
 import { requireActive } from "@/lib/auth/rbac";
 import { db } from "@/lib/db";
-import { conflict } from "@/lib/errors";
+import { badRequest, conflict } from "@/lib/errors";
+import { normalizePhone } from "@/lib/phone";
+import { requestPhoneCode, confirmPhoneCode, setPhoneChannel } from "@/lib/services/phone.service";
 import { audit } from "@/lib/audit";
 import {
   changePassword,
@@ -10,6 +12,12 @@ import {
   revokeSession,
 } from "@/lib/services/auth.service";
 import { revokeAllSessions, destroySession } from "@/lib/auth/session";
+import {
+  beginTwoFactorSetup,
+  confirmTwoFactorSetup,
+  disableTwoFactor,
+  regenerateBackupCodes,
+} from "@/lib/services/two-factor.service";
 import { awardTrustSignal, getTrustBreakdown } from "@/lib/services/trust.service";
 import { assertOwnsFile } from "@/lib/services/upload.service";
 import { getUsage } from "@/lib/billing/entitlements";
@@ -29,9 +37,9 @@ import {
   phoneSchema,
   passwordSchema,
   cuidSchema,
-  currencySchema,
 } from "@/lib/validation/common";
 import { LIMITS } from "@/lib/constants";
+import { LOCALES } from "@/lib/i18n/config";
 
 export const GET = route({
   auth: true,
@@ -106,7 +114,6 @@ export const POST = route({
       postalCode: optionalText(20),
       lat: z.number().min(-90).max(90).optional(),
       lng: z.number().min(-180).max(180).optional(),
-      currency: currencySchema.optional(),
       avatarFileId: cuidSchema.optional(),
       bannerFileId: cuidSchema.optional(),
     }),
@@ -115,6 +122,7 @@ export const POST = route({
       currentPassword: z.string().min(1).max(200),
       newPassword: passwordSchema,
     }),
+    z.object({ action: z.literal("set-locale"), locale: z.enum(LOCALES) }),
     z.object({ action: z.literal("revoke-session"), sessionId: cuidSchema }),
     z.object({ action: z.literal("revoke-all-sessions") }),
     z.object({
@@ -126,11 +134,28 @@ export const POST = route({
     z.object({ action: z.literal("cancel-subscription"), immediate: z.boolean().default(false) }),
     z.object({ action: z.literal("resume-subscription") }),
     z.object({ action: z.literal("delete-account"), confirm: z.literal("DELETE") }),
+    z.object({ action: z.literal("2fa-begin") }),
+    z.object({ action: z.literal("phone-code"), phone: z.string().trim().min(6).max(30), channel: z.enum(["WHATSAPP", "SMS"]).default("WHATSAPP") }),
+    z.object({ action: z.literal("phone-confirm"), code: z.string().trim().min(6).max(10) }),
+    z.object({ action: z.literal("phone-channel"), channel: z.enum(["WHATSAPP", "SMS"]) }),
+    z.object({ action: z.literal("2fa-confirm"), code: z.string().trim().min(6).max(8) }),
+    z.object({
+      action: z.literal("2fa-disable"),
+      password: z.string().min(1).max(200),
+      code: z.string().trim().min(6).max(20),
+    }),
+    z.object({ action: z.literal("2fa-backup-codes"), code: z.string().trim().min(6).max(20) }),
   ]),
   async handler({ body, ip }) {
     const auth = await requireActive();
 
     switch (body.action) {
+      case "set-locale": {
+        // Stored so email, SMS and notifications written without a request
+        // (by the worker) arrive in the language the person chose.
+        await db.user.update({ where: { id: auth.user.id }, data: { locale: body.locale } });
+        return { ok: true };
+      }
       case "update-profile": {
         if (body.handle && body.handle !== auth.user.handle) {
           const taken = await db.user.findUnique({
@@ -138,6 +163,15 @@ export const POST = route({
             select: { id: true },
           });
           if (taken) throw conflict("That handle is already taken.");
+        }
+
+        // A changed number is an unverified number until the owner proves it again.
+        let phoneChange: { phone: string | null; phoneVerifiedAt?: null } | null = null;
+        if (body.phone !== undefined) {
+          const normalized = body.phone ? normalizePhone(body.phone) : null;
+          if (body.phone && !normalized) throw badRequest("Enter a valid mobile number, such as 010 1234 5678.");
+          const current = await db.user.findUniqueOrThrow({ where: { id: auth.user.id }, select: { phone: true } });
+          phoneChange = normalized === current.phone ? null : { phone: normalized, phoneVerifiedAt: null };
         }
 
         // Images must be files this user uploaded.
@@ -154,14 +188,13 @@ export const POST = route({
             ...(body.name !== undefined ? { name: body.name } : {}),
             ...(body.handle !== undefined ? { handle: body.handle } : {}),
             ...(body.bio !== undefined ? { bio: body.bio ?? null } : {}),
-            ...(body.phone !== undefined ? { phone: body.phone ?? null } : {}),
+            ...(phoneChange ?? {}),
             ...(body.country !== undefined ? { country: body.country ?? null } : {}),
             ...(body.region !== undefined ? { region: body.region ?? null } : {}),
             ...(body.city !== undefined ? { city: body.city ?? null } : {}),
             ...(body.postalCode !== undefined ? { postalCode: body.postalCode ?? null } : {}),
             ...(body.lat !== undefined ? { lat: body.lat } : {}),
             ...(body.lng !== undefined ? { lng: body.lng } : {}),
-            ...(body.currency !== undefined ? { currency: body.currency } : {}),
             ...(avatar ? { avatarUrl: avatar.url } : {}),
             ...(banner ? { bannerUrl: banner.url } : {}),
           },
@@ -201,6 +234,27 @@ export const POST = route({
       case "revoke-session":
         await revokeSession(auth.user.id, body.sessionId);
         return { ok: true };
+
+      case "phone-code":
+        return requestPhoneCode(auth, body.phone, body.channel);
+
+      case "phone-confirm":
+        return confirmPhoneCode(auth, body.code);
+
+      case "phone-channel":
+        return setPhoneChannel(auth, body.channel);
+
+      case "2fa-begin":
+        return beginTwoFactorSetup(auth);
+
+      case "2fa-confirm":
+        return confirmTwoFactorSetup(auth, body.code);
+
+      case "2fa-disable":
+        return disableTwoFactor(auth, body.password, body.code);
+
+      case "2fa-backup-codes":
+        return regenerateBackupCodes(auth, body.code);
 
       case "revoke-all-sessions":
         await revokeAllSessions(auth.user.id, auth.sessionId);

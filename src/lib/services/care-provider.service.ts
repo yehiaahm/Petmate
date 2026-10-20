@@ -7,6 +7,7 @@ import { assertCareProviderAccess, hasRole } from "@/lib/auth/rbac";
 import type { AuthContext } from "@/lib/auth/session";
 import { boundingBox, haversineKm, isValidTimeZone, joinTags, splitTags, uniqueSlug } from "@/lib/utils";
 import { buildSearchText, searchTextClauses } from "@/lib/search/text";
+import { PLATFORM_CURRENCY } from "@/lib/currency";
 import { assertOwnsFile } from "./upload.service";
 import { getOrCreateConversation } from "./chat.service";
 import {
@@ -77,7 +78,7 @@ const providerFields = z.object({
   requiresVaccination: z.boolean().default(true),
   cancellationPolicy: z.enum(CANCELLATION_POLICY).default("MODERATE"),
   bookingLeadHours: z.number().int().min(0).max(168).default(12),
-  currency: currencySchema.default("USD"),
+  currency: currencySchema.default(PLATFORM_CURRENCY),
   /** Honoured only for admins: marks the provider as PetMate's own. */
   official: z.boolean().optional(),
 });

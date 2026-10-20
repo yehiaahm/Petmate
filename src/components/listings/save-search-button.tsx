@@ -8,6 +8,7 @@ import { Field, Input, Checkbox } from "@/components/ui/field";
 import { Modal } from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
 import { api, ApiError } from "@/lib/api-client";
+import { useI18n } from "@/components/i18n/i18n-provider";
 
 /**
  * Saves the current filter set and offers alerts.
@@ -17,6 +18,7 @@ import { api, ApiError } from "@/lib/api-client";
  * rather than drifting to a Facebook group.
  */
 export function SaveSearchButton() {
+  const { t } = useI18n();
   const router = useRouter();
   const params = useSearchParams();
   const toast = useToast();
@@ -67,14 +69,14 @@ export function SaveSearchButton() {
       setOpen(false);
       setName("");
       toast.success(
-        "Search saved",
+        t("Search saved"),
         alerts ? "We will tell you when something new matches." : "Find it under saved searches.",
       );
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.isAuth) {
           setOpen(false);
-          toast.info("Sign in to save searches", "Alerts are free on every plan.");
+          toast.info(t("Sign in to save searches"), t("Alerts are free on every plan."));
           router.push("/login?next=/pets");
           return;
         }
@@ -99,17 +101,17 @@ export function SaveSearchButton() {
         }}
       >
         <BellPlus className="size-4" aria-hidden />
-        Save this search
+        {t("Save this search")}
       </Button>
 
       <Modal
         open={open}
         onClose={() => setOpen(false)}
-        title="Save this search"
-        description="We will check for new matches and let you know, so you do not have to keep refreshing."
+        title={t("Save this search")}
+        description={t("We will check for new matches and let you know, so you do not have to keep refreshing.")}
       >
         <div className="space-y-4">
-          <Field label="Name this search" error={error && !upgradeUrl ? error : null}>
+          <Field label={t("Name this search")} error={error && !upgradeUrl ? error : null}>
             {({ id, describedBy, invalid }) => (
               <Input
                 id={id}
@@ -118,14 +120,14 @@ export function SaveSearchButton() {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 maxLength={80}
-                placeholder="Calm small dog near me"
+                placeholder={t("Calm small dog near me")}
               />
             )}
           </Field>
 
           <Checkbox
-            label="Alert me when something new matches"
-            hint="A notification, and an email if you have those on."
+            label={t("Alert me when something new matches")}
+            hint={t("A notification, and an email if you have those on.")}
             checked={alerts}
             onChange={(e) => setAlerts(e.target.checked)}
           />
@@ -134,17 +136,17 @@ export function SaveSearchButton() {
             <div className="rounded-[var(--radius-field)] border border-[var(--warning)]/30 bg-[var(--warning-soft)] p-3 text-sm text-[var(--warning)]">
               <p>{error}</p>
               <a href={upgradeUrl} className="mt-1 inline-block font-semibold underline">
-                See plans
+                {t("See plans")}
               </a>
             </div>
           )}
 
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="ghost" onClick={() => setOpen(false)}>
-              Cancel
+              {t("Cancel")}
             </Button>
-            <Button onClick={() => void save()} loading={saving} loadingText="Saving…">
-              Save search
+            <Button onClick={() => void save()} loading={saving} loadingText={t("Saving…")}>
+              {t("Save search")}
             </Button>
           </div>
         </div>

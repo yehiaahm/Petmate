@@ -245,6 +245,10 @@ export interface PlanSeed {
 /**
  * Plans.
  *
+ * Priced in Egyptian pounds (minor units, piastres) for the Egyptian launch.
+ * A clinic's plan pays for itself at roughly 20 bookings a month through the
+ * 2% commission discount alone; a breeder's at about two pet sales.
+ *
  * The free tier can complete every transaction on the platform — messaging,
  * buying, booking a vet, keeping health records. Paid tiers sell capacity,
  * visibility and professional tooling. Nothing essential is behind a paywall,
@@ -282,8 +286,8 @@ export const PLANS: PlanSeed[] = [
     name: "PetMate Plus",
     tagline: "For people actively looking or rehoming",
     audience: "CONSUMER",
-    priceMonthlyCents: 699,
-    priceYearlyCents: 6900,
+    priceMonthlyCents: 9_900, // EGP 99
+    priceYearlyCents: 99_000, // EGP 990: two months free
     features: [
       "10 active listings",
       "25 breeding requests a month",
@@ -308,8 +312,8 @@ export const PLANS: PlanSeed[] = [
     name: "Breeder Pro",
     tagline: "For responsible breeders running a real programme",
     audience: "BREEDER",
-    priceMonthlyCents: 2900,
-    priceYearlyCents: 29000,
+    priceMonthlyCents: 49_900, // EGP 499
+    priceYearlyCents: 499_000,
     features: [
       "Unlimited listings and breeding requests",
       "Full compatibility engine with the widest match pool",
@@ -337,8 +341,8 @@ export const PLANS: PlanSeed[] = [
     name: "Seller Pro",
     tagline: "For shops selling pet products at volume",
     audience: "SELLER",
-    priceMonthlyCents: 3900,
-    priceYearlyCents: 39000,
+    priceMonthlyCents: 69_900, // EGP 699
+    priceYearlyCents: 699_000,
     features: [
       "Unlimited products",
       "Bulk import and inventory tools",
@@ -364,8 +368,8 @@ export const PLANS: PlanSeed[] = [
     name: "Clinic Pro",
     tagline: "For veterinary practices taking bookings online",
     audience: "CLINIC",
-    priceMonthlyCents: 7900,
-    priceYearlyCents: 79000,
+    priceMonthlyCents: 149_900, // EGP 1,499
+    priceYearlyCents: 1_499_000,
     features: [
       "Unlimited services and practitioners",
       "Full booking calendar with per-vet availability",

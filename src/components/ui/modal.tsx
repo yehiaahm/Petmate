@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/components/i18n/i18n-provider";
 
 /**
  * Modal dialog.
@@ -29,6 +30,7 @@ export function Modal({
   children: React.ReactNode;
   size?: "sm" | "md" | "lg";
 }) {
+  const { t } = useI18n();
   const panelRef = useRef<HTMLDivElement>(null);
   const previouslyFocused = useRef<HTMLElement | null>(null);
 
@@ -124,7 +126,7 @@ export function Modal({
             type="button"
             onClick={onClose}
             className="-m-1.5 shrink-0 rounded-full p-1.5 text-fg-subtle transition-[color,background-color,transform] duration-300 hover:rotate-90 hover:bg-bg-sunken hover:text-fg"
-            aria-label="Close dialog"
+            aria-label={t("Close dialog")}
           >
             <X className="size-5" aria-hidden />
           </button>
@@ -156,6 +158,7 @@ export function ConfirmDialog({
   tone?: "danger" | "primary";
   loading?: boolean;
 }) {
+  const { t } = useI18n();
   return (
     <Modal open={open} onClose={onClose} title={title} size="sm">
       <p className="text-sm leading-relaxed text-fg-muted">{description}</p>
@@ -165,7 +168,7 @@ export function ConfirmDialog({
           onClick={onClose}
           className="h-11 rounded-[var(--radius-field)] px-4 text-sm font-semibold text-fg-muted transition-colors hover:bg-bg-sunken hover:text-fg"
         >
-          Cancel
+          {t("Cancel")}
         </button>
         <button
           type="button"
@@ -176,7 +179,7 @@ export function ConfirmDialog({
             tone === "danger" ? "bg-[var(--danger)] hover:brightness-110" : "bg-brand hover:bg-brand-hover",
           )}
         >
-          {loading ? "Working…" : confirmLabel}
+          {loading ? t("Working…") : confirmLabel}
         </button>
       </div>
     </Modal>

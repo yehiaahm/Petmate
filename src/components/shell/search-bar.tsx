@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Search, Loader2, ArrowRight, Sparkles } from "lucide-react";
 import { api, qs } from "@/lib/api-client";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/components/i18n/i18n-provider";
 
 interface Suggestion {
   type: "breed" | "listing" | "clinic" | "care";
@@ -25,7 +26,7 @@ const EMPTY_SUGGESTIONS: Suggestion[] = [];
 
 export function SearchBar({
   className,
-  placeholder = "Search pets, breeds, pet hotels…",
+    placeholder,
   autoFocus,
   onNavigate,
 }: {
@@ -34,6 +35,7 @@ export function SearchBar({
   autoFocus?: boolean;
   onNavigate?: () => void;
 }) {
+  const { t } = useI18n();
   const router = useRouter();
   const [value, setValue] = useState("");
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
@@ -146,7 +148,7 @@ export function SearchBar({
     <div ref={containerRef} className={cn("relative", className)}>
       <div className="relative">
         <Search
-          className="pointer-events-none absolute left-3.5 top-1/2 size-[18px] -translate-y-1/2 text-fg-subtle"
+          className="pointer-events-none absolute start-3.5 top-1/2 size-[18px] -translate-y-1/2 text-fg-subtle"
           aria-hidden
         />
         <input
@@ -161,25 +163,26 @@ export function SearchBar({
           }}
           onFocus={() => setOpen(true)}
           onKeyDown={onKeyDown}
-          placeholder={placeholder}
-          aria-label="Search PetMate"
+          placeholder={placeholder ?? t("Search pets, breeds, pet hotels…")}
+          aria-label={t("Search PetMate")}
           aria-expanded={open && visibleSuggestions.length > 0}
           aria-autocomplete="list"
           role="combobox"
           aria-controls="search-suggestions"
-          className="h-11 w-full rounded-full border border-[var(--border-strong)] bg-bg-elevated/80 pl-11 pr-11 text-[15px] text-fg shadow-[var(--shadow-subtle)] backdrop-blur transition-[border-color,box-shadow] duration-200 placeholder:text-fg-subtle hover:border-[color-mix(in_srgb,var(--brand)_45%,var(--border-strong))] focus:border-[var(--brand)] focus:shadow-[0_0_0_4px_color-mix(in_srgb,var(--brand)_18%,transparent)] focus:outline-none"
+          className="h-11 w-full rounded-full border border-[var(--border-strong)] bg-bg-elevated/80 ps-11 pe-11 text-[15px] text-fg shadow-[var(--shadow-subtle)] backdrop-blur transition-[border-color,box-shadow] duration-200 placeholder:text-fg-subtle hover:border-[color-mix(in_srgb,var(--brand)_45%,var(--border-strong))] focus:border-[var(--brand)] focus:shadow-[0_0_0_4px_color-mix(in_srgb,var(--brand)_18%,transparent)] focus:outline-none"
         />
         <button
           type="button"
           onClick={() => void runSearch()}
           disabled={!value.trim() || interpreting}
-          aria-label="Search"
-          className="btn-gradient absolute right-1.5 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-full disabled:opacity-40"
+          aria-label={t("Search")}
+          data-search-submit
+          className="btn-gradient absolute end-1.5 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-full disabled:opacity-40"
         >
           {interpreting ? (
             <Loader2 className="size-4 animate-spin" aria-hidden />
           ) : (
-            <ArrowRight className="size-4" aria-hidden />
+            <ArrowRight className="rtl:-scale-x-100 size-4" aria-hidden />
           )}
         </button>
       </div>
@@ -188,7 +191,7 @@ export function SearchBar({
         <div
           id="search-suggestions"
           role="listbox"
-          className="animate-in-up absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-[var(--radius-card)] border border-[var(--border)] bg-bg-elevated shadow-[var(--shadow-pop)]"
+          className="animate-in-up absolute inset-x-0 top-full z-50 mt-2 overflow-hidden rounded-[var(--radius-card)] border border-[var(--border)] bg-bg-elevated shadow-[var(--shadow-pop)]"
         >
           {visibleSuggestions.map((suggestion, index) => (
             <button
@@ -203,13 +206,13 @@ export function SearchBar({
                 onNavigate?.();
               }}
               className={cn(
-                "flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors",
+                "flex w-full items-center gap-3 px-4 py-2.5 text-start transition-colors",
                 index === highlighted ? "bg-bg-sunken" : "hover:bg-bg-sunken",
               )}
             >
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-sm font-medium text-fg">{suggestion.label}</span>
-                <span className="block truncate text-xs text-fg-muted">{suggestion.sublabel}</span>
+                <span className="block truncate text-xs text-fg-muted">{t(suggestion.sublabel)}</span>
               </span>
               <span className="shrink-0 rounded-full bg-bg-sunken px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-fg-subtle">
                 {suggestion.type}
@@ -221,11 +224,11 @@ export function SearchBar({
             <button
               type="button"
               onClick={() => void runSearch()}
-              className="flex w-full items-center gap-2.5 border-t border-[var(--border)] px-4 py-3 text-left text-sm text-fg-muted transition-colors hover:bg-bg-sunken"
+              className="flex w-full items-center gap-2.5 border-t border-[var(--border)] px-4 py-3 text-start text-sm text-fg-muted transition-colors hover:bg-bg-sunken"
             >
               <Sparkles className="size-4 shrink-0 text-brand" aria-hidden />
               <span className="min-w-0 flex-1 truncate">
-                Search for <span className="font-medium text-fg">{value.trim()}</span>
+                {t("Search for")} <span className="font-medium text-fg">{value.trim()}</span>
               </span>
               <kbd className="hidden shrink-0 rounded border border-[var(--border)] px-1.5 py-0.5 font-mono text-[10px] text-fg-subtle sm:block">
                 Enter

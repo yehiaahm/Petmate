@@ -5,18 +5,22 @@ import { db } from "@/lib/db";
 import { getSettings } from "@/lib/settings";
 import { OpenDisputeForm } from "@/components/disputes/open-dispute-form";
 import { Breadcrumbs, PageHeader, Alert } from "@/components/ui/primitives";
-import { formatMoney } from "@/lib/money";
+import { getI18n } from "@/lib/i18n/server";
 
-export const metadata: Metadata = {
-  title: "Open a dispute",
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return {
+  title: t("Open a dispute"),
   robots: { index: false, follow: false },
 };
+}
 
 export default async function NewDisputePage({
   searchParams,
 }: {
   searchParams: Promise<{ petOrderId?: string; orderId?: string }>;
 }) {
+  const { t, fmt } = await getI18n();
   const [params, auth] = await Promise.all([searchParams, requireAuth()]);
   const settings = await getSettings();
 
@@ -76,22 +80,21 @@ export default async function NewDisputePage({
       />
 
       <PageHeader
-        title="Open a dispute"
-        description="Use this when something genuinely went wrong. It freezes the money and puts a person on the case."
+        title={t("Open a dispute")}
+        description={t("Use this when something genuinely went wrong. It freezes the money and puts a person on the case.")}
       />
 
-      <Alert tone="warning" className="mt-6" title="Try the other side first">
+      <Alert tone="warning" className="mt-6" title={t("Try the other side first")}>
         <p className="mt-1 leading-relaxed">
-          Most problems are a misunderstanding about timing or location, and a message resolves
-          them in an hour. A dispute is slower and both sides see everything you write.
+          {t("Most problems are a misunderstanding about timing or location, and a message resolves them in an hour. A dispute is slower and both sides see everything you write.")}
         </p>
       </Alert>
 
       <div className="mt-6 rounded-[var(--radius-card)] bg-bg-sunken p-4 text-sm">
-        <p className="font-medium text-fg">{subject.label}</p>
+        <p className="font-medium text-fg">{t(subject.label)}</p>
         <p className="mt-0.5 text-fg-muted">
           <span className="font-mono text-xs">{subject.reference}</span> ·{" "}
-          {formatMoney(subject.amountCents, subject.currency)}
+          {fmt.money(subject.amountCents, subject.currency)}
         </p>
       </div>
 

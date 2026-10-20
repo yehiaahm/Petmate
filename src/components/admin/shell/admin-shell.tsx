@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
+import { useAppPathname } from "@/components/i18n/use-app-pathname";
 import {
   ChevronDown,
   ChevronRight,
@@ -99,7 +100,7 @@ export function AdminShell({
   user: ShellUser;
   children: React.ReactNode;
 }) {
-  const pathname = usePathname();
+  const pathname = useAppPathname();
   const collapsed = useSyncExternalStore(subscribeCollapsed, readCollapsed, () => false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);

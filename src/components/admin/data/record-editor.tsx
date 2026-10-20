@@ -10,6 +10,7 @@ import { api, ApiError } from "@/lib/api-client";
 import { getResource, optionLabel, type FieldDef } from "@/lib/admin/registry";
 import { cn } from "@/lib/utils";
 import { Cell, formatBps, type RefLabels } from "./cell";
+import { PLATFORM_CURRENCY } from "@/lib/currency";
 
 type Row = Record<string, unknown>;
 type FormValue = string | boolean;
@@ -152,7 +153,7 @@ export function RecordEditor({
                 field={field}
                 value={values[field.key] ?? ""}
                 original={row[field.key]}
-                currency={field.currencyField ? ((row[field.currencyField] as string | undefined) ?? "USD") : "USD"}
+                currency={field.currencyField ? ((row[field.currencyField] as string | undefined) ?? PLATFORM_CURRENCY) : PLATFORM_CURRENCY}
                 error={errors[field.key]}
                 dirty={values[field.key] !== initial[field.key]}
                 onChange={(v) => set(field.key, v)}

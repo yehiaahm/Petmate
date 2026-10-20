@@ -21,6 +21,12 @@ export type JobType =
   | "appointment.remind"
   | "appointment.complete"
   | "escrow.autoRelease"
+  | "breeding.releaseFee"
+  | "ads.settle"
+  | "messages.process"
+  | "referrals.qualify"
+  | "delivery.book"
+  | "delivery.sync"
   | "payouts.release"
   | "clinic.releaseHold"
   | "care.expireUnpaid"
@@ -165,6 +171,9 @@ export async function failJob(job: ClaimedJob, error: unknown): Promise<void> {
 /** Recurring jobs, re-enqueued after each run so the schedule self-heals. */
 export const RECURRING_JOBS: { type: JobType; intervalSeconds: number }[] = [
   { type: "email.process", intervalSeconds: 30 },
+  { type: "messages.process", intervalSeconds: 30 },
+  { type: "referrals.qualify", intervalSeconds: 3600 },
+  { type: "delivery.sync", intervalSeconds: 3600 },
   { type: "health.reminders", intervalSeconds: 3600 },
   { type: "listing.expire", intervalSeconds: 3600 },
   { type: "savedSearch.run", intervalSeconds: 21600 },
@@ -173,6 +182,7 @@ export const RECURRING_JOBS: { type: JobType; intervalSeconds: number }[] = [
   { type: "prune.rateLimits", intervalSeconds: 3600 },
   { type: "prune.auth", intervalSeconds: 86400 },
   { type: "analytics.rollup", intervalSeconds: 3600 },
+  { type: "ads.settle", intervalSeconds: 900 },
 ];
 
 export async function scheduleRecurringJobs(): Promise<void> {

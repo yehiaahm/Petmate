@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { useAppPathname } from "@/components/i18n/use-app-pathname";
 import {
   User,
   BadgeCheck,
@@ -12,6 +12,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/components/i18n/i18n-provider";
 
 const ITEMS = [
   { href: "/settings", label: "Profile", icon: User, exact: true },
@@ -24,11 +25,12 @@ const ITEMS = [
 ];
 
 export function SettingsNav() {
-  const pathname = usePathname();
+  const pathname = useAppPathname();
+  const { t } = useI18n();
 
   return (
-    <nav aria-label="Settings" className="lg:sticky lg:top-24">
-      <h2 className="mb-3 px-1 font-display text-xl font-semibold text-fg lg:text-2xl">Settings</h2>
+    <nav aria-label={t("Settings")} className="lg:sticky lg:top-24">
+      <h2 className="mb-3 px-1 font-display text-xl font-semibold text-fg lg:text-2xl">{t("Settings")}</h2>
       {/* Horizontal and scrollable on phones, a rail on desktop. */}
       <ul className="-mx-4 flex gap-1 overflow-x-auto px-4 pb-2 lg:mx-0 lg:flex-col lg:overflow-visible lg:px-0 lg:pb-0">
         {ITEMS.map((item) => {
@@ -46,7 +48,7 @@ export function SettingsNav() {
                 )}
               >
                 <item.icon className="size-4 shrink-0" aria-hidden />
-                {item.label}
+                {t(item.label)}
               </Link>
             </li>
           );

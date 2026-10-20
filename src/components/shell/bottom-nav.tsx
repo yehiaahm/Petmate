@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import {
   House,
   Search,
@@ -12,7 +11,9 @@ import {
   ShoppingBag,
   type LucideIcon,
 } from "lucide-react";
+import { useAppPathname } from "@/components/i18n/use-app-pathname";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/components/i18n/i18n-provider";
 
 /**
  * Mobile bottom bar.
@@ -41,7 +42,8 @@ const SIGNED_OUT: Item[] = [
 ];
 
 export function BottomNav({ signedIn, unread = 0 }: { signedIn: boolean; unread?: number }) {
-  const pathname = usePathname();
+  const { t, dir } = useI18n();
+  const pathname = useAppPathname();
   const items = signedIn ? SIGNED_IN : SIGNED_OUT;
 
   // The most specific match wins, so /dashboard/pets lights "My pets", not
@@ -57,7 +59,7 @@ export function BottomNav({ signedIn, unread = 0 }: { signedIn: boolean; unread?
 
   return (
     <nav
-      aria-label="Primary"
+      aria-label={t("Primary")}
       className="pointer-events-none fixed inset-x-0 bottom-0 z-40 px-3 pb-[calc(env(safe-area-inset-bottom)+0.625rem)] md:hidden"
     >
       <div className="glass pointer-events-auto relative mx-auto max-w-md rounded-[1.75rem] p-1.5 shadow-[var(--shadow-pop)]">
@@ -66,10 +68,11 @@ export function BottomNav({ signedIn, unread = 0 }: { signedIn: boolean; unread?
         <span
           aria-hidden
           className={cn(
-            "absolute inset-y-1.5 left-1.5 w-[calc((100%-0.75rem)/5)] rounded-[1.375rem] bg-brand-soft transition-[transform,opacity] duration-500 ease-[var(--ease-spring)]",
+            "absolute inset-y-1.5 start-1.5 w-[calc((100%-0.75rem)/5)] rounded-[1.375rem] bg-brand-soft transition-[transform,opacity] duration-500 ease-[var(--ease-spring)]",
             activeIndex === -1 && "opacity-0",
           )}
-          style={{ transform: `translateX(${Math.max(activeIndex, 0) * 100}%)` }}
+          // Tabs run right to left in Arabic, so the highlight travels leftwards.
+          style={{ transform: `translateX(${Math.max(activeIndex, 0) * (dir === "rtl" ? -100 : 100)}%)` }}
         />
 
         <ul className="relative grid grid-cols-5">
@@ -95,12 +98,12 @@ export function BottomNav({ signedIn, unread = 0 }: { signedIn: boolean; unread?
                       aria-hidden
                     />
                     {item.href === "/messages" && unread > 0 && (
-                      <span className="animate-pop absolute -right-2 -top-1.5 flex min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[9px] font-bold leading-4 text-accent-fg ring-2 ring-[var(--bg-elevated)]">
+                      <span className="animate-pop absolute -end-2 -top-1.5 flex min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[9px] font-bold leading-4 text-accent-fg ring-2 ring-[var(--bg-elevated)]">
                         {unread > 9 ? "9+" : unread}
                       </span>
                     )}
                   </span>
-                  {item.label}
+                  {t(item.label)}
                 </Link>
               </li>
             );

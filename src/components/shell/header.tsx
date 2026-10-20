@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { Bell, MessageSquare, ShoppingCart } from "lucide-react";
 import { getAuth } from "@/lib/auth/session";
 import { totalUnread } from "@/lib/services/chat.service";
@@ -11,6 +12,8 @@ import { SearchBar } from "./search-bar";
 import { UserMenu } from "./user-menu";
 import { ThemeToggle } from "./theme-toggle";
 import { MobileNav } from "./mobile-nav";
+import { LocaleSwitcher } from "@/components/i18n/locale-switcher";
+import { getI18n } from "@/lib/i18n/server";
 import { NavLinks, MobileSearchRow } from "./nav-links";
 
 /**
@@ -21,7 +24,7 @@ import { NavLinks, MobileSearchRow } from "./nav-links";
  * client components.
  */
 export async function Header() {
-  const auth = await getAuth();
+  const [auth, { t }] = await Promise.all([getAuth(), getI18n()]);
 
   const [unreadMessages, unreadNotifications, cartItems] = auth
     ? await Promise.all([
@@ -32,66 +35,72 @@ export async function Header() {
     : [0, 0, 0];
 
   const primaryLinks = [
-    { href: "/pets", label: "Find a pet" },
-    { href: "/pets?intent=ADOPTION", label: "Adopt" },
-    { href: "/boarding", label: "Pet hotels" },
-    { href: "/training", label: "Training" },
-    { href: "/breeding", label: "Breeding" },
-    ...(features.clinics ? [{ href: "/clinics", label: "Vets" }] : []),
-    { href: "/store", label: "Store" },
+    { href: "/pets", label: t("Find a pet") },
+    { href: "/pets?intent=ADOPTION", label: t("Adopt") },
+    { href: "/boarding", label: t("Pet hotels") },
+    { href: "/training", label: t("Training") },
+    { href: "/breeding", label: t("Breeding") },
+    ...(features.clinics ? [{ href: "/clinics", label: t("Vets") }] : []),
+    { href: "/store", label: t("Store") },
+    { href: "/community", label: t("Community") },
   ];
 
   return (
     <header className="glass sticky top-0 z-40 border-x-0 border-t-0 border-b border-[var(--border)]">
       <div className="container-wide">
         <div className="flex h-16 items-center gap-3 lg:gap-6">
-          <Link href="/" className="shrink-0 rounded-xl" aria-label="PetMate home">
+          <Link href="/" className="shrink-0 rounded-xl" aria-label={t("PetMate home")}>
             <Logo size="md" />
           </Link>
 
-          <NavLinks links={primaryLinks} />
+          <NavLinks links={primaryLinks} label={t("Main")} />
 
           <SearchBar className="hidden min-w-0 flex-1 md:block lg:max-w-md" />
 
-          <div className="ml-auto flex items-center gap-1">
+          <div className="ms-auto flex items-center gap-1">
+            <Suspense>
+              <LocaleSwitcher signedIn={Boolean(auth)} className="hidden sm:inline-flex" />
+            </Suspense>
             <ThemeToggle className="hidden sm:inline-flex" />
 
             {auth ? (
               <>
                 <IconLink
                   href="/store/cart"
-                  label="Basket"
+                  label={t("Basket")}
                   count={cartItems}
                   icon={<ShoppingCart className="size-[18px]" aria-hidden />}
                 />
                 <IconLink
                   href="/messages"
-                  label="Messages"
+                  label={t("Messages")}
                   count={unreadMessages}
                   icon={<MessageSquare className="size-[18px]" aria-hidden />}
                 />
                 <IconLink
                   href="/notifications"
-                  label="Notifications"
+                  label={t("Notifications")}
                   count={unreadNotifications}
                   icon={<Bell className="size-[18px]" aria-hidden />}
                 />
-                <div className="ml-1 hidden sm:block">
+                <div className="ms-1 hidden sm:block">
                   <UserMenu user={auth.user} />
                 </div>
               </>
             ) : (
               <div className="hidden items-center gap-2 sm:flex">
                 <ButtonLink href="/login" variant="ghost" size="sm">
-                  Sign in
+                  {t("Sign in")}
                 </ButtonLink>
                 <ButtonLink href="/register" size="sm">
-                  Join free
+                  {t("Join free")}
                 </ButtonLink>
               </div>
             )}
 
-            <MobileNav user={auth?.user ?? null} links={primaryLinks} />
+            <Suspense>
+              <MobileNav user={auth?.user ?? null} links={primaryLinks} />
+            </Suspense>
           </div>
         </div>
 
@@ -105,7 +114,7 @@ export async function Header() {
   );
 }
 
-function IconLink({
+async function IconLink({
   href,
   label,
   count,
@@ -116,15 +125,16 @@ function IconLink({
   count: number;
   icon: React.ReactNode;
 }) {
+  const { t } = await getI18n();
   return (
     <Link
       href={href}
       className="relative inline-flex size-10 items-center justify-center rounded-full text-fg-muted transition-[color,background-color,transform] duration-200 hover:bg-bg-sunken hover:text-brand active:scale-90"
-      aria-label={count > 0 ? `${label}, ${count} unread` : label}
+      aria-label={count > 0 ? t("{label}, {count} unread", { label, count }) : label}
     >
       {icon}
       {count > 0 && (
-        <span className="animate-pop absolute right-0.5 top-0.5 flex min-w-[18px] items-center justify-center rounded-full bg-accent px-1 text-[10px] font-bold leading-[18px] text-accent-fg ring-2 ring-[var(--bg)]">
+        <span className="animate-pop absolute end-0.5 top-0.5 flex min-w-[18px] items-center justify-center rounded-full bg-accent px-1 text-[10px] font-bold leading-[18px] text-accent-fg ring-2 ring-[var(--bg)]">
           {count > 99 ? "99+" : count}
         </span>
       )}

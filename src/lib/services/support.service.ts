@@ -12,6 +12,7 @@ import type { AuthContext } from "@/lib/auth/session";
 import { permissionsFor } from "@/lib/auth/rbac";
 import { safeText, safeParagraph, emailSchema, optionalText } from "@/lib/validation/common";
 import { SUPPORT_TOPICS, type SupportTopic } from "@/lib/support-topics";
+import { getEntitlements } from "@/lib/billing/entitlements";
 
 /**
  * Support tickets.
@@ -29,6 +30,22 @@ export { SUPPORT_TOPICS, SUPPORT_TOPIC_LABEL, type SupportTopic } from "@/lib/su
 
 /** Topics we treat as urgent on arrival rather than waiting for triage. */
 const HIGH_PRIORITY_TOPICS = new Set<SupportTopic>(["SAFETY", "PAYMENT"]);
+
+/**
+ * Queue order, most pressing first. Priority is stored as a word, and sorting
+ * the words alphabetically would put URGENT last, so the order is explicit.
+ */
+export const SUPPORT_PRIORITY_ORDER = ["URGENT", "HIGH", "NORMAL", "LOW"] as const;
+
+/**
+ * The priority a new ticket opens at. Safety and payment problems are high
+ * for everyone; a subscriber whose plan includes priority support gets the
+ * same treatment for everything else, which is what that line on the pricing
+ * page promises. URGENT is left for staff to escalate to by hand.
+ */
+export function initialTicketPriority(topic: SupportTopic, prioritySupport: boolean): "HIGH" | "NORMAL" {
+  return HIGH_PRIORITY_TOPICS.has(topic) || prioritySupport ? "HIGH" : "NORMAL";
+}
 
 export const supportTicketSchema = z.object({
   name: safeText(80, 2),
@@ -67,6 +84,9 @@ export async function createSupportTicket(
   if (duplicate) return duplicate;
 
   const topic = input.topic as SupportTopic;
+  const prioritySupport = context.userId
+    ? (await getEntitlements(context.userId)).prioritySupport
+    : false;
 
   const ticket = await db.$transaction(async (tx) => {
     const created = await tx.supportTicket.create({
@@ -79,7 +99,7 @@ export async function createSupportTicket(
         subject: input.subject,
         orderRef: input.orderRef ?? null,
         ipHash: hashIp(context.ip ?? null),
-        priority: HIGH_PRIORITY_TOPICS.has(topic) ? "HIGH" : "NORMAL",
+        priority: initialTicketPriority(topic, prioritySupport),
         status: "OPEN",
         messages: {
           create: {
@@ -304,14 +324,34 @@ export function isSupportStaff(auth: AuthContext | null): boolean {
   return permissionsFor(auth.user.roles).has("admin:moderation");
 }
 
+const QUEUE_SIZE = 100;
+
 export async function listSupportQueue(filter: { status?: string; topic?: string } = {}) {
+  const where = {
+    ...(filter.status ? { status: filter.status } : { status: { in: ["OPEN", "AWAITING_USER"] } }),
+    ...(filter.topic ? { topic: filter.topic } : {}),
+  };
+
+  // One indexed read per priority level, most pressing first, until the page is
+  // full. That is exact where an in-memory sort of a bounded read is not: a
+  // backlog of old NORMAL tickets can never push an URGENT one off the page.
+  const queue: Awaited<ReturnType<typeof readQueueLevel>> = [];
+  for (const priority of SUPPORT_PRIORITY_ORDER) {
+    if (queue.length >= QUEUE_SIZE) break;
+    queue.push(...(await readQueueLevel(where, priority, QUEUE_SIZE - queue.length)));
+  }
+  return queue;
+}
+
+function readQueueLevel(
+  where: { status: string | { in: string[] }; topic?: string },
+  priority: string,
+  take: number,
+) {
   return db.supportTicket.findMany({
-    where: {
-      ...(filter.status ? { status: filter.status } : { status: { in: ["OPEN", "AWAITING_USER"] } }),
-      ...(filter.topic ? { topic: filter.topic } : {}),
-    },
-    orderBy: [{ priority: "asc" }, { lastReplyAt: "asc" }],
-    take: 100,
+    where: { ...where, priority },
+    orderBy: { lastReplyAt: "asc" },
+    take,
     select: {
       id: true,
       reference: true,

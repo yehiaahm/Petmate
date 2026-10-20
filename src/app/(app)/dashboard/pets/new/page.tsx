@@ -3,13 +3,18 @@ import { db } from "@/lib/db";
 import { requireAuth } from "@/lib/auth/rbac";
 import { PageHeader, Breadcrumbs } from "@/components/ui/primitives";
 import { PetForm } from "@/components/pets/pet-form";
+import { getI18n } from "@/lib/i18n/server";
 
-export const metadata: Metadata = {
-  title: "Add a pet",
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return {
+  title: t("Add a pet"),
   robots: { index: false, follow: false },
 };
+}
 
 export default async function NewPetPage() {
+  const { t } = await getI18n();
   const auth = await requireAuth();
 
   const breeds = await db.breed.findMany({
@@ -28,8 +33,8 @@ export default async function NewPetPage() {
       />
 
       <PageHeader
-        title="Add a pet"
-        description="This creates a permanent record for the animal. You can list them, book a vet or find a breeding match once it exists — and none of that requires listing them for sale."
+        title={t("Add a pet")}
+        description={t("This creates a permanent record for the animal. You can list them, book a vet or find a breeding match once it exists — and none of that requires listing them for sale.")}
       />
 
       <div className="mt-8">

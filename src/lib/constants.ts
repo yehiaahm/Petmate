@@ -411,6 +411,8 @@ export const BOARDING_AMENITIES = [
 
 export const ORDER_STATUS = [
   "PENDING_PAYMENT",
+  /** A cash-on-delivery order: placed, being fulfilled, paid at the door. */
+  "CONFIRMED",
   "PAID",
   "PROCESSING",
   "SHIPPED",
@@ -420,6 +422,9 @@ export const ORDER_STATUS = [
   "PARTIALLY_REFUNDED",
 ] as const;
 export type OrderStatus = (typeof ORDER_STATUS)[number];
+
+export const PAYMENT_METHOD = ["ONLINE", "COD"] as const;
+export type PaymentMethod = (typeof PAYMENT_METHOD)[number];
 
 export const FULFILLMENT_STATUS = [
   "PENDING",
@@ -467,8 +472,13 @@ export const PAYMENT_PURPOSE = [
   "FEATURED_LISTING",
   "AD_CAMPAIGN",
   "WALLET_TOPUP",
+  "BREEDING_FEE",
 ] as const;
 export type PaymentPurpose = (typeof PAYMENT_PURPOSE)[number];
+
+/** Where a self-serve ad can run. Each is a real slot rendered by a page. */
+export const AD_SLOTS = ["HOME_HERO", "SEARCH_INLINE", "CLINIC_SIDEBAR"] as const;
+export type AdSlot = (typeof AD_SLOTS)[number];
 
 export const PAYMENT_STATUS = [
   "REQUIRES_PAYMENT",
@@ -490,6 +500,7 @@ export const LEDGER_ACCOUNT_KIND = [
   "FEES",
   "ESCROW",
   "GATEWAY",
+  "PROMOTIONS",
 ] as const;
 export type LedgerAccountKind = (typeof LEDGER_ACCOUNT_KIND)[number];
 
@@ -694,6 +705,7 @@ export const NOTIFICATION_CATEGORY = [
   "ADOPTION",
   "HEALTH",
   "DELIVERY",
+  "COMMUNITY",
   "SECURITY",
   "SYSTEM",
   "MARKETING",
@@ -711,6 +723,7 @@ export const NOTIFICATION_CATEGORY_LABEL: Record<NotificationCategory, string> =
   ADOPTION: "Adoption",
   HEALTH: "Pet health",
   DELIVERY: "Delivery",
+  COMMUNITY: "Community replies",
   SECURITY: "Security",
   SYSTEM: "Platform updates",
   MARKETING: "Tips and offers",

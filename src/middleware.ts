@@ -1,12 +1,20 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { issueCsrfTokenEdge } from "@/lib/auth/csrf-edge";
 import { isDisabledModulePath } from "@/lib/features";
+import {
+  DEFAULT_LOCALE,
+  LOCALE_COOKIE,
+  LOCALE_HEADER,
+  isLocale,
+  negotiateLocale,
+  splitLocalePath,
+} from "@/lib/i18n/config";
 
 /**
  * Middleware.
  *
- * Two jobs: mint a CSRF token for every visitor, and set a per-request
- * Content-Security-Policy nonce.
+ * Three jobs: mint a CSRF token for every visitor, set a per-request
+ * Content-Security-Policy nonce, and resolve the visitor's language.
  *
  * The CSRF token matters for visitors who have never signed in. Registration, sign-in and password reset are all mutating
  * requests made by anonymous users, and login CSRF is a real attack — logging
@@ -33,10 +41,26 @@ const isProduction = process.env.NODE_ENV === "production";
  * because the dev overlay and fast refresh need both, and a policy nobody can
  * develop under is a policy that gets turned off.
  */
+/**
+ * Analytics hosts, allowed only when an ID is configured. In production the
+ * nonce plus 'strict-dynamic' already lets our own scripts load them; the
+ * host list is what development (no nonce) and connect-src need.
+ */
+const ANALYTICS_SCRIPT_HOSTS = [
+  ...(process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID ? ["https://www.googletagmanager.com"] : []),
+  ...(process.env.NEXT_PUBLIC_META_PIXEL_ID ? ["https://connect.facebook.net"] : []),
+];
+const ANALYTICS_CONNECT_HOSTS = [
+  ...(process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID
+    ? ["https://*.google-analytics.com", "https://*.analytics.google.com", "https://www.googletagmanager.com"]
+    : []),
+  ...(process.env.NEXT_PUBLIC_META_PIXEL_ID ? ["https://www.facebook.com", "https://connect.facebook.net"] : []),
+];
+
 function contentSecurityPolicy(nonce: string): string {
   const scriptSrc = isProduction
     ? `'self' 'nonce-${nonce}' 'strict-dynamic'`
-    : `'self' 'unsafe-inline' 'unsafe-eval'`;
+    : ["'self'", "'unsafe-inline'", "'unsafe-eval'", ...ANALYTICS_SCRIPT_HOSTS].join(" ");
 
   return [
     "default-src 'self'",
@@ -47,7 +71,7 @@ function contentSecurityPolicy(nonce: string): string {
     "img-src 'self' data: blob: https:",
     "font-src 'self' data:",
     // The app talks to itself. `blob:` covers the assistant's streamed reply.
-    "connect-src 'self' blob:",
+    ["connect-src 'self' blob:", ...ANALYTICS_CONNECT_HOSTS].join(" "),
     "media-src 'self'",
     "object-src 'none'",
     "base-uri 'self'",
@@ -86,22 +110,24 @@ function needsSession(pathname: string): boolean {
 }
 
 export async function middleware(request: NextRequest) {
-  const { pathname, search } = request.nextUrl;
+  // The language prefix is stripped before any routing decision, so /ar/clinic
+  // and /clinic are gated identically.
+  const { locale: prefixed, path } = splitLocalePath(request.nextUrl.pathname);
 
   // A switched-off module answers exactly like a page that never existed, so
   // the gate runs before the sign-in redirect: otherwise a signed-out visitor
   // to /clinic would learn the route is real by being asked to sign in.
-  const disabled = isDisabledModulePath(pathname);
-  if (disabled && pathname.startsWith("/api/")) {
+  const disabled = isDisabledModulePath(path);
+  if (disabled && path.startsWith("/api/")) {
     return NextResponse.json(
       { error: { code: "NOT_FOUND", message: "That page could not be found." } },
       { status: 404 },
     );
   }
 
-  if (!disabled && needsSession(pathname) && !request.cookies.get("pm_session")) {
-    const login = new URL("/login", request.url);
-    login.searchParams.set("next", `${pathname}${search}`);
+  if (!disabled && needsSession(path) && !request.cookies.get("pm_session")) {
+    const login = new URL(prefixed ? `/${prefixed}/login` : "/login", request.url);
+    login.searchParams.set("next", `${request.nextUrl.pathname}${request.nextUrl.search}`);
     return NextResponse.redirect(login);
   }
 
@@ -113,14 +139,47 @@ export async function middleware(request: NextRequest) {
   requestHeaders.set("x-nonce", nonce);
   requestHeaders.set("content-security-policy", contentSecurityPolicy(nonce));
 
-  // A rewrite to a path no route matches renders the app's own not-found page
-  // with a real 404 status, under the same CSP as every other page.
-  const response = disabled
-    ? NextResponse.rewrite(new URL("/__module-unavailable", request.url), {
-        request: { headers: requestHeaders },
-      })
-    : NextResponse.next({ request: { headers: requestHeaders } });
+  // ---- Language ------------------------------------------------------------
+  // `/ar/...` and `/en/...` are real, indexable URLs (they are what hreflang and
+  // the sitemap point at) served by the same page files as the unprefixed
+  // path. A prefix wins and is remembered; otherwise an earlier choice in the
+  // cookie; otherwise the browser's Accept-Language; otherwise Arabic.
+  const remembered = request.cookies.get(LOCALE_COOKIE)?.value;
+  const locale =
+    prefixed ??
+    (isLocale(remembered) ? remembered : null) ??
+    negotiateLocale(request.headers.get("accept-language")) ??
+    DEFAULT_LOCALE;
+  // Always overwritten, so a client cannot choose it by sending the header.
+  requestHeaders.set(LOCALE_HEADER, locale);
+
+  let response: NextResponse;
+  if (disabled) {
+    // A rewrite to a path no route matches renders the app's own not-found
+    // page with a real 404 status, under the same CSP as every other page.
+    response = NextResponse.rewrite(new URL("/__module-unavailable", request.url), {
+      request: { headers: requestHeaders },
+    });
+  } else if (prefixed) {
+    const url = request.nextUrl.clone();
+    url.pathname = path;
+    response = NextResponse.rewrite(url, { request: { headers: requestHeaders } });
+    if (remembered !== prefixed) {
+      response.cookies.set(LOCALE_COOKIE, prefixed, {
+        httpOnly: false,
+        secure: isProduction,
+        sameSite: "lax",
+        path: "/",
+        maxAge: 60 * 60 * 24 * 365,
+      });
+    }
+  } else {
+    response = NextResponse.next({ request: { headers: requestHeaders } });
+  }
   response.headers.set("content-security-policy", contentSecurityPolicy(nonce));
+  // The same URL renders in two languages depending on the cookie, so no
+  // shared cache may serve one visitor's page to another.
+  response.headers.append("vary", "Cookie, Accept-Language");
 
   if (!request.cookies.get(CSRF_COOKIE)) {
     const secret =

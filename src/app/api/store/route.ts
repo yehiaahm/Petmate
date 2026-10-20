@@ -1,19 +1,24 @@
 import { z } from "zod";
+import { connectBosta, disconnectBosta, retryBooking } from "@/lib/services/carrier.service";
 import { route } from "@/lib/api";
 import { requireActive } from "@/lib/auth/rbac";
 import {
   searchProducts,
   createShop,
+  updateShop,
   shopSchema,
   createProduct,
   productSchema,
   updateProduct,
+  archiveProduct,
+  importProducts,
   listCategories,
   updateFulfillment,
   listShopOrders,
 } from "@/lib/services/commerce.service";
 import { cuidSchema } from "@/lib/validation/common";
 import { LIMITS } from "@/lib/constants";
+import { getLocale, translateFor } from "@/lib/i18n/server";
 
 export const GET = route({
   rateLimit: "search",
@@ -62,12 +67,23 @@ export const POST = route({
   verifiedEmail: true,
   body: z.discriminatedUnion("action", [
     z.object({ action: z.literal("create-shop"), shop: shopSchema }),
+    z.object({ action: z.literal("update-shop"), shopId: cuidSchema, shop: shopSchema.partial() }),
     z.object({ action: z.literal("create-product"), shopId: cuidSchema, product: productSchema }),
     z.object({
       action: z.literal("update-product"),
       productId: cuidSchema,
       product: productSchema.partial(),
     }),
+    z.object({ action: z.literal("archive-product"), productId: cuidSchema }),
+    z.object({
+      action: z.literal("import-products"),
+      shopId: cuidSchema,
+      // 500 rows of a generous width, comfortably inside the 1 MB body limit.
+      csv: z.string().min(1).max(900_000),
+    }),
+    z.object({ action: z.literal("connect-bosta"), shopId: cuidSchema, apiKey: z.string().trim().min(10).max(300) }),
+    z.object({ action: z.literal("disconnect-bosta"), shopId: cuidSchema }),
+    z.object({ action: z.literal("retry-booking"), deliveryId: cuidSchema }),
     z.object({
       action: z.literal("fulfil"),
       orderItemId: cuidSchema,
@@ -82,6 +98,10 @@ export const POST = route({
         const shop = await createShop(auth, body.shop);
         return { shop };
       }
+      case "update-shop": {
+        const shop = await updateShop(auth, body.shopId, body.shop);
+        return { shop };
+      }
       case "create-product": {
         const product = await createProduct(auth, body.shopId, body.product);
         return { product };
@@ -90,9 +110,28 @@ export const POST = route({
         const product = await updateProduct(auth, body.productId, body.product);
         return { product };
       }
+      case "archive-product":
+        await archiveProduct(auth, body.productId);
+        return { ok: true };
+      case "import-products": {
+        const result = await importProducts(auth, body.shopId, body.csv);
+        // Row problems come back in a successful response, so they are put
+        // into the seller's language here rather than by the error handler.
+        const locale = await getLocale();
+        return {
+          ...result,
+          errors: result.errors.map((e) => ({ ...e, message: translateFor(locale, e.message) })),
+        };
+      }
       case "fulfil":
         await updateFulfillment(auth, body.orderItemId, body.status);
         return { ok: true };
+      case "connect-bosta":
+        return connectBosta(auth, body.shopId, body.apiKey);
+      case "disconnect-bosta":
+        return disconnectBosta(auth, body.shopId);
+      case "retry-booking":
+        return retryBooking(auth, body.deliveryId);
     }
   },
 });

@@ -36,6 +36,12 @@ const GROUPS: { title: string; blurb: string; keys: (keyof typeof DEFAULT_SETTIN
     keys: ["escrowAutoReleaseHours", "disputeWindowDays", "payoutHoldDays", "minPayoutCents"],
   },
   {
+    title: "Cash on delivery",
+    blurb:
+      "Buyers pay the courier in cash. The shop's commission is charged against its balance when the parcel is delivered, so a cap keeps the amount a shop can owe in check.",
+    keys: ["codEnabled", "codMaxOrderCents"],
+  },
+  {
     title: "Marketplace",
     blurb: "Listing lifetime and what goes to a human before it goes live.",
     keys: ["listingDurationDays", "manualReviewPriceCents", "reviewAllListings"],
@@ -52,9 +58,28 @@ const GROUPS: { title: string; blurb: string; keys: (keyof typeof DEFAULT_SETTIN
     keys: ["featuredListing7dCents", "featuredListing30dCents"],
   },
   {
+    title: "Referrals",
+    blurb:
+      "Both sides are paid by PetMate from the promotions account. The inviter's reward waits until the new member's first order has been delivered for two weeks without a refund, and needs a verified phone on the new account.",
+    keys: [
+      "referralEnabled",
+      "referralRewardCents",
+      "referralWelcomeBps",
+      "referralWelcomeMaxCents",
+      "referralMinOrderCents",
+      "referralMonthlyCap",
+    ],
+  },
+  {
+    title: "Advertising",
+    blurb:
+      "Self-serve ads are bought per thousand impressions. The budget is paid up front and whatever is not delivered by the end date goes back to the advertiser's wallet. Changing a price affects campaigns bought from now on.",
+    keys: ["adCpmHomeCents", "adCpmSearchCents", "adCpmClinicsCents", "adMinBudgetCents"],
+  },
+  {
     title: "Platform",
     blurb: "Switches that affect everyone. Handle with care.",
-    keys: ["registrationOpen", "maintenanceMode", "defaultCurrency", "supportEmail"],
+    keys: ["registrationOpen", "maintenanceMode", "supportEmail"],
   },
 ];
 

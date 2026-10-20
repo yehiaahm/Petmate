@@ -8,8 +8,8 @@ import { Card, CardHeader, Badge, Alert } from "@/components/ui/primitives";
 import { Modal } from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
 import { api, ApiError } from "@/lib/api-client";
-import { formatMoney } from "@/lib/money";
-import { formatDate, cn } from "@/lib/utils";
+import { cn } from "@/lib/utils";
+import { useI18n } from "@/components/i18n/i18n-provider";
 
 interface Subscription {
   status: string;
@@ -43,6 +43,7 @@ export function SubscriptionPanel({
   subscription: Subscription | null;
   usage: UsageRow[];
 }) {
+  const { t, fmt } = useI18n();
   const router = useRouter();
   const toast = useToast();
   const [confirming, setConfirming] = useState(false);
@@ -53,14 +54,14 @@ export function SubscriptionPanel({
     try {
       await api.post("/api/account", { action: "cancel-subscription", immediate: false });
       toast.success(
-        "Cancelled",
-        "You keep everything until the end of the period you have paid for.",
+        t("Cancelled"),
+        t("You keep everything until the end of the period you have paid for."),
       );
       setConfirming(false);
       router.refresh();
     } catch (err) {
       toast.error(
-        "Could not cancel",
+        t("Could not cancel"),
         err instanceof ApiError ? err.message : "Please try again.",
       );
     } finally {
@@ -72,11 +73,11 @@ export function SubscriptionPanel({
     setWorking(true);
     try {
       await api.post("/api/account", { action: "resume-subscription" });
-      toast.success("Subscription resumed");
+      toast.success(t("Subscription resumed"));
       router.refresh();
     } catch (err) {
       toast.error(
-        "Could not resume",
+        t("Could not resume"),
         err instanceof ApiError ? err.message : "Please try again.",
       );
     } finally {
@@ -88,14 +89,14 @@ export function SubscriptionPanel({
     <>
       <Card>
         <CardHeader
-          title="Your plan"
+          title={t("Your plan")}
           action={
             subscription ? (
               <Badge tone={STATUS_TONE[subscription.status] ?? "neutral"}>
-                {subscription.status === "TRIALING" ? "Trial" : subscription.status.toLowerCase()}
+                {subscription.status === "TRIALING" ? t("Trial") : subscription.status.toLowerCase()}
               </Badge>
             ) : (
-              <Badge tone="neutral">Free</Badge>
+              <Badge tone="neutral">{t("Free")}</Badge>
             )
           }
         />
@@ -108,44 +109,45 @@ export function SubscriptionPanel({
                   {subscription.planName}
                 </span>
                 <span className="text-fg-muted tabular">
-                  {formatMoney(subscription.priceCents, subscription.currency)} /{" "}
-                  {subscription.interval === "YEAR" ? "year" : "month"}
+                  {fmt.money(subscription.priceCents, subscription.currency)} /{" "}
+                  {subscription.interval === "YEAR" ? t("year") : t("month")}
                 </span>
               </div>
 
               {subscription.trialEndsAt && subscription.status === "TRIALING" && (
                 <p className="mt-2 text-sm text-fg-muted">
-                  Trial ends {formatDate(subscription.trialEndsAt)}.
+                  {t("Trial ends {date}.", { date: fmt.date(subscription.trialEndsAt) })}
                 </p>
               )}
 
               {subscription.cancelAtPeriodEnd ? (
-                <Alert tone="warning" className="mt-4" title="Cancelled">
+                <Alert tone="warning" className="mt-4" title={t("Cancelled")}>
                   <p className="mt-1">
-                    You keep {subscription.planName} until{" "}
-                    {formatDate(subscription.currentPeriodEnd)}, then drop to the free plan. Nothing
-                    is deleted — listings over the free limit are paused, not removed.
+                    {t("You keep {plan} until {date}, then drop to the free plan. Nothing is deleted — listings over the free limit are paused, not removed.", {
+                      plan: subscription.planName,
+                      date: fmt.date(subscription.currentPeriodEnd),
+                    })}
                   </p>
                 </Alert>
               ) : (
                 subscription.currentPeriodEnd && (
                   <p className="mt-2 text-sm text-fg-muted">
-                    Renews {formatDate(subscription.currentPeriodEnd)}.
+                    {t("Renews {date}.", { date: fmt.date(subscription.currentPeriodEnd) })}
                   </p>
                 )
               )}
 
               <div className="mt-5 flex flex-wrap gap-3">
                 <ButtonLink href="/pricing" variant="outline">
-                  Change plan
+                  {t("Change plan")}
                 </ButtonLink>
                 {subscription.cancelAtPeriodEnd ? (
-                  <Button onClick={resume} loading={working} loadingText="Resuming…">
-                    Resume subscription
+                  <Button onClick={resume} loading={working} loadingText={t("Resuming…")}>
+                    {t("Resume subscription")}
                   </Button>
                 ) : (
                   <Button variant="ghost" onClick={() => setConfirming(true)}>
-                    Cancel subscription
+                    {t("Cancel subscription")}
                   </Button>
                 )}
               </div>
@@ -153,21 +155,19 @@ export function SubscriptionPanel({
           ) : (
             <>
               <p className="text-[15px] text-fg-muted">
-                You are on the free plan. Everything that makes a transaction safe — escrow,
-                disputes, clinic-verified records, messaging — is included and always will be. Paid
-                plans raise limits and add reach.
+                {t("You are on the free plan. Everything that makes a transaction safe — escrow, disputes, clinic-verified records, messaging — is included and always will be. Paid plans raise limits and add reach.")}
               </p>
               <div className="mt-5">
                 <ButtonLink href="/pricing">
                   <Sparkles className="size-4" aria-hidden />
-                  See what a plan adds
+                  {t("See what a plan adds")}
                 </ButtonLink>
               </div>
             </>
           )}
 
           <div className="mt-6 border-t border-[var(--border)] pt-5">
-            <h3 className="text-sm font-semibold text-fg">This month</h3>
+            <h3 className="text-sm font-semibold text-fg">{t("This month")}</h3>
             <ul className="mt-3 space-y-3">
               {usage.map((row) => {
                 const unlimited = row.limit < 0;
@@ -176,7 +176,7 @@ export function SubscriptionPanel({
                 return (
                   <li key={row.key}>
                     <div className="flex items-baseline justify-between gap-3 text-sm">
-                      <span className="text-fg-muted">{row.label}</span>
+                      <span className="text-fg-muted">{t(row.label)}</span>
                       <span className={cn("tabular font-medium", over ? "text-[var(--warning)]" : "text-fg")}>
                         {row.used}
                         {unlimited ? "" : ` / ${row.limit}`}
@@ -204,26 +204,25 @@ export function SubscriptionPanel({
       <Modal
         open={confirming}
         onClose={() => setConfirming(false)}
-        title="Cancel your subscription?"
+        title={t("Cancel your subscription?")}
       >
         <div className="space-y-4">
           <Alert tone="warning" icon={<AlertTriangle className="size-4" aria-hidden />}>
             <p>
-              You keep everything until{" "}
-              {formatDate(subscription?.currentPeriodEnd)} — cancelling does not end it today and
-              there is no refund of the current period.
+              {t("You keep everything until {date} — cancelling does not end it today and there is no refund of the current period.", {
+                date: fmt.date(subscription?.currentPeriodEnd),
+              })}
             </p>
           </Alert>
           <p className="text-sm leading-relaxed text-fg-muted">
-            After that you move to the free plan. Listings above the free limit are paused rather
-            than deleted, so resubscribing brings them straight back.
+            {t("After that you move to the free plan. Listings above the free limit are paused rather than deleted, so resubscribing brings them straight back.")}
           </p>
           <div className="flex justify-end gap-3">
             <Button variant="outline" onClick={() => setConfirming(false)}>
-              Keep it
+              {t("Keep it")}
             </Button>
-            <Button variant="danger" onClick={cancel} loading={working} loadingText="Cancelling…">
-              Cancel subscription
+            <Button variant="danger" onClick={cancel} loading={working} loadingText={t("Cancelling…")}>
+              {t("Cancel subscription")}
             </Button>
           </div>
         </div>

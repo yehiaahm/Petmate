@@ -1,14 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
+import { useAppPathname } from "@/components/i18n/use-app-pathname";
 import { Menu, X, LogOut, Shield, Stethoscope, Store, ChevronRight, CalendarHeart, BedDouble } from "lucide-react";
 import { features } from "@/lib/features";
 import { Avatar, Badge } from "@/components/ui/primitives";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { ThemeToggle } from "./theme-toggle";
 import { Logo } from "@/components/brand/logo";
+import { LocaleSwitcher } from "@/components/i18n/locale-switcher";
+import { useI18n } from "@/components/i18n/i18n-provider";
 import { api } from "@/lib/api-client";
 import type { SessionUser } from "@/lib/auth/session";
 
@@ -26,8 +30,9 @@ export function MobileNav({
   user: SessionUser | null;
   links: { href: string; label: string }[];
 }) {
+  const { t } = useI18n();
   const [open, setOpen] = useState(false);
-  const pathname = usePathname();
+  const pathname = useAppPathname();
   const router = useRouter();
 
   // The drawer closes when the route changes. Storing the route it was opened
@@ -64,10 +69,10 @@ export function MobileNav({
   }
 
   const secondary = [
-    { href: "/breeds", label: "Breed guide" },
-    { href: "/pricing", label: "Plans & pricing" },
-    { href: "/trust", label: "How we keep you safe" },
-    { href: "/about", label: "About PetMate" },
+    { href: "/breeds", label: t("Breed guide") },
+    { href: "/pricing", label: t("Plans & pricing") },
+    { href: "/trust", label: t("How we keep you safe") },
+    { href: "/about", label: t("About PetMate") },
   ];
 
   return (
@@ -79,13 +84,17 @@ export function MobileNav({
           setOpen(true);
         }}
         className="inline-flex size-10 items-center justify-center rounded-full text-fg-muted transition-[color,background-color,transform] duration-200 hover:bg-bg-sunken hover:text-fg active:scale-90 lg:hidden"
-        aria-label="Open menu"
+        aria-label={t("Open menu")}
         aria-expanded={open}
       >
         <Menu className="size-5" aria-hidden />
       </button>
 
-      {open && (
+      {/* Portalled to <body>: the header's frosted glass (backdrop-filter)
+          would otherwise become the containing block for this fixed sheet
+          and clip it to the header's height. Context, and so the language,
+          still flows through a portal. */}
+      {open && createPortal(
         <div className="fixed inset-0 z-[60] lg:hidden">
           <div
             className="animate-fade absolute inset-0 bg-[var(--overlay)] backdrop-blur-sm"
@@ -96,8 +105,8 @@ export function MobileNav({
           <div
             role="dialog"
             aria-modal="true"
-            aria-label="Menu"
-            className="animate-slide-in-right absolute inset-y-0 right-0 flex w-[min(21rem,88vw)] flex-col overflow-hidden rounded-l-[1.75rem] bg-bg-elevated shadow-[var(--shadow-pop)]"
+            aria-label={t("Menu")}
+            className="animate-slide-in-end absolute inset-y-0 end-0 flex w-[min(21rem,88vw)] flex-col overflow-hidden rounded-s-[1.75rem] bg-bg-elevated shadow-[var(--shadow-pop)]"
           >
             <div className="flex items-center justify-between border-b border-[var(--border)] p-4">
               <Logo size="sm" />
@@ -105,7 +114,7 @@ export function MobileNav({
                 type="button"
                 onClick={() => setOpen(false)}
                 className="inline-flex size-10 items-center justify-center rounded-full text-fg-muted transition-transform hover:rotate-90 hover:bg-bg-sunken hover:text-fg"
-                aria-label="Close menu"
+                aria-label={t("Close menu")}
               >
                 <X className="size-5" aria-hidden />
               </button>
@@ -121,13 +130,13 @@ export function MobileNav({
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold text-fg">{user.name}</p>
                     <Badge tone="brand" size="sm" className="mt-1">
-                      Trust {user.trustScore}
+                      {t("Trust {score}", { score: user.trustScore })}
                     </Badge>
                   </div>
                 </Link>
               )}
 
-              <nav className="p-2" aria-label="Mobile">
+              <nav className="p-2" aria-label={t("Mobile")}>
                 {links.map((link, index) => (
                   <Link
                     key={link.href}
@@ -137,7 +146,7 @@ export function MobileNav({
                   >
                     {link.label}
                     <ChevronRight
-                      className="size-4 text-fg-subtle transition-transform group-hover:translate-x-0.5 group-hover:text-brand-soft-fg"
+                      className="size-4 text-fg-subtle transition-transform group-hover:translate-x-0.5 group-hover:text-brand-soft-fg rtl:-scale-x-100 rtl:group-hover:-translate-x-0.5"
                       aria-hidden
                     />
                   </Link>
@@ -151,7 +160,7 @@ export function MobileNav({
                     href={link.href}
                     className="block rounded-2xl px-3.5 py-2.5 text-sm text-fg-muted transition-colors hover:bg-bg-sunken hover:text-fg"
                   >
-                    {link.label}
+                    {t(link.label)}
                   </Link>
                 ))}
               </div>
@@ -162,14 +171,14 @@ export function MobileNav({
                     href="/dashboard/bookings"
                     className="flex items-center gap-3 rounded-2xl px-3.5 py-2.5 text-sm text-fg-muted hover:bg-bg-sunken hover:text-fg"
                   >
-                    <CalendarHeart className="size-4" aria-hidden /> Hotel & training bookings
+                    <CalendarHeart className="size-4" aria-hidden /> {t("Hotel & training bookings")}
                   </Link>
                   {user.roles.includes("CARE_PROVIDER") && (
                     <Link
                       href="/provider"
                       className="flex items-center gap-3 rounded-2xl px-3.5 py-2.5 text-sm text-fg-muted hover:bg-bg-sunken hover:text-fg"
                     >
-                      <BedDouble className="size-4" aria-hidden /> Provider console
+                      <BedDouble className="size-4" aria-hidden /> {t("Provider console")}
                     </Link>
                   )}
                   {features.clinics && (user.roles.includes("CLINIC_ADMIN") || user.roles.includes("VET")) ? (
@@ -177,7 +186,7 @@ export function MobileNav({
                       href="/clinic"
                       className="flex items-center gap-3 rounded-2xl px-3.5 py-2.5 text-sm text-fg-muted hover:bg-bg-sunken hover:text-fg"
                     >
-                      <Stethoscope className="size-4" aria-hidden /> Clinic console
+                      <Stethoscope className="size-4" aria-hidden /> {t("Clinic console")}
                     </Link>
                   ) : null}
                   {user.roles.includes("SELLER") && (
@@ -185,7 +194,7 @@ export function MobileNav({
                       href="/sell"
                       className="flex items-center gap-3 rounded-2xl px-3.5 py-2.5 text-sm text-fg-muted hover:bg-bg-sunken hover:text-fg"
                     >
-                      <Store className="size-4" aria-hidden /> Seller console
+                      <Store className="size-4" aria-hidden /> {t("Seller console")}
                     </Link>
                   )}
                   {(user.roles.includes("ADMIN") ||
@@ -195,7 +204,7 @@ export function MobileNav({
                       href="/admin"
                       className="flex items-center gap-3 rounded-2xl px-3.5 py-2.5 text-sm text-fg-muted hover:bg-bg-sunken hover:text-fg"
                     >
-                      <Shield className="size-4" aria-hidden /> Admin
+                      <Shield className="size-4" aria-hidden /> {t("Admin")}
                     </Link>
                   )}
                 </div>
@@ -204,26 +213,31 @@ export function MobileNav({
 
             <div className="space-y-3 border-t border-[var(--border)] p-4">
               <div className="flex items-center justify-between">
-                <span className="text-sm text-fg-muted">Appearance</span>
+                <span className="text-sm text-fg-muted">{t("Language")}</span>
+                <LocaleSwitcher signedIn={Boolean(user)} />
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-fg-muted">{t("Appearance")}</span>
                 <ThemeToggle />
               </div>
 
               {user ? (
                 <Button variant="outline" fullWidth onClick={() => void signOut()}>
-                  <LogOut className="size-4" aria-hidden />
-                  Sign out
+                  <LogOut className="rtl:-scale-x-100 size-4" aria-hidden />
+                  {t("Sign out")}
                 </Button>
               ) : (
                 <div className="grid grid-cols-2 gap-2">
                   <ButtonLink href="/login" variant="outline">
-                    Sign in
+                    {t("Sign in")}
                   </ButtonLink>
-                  <ButtonLink href="/register">Join free</ButtonLink>
+                  <ButtonLink href="/register">{t("Join free")}</ButtonLink>
                 </div>
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   );

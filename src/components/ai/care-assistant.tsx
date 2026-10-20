@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Field, Textarea, Select } from "@/components/ui/field";
 import { Card, Badge, Alert } from "@/components/ui/primitives";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/components/i18n/i18n-provider";
 
 interface Pet {
   id: string;
@@ -47,6 +48,7 @@ export function CareAssistant({
   pets: Pet[];
   aiAvailable: boolean;
 }) {
+  const { t } = useI18n();
   const [petId, setPetId] = useState(pets[0]?.id ?? "");
   const [question, setQuestion] = useState("");
   const [turns, setTurns] = useState<Turn[]>([]);
@@ -65,7 +67,7 @@ export function CareAssistant({
 
     setError(null);
     setQuestion("");
-    const history = turns.map((t) => ({ role: t.role, content: t.content }));
+    const history = turns.map((turn) => ({ role: turn.role, content: turn.content }));
     setTurns((prev) => [...prev, { role: "user", content: trimmed }]);
     setStreaming(true);
 
@@ -174,12 +176,12 @@ export function CareAssistant({
       {pets.length > 0 ? (
         <div className="max-w-xs">
           <Field
-            label="Which pet?"
-            hint="Their records are used to ground the answer. Only pets you own are available."
+            label={t("Which pet?")}
+            hint={t("Their records are used to ground the answer. Only pets you own are available.")}
           >
             {({ id }) => (
               <Select id={id} value={petId} onChange={(e) => setPetId(e.target.value)}>
-                <option value="">No specific pet</option>
+                <option value="">{t("No specific pet")}</option>
                 {pets.map((pet) => (
                   <option key={pet.id} value={pet.id}>
                     {pet.name}
@@ -193,18 +195,18 @@ export function CareAssistant({
       ) : (
         <Alert tone="info">
           <p>
-            You have no pets on PetMate yet, so answers will be general.{" "}
+            {t("You have no pets on PetMate yet, so answers will be general.")}{" "}
             <Link href="/dashboard/pets/new" className="font-medium underline">
-              Add a pet
+              {t("Add a pet")}
             </Link>{" "}
-            and the assistant can use their actual vaccination history and age.
+            {t("and the assistant can use their actual vaccination history and age.")}
           </p>
         </Alert>
       )}
 
       {turns.length === 0 && (
         <div className="mt-6">
-          <p className="text-sm font-medium text-fg">Try asking</p>
+          <p className="text-sm font-medium text-fg">{t("Try asking")}</p>
           <ul className="mt-2 flex flex-wrap gap-2">
             {SUGGESTIONS.map((suggestion) => (
               <li key={suggestion}>
@@ -214,7 +216,7 @@ export function CareAssistant({
                   disabled={streaming}
                   className="rounded-full border border-[var(--border)] px-3.5 py-1.5 text-sm text-fg-muted transition-colors hover:border-[var(--border-strong)] hover:text-fg disabled:opacity-50"
                 >
-                  {suggestion}
+                  {t(suggestion)}
                 </button>
               </li>
             ))}
@@ -246,19 +248,19 @@ export function CareAssistant({
                     <Cpu className="size-4 text-brand" aria-hidden />
                   )}
                   <span className="text-sm font-semibold text-fg">
-                    {turn.role === "user" ? "You" : "Assistant"}
+                    {turn.role === "user" ? t("You") : t("Assistant")}
                   </span>
                   {turn.role === "assistant" && turn.source && (
                     <Badge tone={turn.source === "ai" ? "brand" : "neutral"} size="sm">
                       {turn.source === "ai" ? (
                         <>
-                          <Sparkles className="mr-1 size-3" aria-hidden />
-                          AI answer
+                          <Sparkles className="me-1 size-3" aria-hidden />
+                          {t("AI answer")}
                         </>
                       ) : (
                         <>
-                          <ListChecks className="mr-1 size-3" aria-hidden />
-                          Rule-based
+                          <ListChecks className="me-1 size-3" aria-hidden />
+                          {t("Rule-based")}
                         </>
                       )}
                     </Badge>
@@ -269,7 +271,7 @@ export function CareAssistant({
                   {turn.content}
                   {turn.role === "assistant" && streaming && index === turns.length - 1 && (
                     <span
-                      className="ml-0.5 inline-block h-4 w-1.5 animate-pulse rounded-sm bg-brand align-text-bottom"
+                      className="ms-0.5 inline-block h-4 w-1.5 animate-pulse rounded-sm bg-brand align-text-bottom"
                       aria-hidden
                     />
                   )}
@@ -283,8 +285,8 @@ export function CareAssistant({
                           href={link.href}
                           className="inline-flex items-center gap-1.5 text-sm font-medium text-brand hover:underline"
                         >
-                          {link.label}
-                          <ArrowRight className="size-3.5" aria-hidden />
+                          {t(link.label)}
+                          <ArrowRight className="rtl:-scale-x-100 size-3.5" aria-hidden />
                         </Link>
                       </li>
                     ))}
@@ -310,7 +312,7 @@ export function CareAssistant({
         }}
       >
         <Field
-          label={selectedPet ? `Ask about ${selectedPet.name}` : "Your question"}
+          label={selectedPet ? t("Ask about {name}", { name: selectedPet.name }) : t("Your question")}
           trailing={`${question.length}/2000`}
         >
           {({ id, invalid }) => (
@@ -329,23 +331,23 @@ export function CareAssistant({
               }}
               placeholder={
                 aiAvailable
-                  ? "She has been scratching her ear for two days. Is that something to worry about?"
-                  : "Ask a question and I will point you to the right part of PetMate."
+                  ? t("She has been scratching her ear for two days. Is that something to worry about?")
+                  : t("Ask a question and I will point you to the right part of PetMate.")
               }
             />
           )}
         </Field>
 
         <div className="mt-3 flex items-center justify-between gap-3">
-          <p className="text-xs text-fg-subtle">⌘/Ctrl + Enter to send</p>
+          <p className="text-xs text-fg-subtle">{t("⌘/Ctrl + Enter to send")}</p>
           <Button
             type="submit"
             loading={streaming}
-            loadingText="Thinking…"
+            loadingText={t("Thinking…")}
             disabled={question.trim().length < 2}
           >
-            <Send className="size-4" aria-hidden />
-            Ask
+            <Send className="rtl:-scale-x-100 size-4" aria-hidden />
+            {t("Ask")}
           </Button>
         </div>
       </form>

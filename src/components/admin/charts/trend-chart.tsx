@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { formatMoney } from "@/lib/money";
 import { compactNumber } from "@/lib/utils";
+import { PLATFORM_CURRENCY } from "@/lib/currency";
 
 export interface TrendSeries {
   key: string;
@@ -24,7 +25,7 @@ export function TrendChart({
   dates,
   series,
   unit,
-  currency = "USD",
+  currency = PLATFORM_CURRENCY,
   height = 240,
   weekly = false,
 }: {

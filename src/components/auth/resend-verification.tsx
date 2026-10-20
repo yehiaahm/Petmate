@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import { api, ApiError } from "@/lib/api-client";
+import { useI18n } from "@/components/i18n/i18n-provider";
 
 /**
  * Resends the confirmation email for the signed-in account.
@@ -14,11 +15,12 @@ import { api, ApiError } from "@/lib/api-client";
  */
 export function ResendVerification({
   variant = "primary",
-  label = "Send a new confirmation link",
+  label,
 }: {
   variant?: "primary" | "outline" | "ghost";
   label?: string;
 }) {
+  const { t } = useI18n();
   const router = useRouter();
   const toast = useToast();
   const [sending, setSending] = useState(false);
@@ -29,16 +31,16 @@ export function ResendVerification({
     try {
       await api.post("/api/auth", { action: "resend-verification" });
       setSent(true);
-      toast.success("Confirmation sent", "Check your inbox — it may take a minute.");
+      toast.success(t("Confirmation sent"), t("Check your inbox — it may take a minute."));
     } catch (err) {
       if (err instanceof ApiError && err.isAuth) {
-        toast.info("Sign in first", "We need to know which account to confirm.");
+        toast.info(t("Sign in first"), t("We need to know which account to confirm."));
         router.push("/login");
         return;
       }
       toast.error(
-        "We could not send that",
-        err instanceof ApiError ? err.message : "Please try again shortly.",
+        t("We could not send that"),
+        err instanceof ApiError ? err.message : t("Please try again shortly."),
       );
     } finally {
       setSending(false);
@@ -51,10 +53,10 @@ export function ResendVerification({
       fullWidth
       onClick={() => void resend()}
       loading={sending}
-      loadingText="Sending…"
+      loadingText={t("Sending…")}
       disabled={sent}
     >
-      {sent ? "Sent — check your inbox" : label}
+      {sent ? t("Sent — check your inbox") : (label ?? t("Send a new confirmation link"))}
     </Button>
   );
 }

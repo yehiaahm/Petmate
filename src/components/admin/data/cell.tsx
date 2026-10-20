@@ -6,6 +6,7 @@ import { Badge, StatusPill } from "@/components/ui/primitives";
 import { formatMoney } from "@/lib/money";
 import { formatDateTime, relativeTime } from "@/lib/utils";
 import { humanize, optionLabel, statusTone, type FieldDef, type ResourceDef } from "@/lib/admin/registry";
+import { PLATFORM_CURRENCY } from "@/lib/currency";
 
 export type RefLabels = Record<string, Record<string, string>>;
 
@@ -81,7 +82,7 @@ export function Cell({
 
     case "money": {
       const currency = field.currencyField ? (row[field.currencyField] as string | undefined) : undefined;
-      return <span className="whitespace-nowrap tabular">{formatMoney(Number(value), currency ?? "USD")}</span>;
+      return <span className="whitespace-nowrap tabular">{formatMoney(Number(value), currency ?? PLATFORM_CURRENCY)}</span>;
     }
 
     case "bps":

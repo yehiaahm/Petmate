@@ -5,6 +5,8 @@ import Link from "next/link";
 import { RotateCw, Home, LifeBuoy } from "lucide-react";
 import { Logo, LogoMark } from "@/components/brand/logo";
 import { Button, ButtonLink } from "@/components/ui/button";
+import { reportClientError } from "@/components/monitoring/error-reporter";
+import { useI18n } from "@/components/i18n/i18n-provider";
 
 /**
  * Application error boundary.
@@ -20,15 +22,17 @@ export default function GlobalError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const { t } = useI18n();
   useEffect(() => {
     // The server already logged it; this records that a user actually saw it.
     console.error("Client error boundary:", error.digest ?? error.message);
+    reportClientError(error, "boundary", error.digest);
   }, [error]);
 
   return (
     <div className="flex min-h-dvh flex-col">
       <header className="container-page py-6">
-        <Link href="/" aria-label="PetMate home">
+        <Link href="/" aria-label={t("PetMate home")}>
           <Logo size="sm" />
         </Link>
       </header>
@@ -37,31 +41,30 @@ export default function GlobalError({
         <div className="max-w-md text-center">
           <LogoMark animated className="animate-float mx-auto mb-8 w-36" />
           <h1 className="font-display text-2xl font-bold tracking-tight text-fg">
-            Something went wrong on our side
+            {t("Something went wrong on our side")}
           </h1>
 
           <p className="mt-3 text-[15px] leading-relaxed text-fg-muted">
-            This is not your fault. The problem has been logged and we can see it. Trying again
-            often works, because most of these are temporary.
+            {t("This is not your fault. The problem has been logged and we can see it. Trying again often works, because most of these are temporary.")}
           </p>
 
           <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
             <Button onClick={reset}>
               <RotateCw className="size-4" aria-hidden />
-              Try again
+              {t("Try again")}
             </Button>
             <ButtonLink href="/" variant="outline">
               <Home className="size-4" aria-hidden />
-              Go home
+              {t("Go home")}
             </ButtonLink>
           </div>
 
           {error.digest && (
             <p className="mt-8 border-t border-[var(--border)] pt-6 text-xs text-fg-subtle">
-              Reference{" "}
+              {t("Reference")}{" "}
               <code className="rounded bg-bg-sunken px-1.5 py-0.5 font-mono">{error.digest}</code>
               <br />
-              Quote this if you contact us and we can find exactly what happened.
+              {t("Quote this if you contact us and we can find exactly what happened.")}
             </p>
           )}
 
@@ -71,7 +74,7 @@ export default function GlobalError({
               className="inline-flex items-center gap-1.5 text-brand hover:underline"
             >
               <LifeBuoy className="size-3.5" aria-hidden />
-              Contact support
+              {t("Contact support")}
             </Link>
           </p>
         </div>

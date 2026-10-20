@@ -1,13 +1,18 @@
 import { Bird, Cat, Dog, Heart, Lock, Rabbit, ShieldCheck, Stethoscope, Turtle, type LucideIcon } from "lucide-react";
 import { LogoBadge } from "@/components/brand/logo";
 import { cn } from "@/lib/utils";
+import { getI18n } from "@/lib/i18n/server";
 
 /**
  * The hero centrepiece: the brand mark draws itself on a floating tile while
  * the animals the product serves orbit around it, and three proof points
  * drift beside it. All CSS — nothing here needs to hydrate.
+ *
+ * The rings are symmetric, so they need nothing for right-to-left; the proof
+ * points sit on logical sides and swap over with the text.
  */
-export function HeroVisual({ className }: { className?: string }) {
+export async function HeroVisual({ className }: { className?: string }) {
+  const { t } = await getI18n();
   return (
     <div className={cn("relative mx-auto aspect-square w-full", className)} aria-hidden>
       {/* Glow behind the tile */}
@@ -43,21 +48,21 @@ export function HeroVisual({ className }: { className?: string }) {
       {/* Proof points */}
       <FloatingChip
         icon={ShieldCheck}
-        label="Vet verified"
+        label={t("Vet verified")}
         tint="var(--color-mint)"
-        className="left-[-14%] top-[8%] [animation-delay:-2s] sm:left-[-2%] sm:top-[20%]"
+        className="start-[-14%] top-[8%] [animation-delay:-2s] sm:start-[-2%] sm:top-[20%]"
       />
       <FloatingChip
         icon={Lock}
-        label="Escrow protected"
+        label={t("Escrow protected")}
         tint="var(--color-lagoon-500)"
-        className="bottom-[10%] right-[-18%] [animation-delay:-5s] sm:bottom-[16%] sm:right-[-4%]"
+        className="bottom-[10%] end-[-18%] [animation-delay:-5s] sm:bottom-[16%] sm:end-[-4%]"
       />
       <FloatingChip
         icon={Heart}
-        label="Loved by owners"
+        label={t("Loved by owners")}
         tint="var(--color-rose)"
-        className="bottom-[2%] left-[6%] hidden sm:flex [animation-delay:-7s]"
+        className="bottom-[2%] start-[6%] hidden sm:flex [animation-delay:-7s]"
       />
     </div>
   );
@@ -105,7 +110,7 @@ function FloatingChip({
   return (
     <div
       className={cn(
-        "glass animate-float-slow absolute flex items-center gap-2 rounded-2xl py-1.5 pl-1.5 pr-3 text-[11px] font-semibold text-fg shadow-[var(--shadow-lift)] sm:text-xs",
+        "glass animate-float-slow absolute flex items-center gap-2 rounded-2xl py-1.5 ps-1.5 pe-3 text-[11px] font-semibold text-fg shadow-[var(--shadow-lift)] sm:text-xs",
         className,
       )}
     >

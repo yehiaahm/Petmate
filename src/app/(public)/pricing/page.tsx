@@ -7,17 +7,22 @@ import { bpsToPercent } from "@/lib/money";
 import { Card, Badge } from "@/components/ui/primitives";
 import { ButtonLink } from "@/components/ui/button";
 import { PlanGrid } from "@/components/billing/plan-grid";
+import { getI18n } from "@/lib/i18n/server";
 
-export const metadata: Metadata = {
-  title: "Plans & pricing",
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return {
+  title: t("Plans & pricing"),
   description:
-    "PetMate is free to use for buying, adopting, messaging and booking a vet. Paid plans add capacity, visibility and professional tools for breeders, shops and clinics.",
+    t("PetMate is free to use for buying, adopting, messaging and booking a vet. Paid plans add capacity, visibility and professional tools for breeders, shops and clinics."),
   alternates: { canonical: "/pricing" },
 };
+}
 
 export const revalidate = 600;
 
 export default async function PricingPage() {
+  const { t } = await getI18n();
   const [plans, settings, auth] = await Promise.all([listPlans(), getSettings(), getAuth()]);
 
   const current = auth
@@ -37,17 +42,15 @@ export default async function PricingPage() {
   return (
     <div className="container-page py-12 lg:py-16">
       <div className="mx-auto max-w-2xl text-center">
-        <Badge tone="brand">Pricing</Badge>
+        <Badge tone="brand">{t("Pricing")}</Badge>
         <h1 className="mt-4 font-display text-4xl font-semibold tracking-tight text-fg sm:text-5xl">
-          Free to buy, adopt and book
+          {t("Free to buy, adopt and book")}
         </h1>
         <p className="mt-4 text-lg leading-relaxed text-fg-muted">
-          Everything needed to complete a transaction is free forever: messaging, escrow-protected
-          purchases, vet booking and unlimited health records. A marketplace that taxes its own
-          liquidity does not grow.
+          {t("Everything needed to complete a transaction is free forever: messaging, escrow-protected purchases, vet booking and unlimited health records. A marketplace that taxes its own liquidity does not grow.")}
         </p>
         <p className="mt-2 text-[15px] text-fg-muted">
-          Paid plans sell capacity, visibility and professional tooling — not access.
+          {t("Paid plans sell capacity, visibility and professional tooling — not access.")}
         </p>
       </div>
 
@@ -64,26 +67,24 @@ export default async function PricingPage() {
             currency: plan.currency,
             features: plan.featureList,
           }))}
-          currentPlanCode={current?.plan.code ?? "free"}
+          currentPlanCode={current?.plan.code ?? t("free")}
           signedIn={Boolean(auth)}
         />
       </div>
 
       <section className="mx-auto mt-20 max-w-3xl">
         <h2 className="text-center font-display text-3xl font-semibold tracking-tight text-fg">
-          How PetMate makes money
+          {t("How PetMate makes money")}
         </h2>
         <p className="mt-3 text-center text-[15px] leading-relaxed text-fg-muted">
-          We take a commission on completed transactions. If nothing sells, we earn nothing, which
-          means our incentive is the same as yours: transactions that actually complete and do not
-          end in a dispute.
+          {t("We take a commission on completed transactions. If nothing sells, we earn nothing, which means our incentive is the same as yours: transactions that actually complete and do not end in a dispute.")}
         </p>
 
         <Card className="mt-6 p-6">
           <dl className="divide-y divide-[var(--border)]">
             {commissions.map((item) => (
               <div key={item.label} className="flex items-baseline justify-between gap-4 py-3">
-                <dt className="text-sm text-fg-muted">{item.label}</dt>
+                <dt className="text-sm text-fg-muted">{t(item.label)}</dt>
                 <dd className="font-display text-lg font-semibold tabular text-fg">
                   {bpsToPercent(item.bps)}
                 </dd>
@@ -93,9 +94,7 @@ export default async function PricingPage() {
 
           <div className="mt-4 border-t border-[var(--border)] pt-4">
             <p className="text-sm leading-relaxed text-fg-muted">
-              Commission is taken from the seller when a transaction completes, not from the buyer
-              at checkout. Paid plans reduce it. Featured placements and advertising are the only
-              other charges, and both are optional and always labelled.
+              {t("Commission is taken from the seller when a transaction completes, not from the buyer at checkout. Paid plans reduce it. Featured placements and advertising are the only other charges, and both are optional and always labelled.")}
             </p>
           </div>
         </Card>
@@ -103,7 +102,7 @@ export default async function PricingPage() {
 
       <section className="mx-auto mt-16 max-w-3xl">
         <h2 className="text-center font-display text-2xl font-semibold tracking-tight text-fg">
-          Questions people actually ask
+          {t("Questions people actually ask")}
         </h2>
 
         <div className="mt-6 space-y-3">
@@ -131,12 +130,12 @@ export default async function PricingPage() {
           ].map((item) => (
             <details key={item.q} className="surface group p-5">
               <summary className="flex cursor-pointer list-none items-center justify-between gap-4">
-                <span className="font-display text-base font-semibold text-fg">{item.q}</span>
+                <span className="font-display text-base font-semibold text-fg">{t(item.q)}</span>
                 <span className="shrink-0 text-fg-subtle transition-transform group-open:rotate-45" aria-hidden>
                   +
                 </span>
               </summary>
-              <p className="mt-3 text-[15px] leading-relaxed text-fg-muted">{item.a}</p>
+              <p className="mt-3 text-[15px] leading-relaxed text-fg-muted">{t(item.a)}</p>
             </details>
           ))}
         </div>
@@ -144,15 +143,14 @@ export default async function PricingPage() {
 
       <section className="mx-auto mt-16 max-w-2xl text-center">
         <h2 className="font-display text-2xl font-semibold tracking-tight text-fg">
-          Not sure which one?
+          {t("Not sure which one?")}
         </h2>
         <p className="mt-2 text-[15px] text-fg-muted">
-          Start free. Every plan can be changed or cancelled whenever you like, and you only hit a
-          limit when you are actually using the product enough to need more.
+          {t("Start free. Every plan can be changed or cancelled whenever you like, and you only hit a limit when you are actually using the product enough to need more.")}
         </p>
         <div className="mt-6">
           <ButtonLink href={auth ? "/dashboard" : "/register"} size="lg">
-            {auth ? "Go to dashboard" : "Create a free account"}
+            {auth ? t("Go to dashboard") : t("Create a free account")}
           </ButtonLink>
         </div>
       </section>

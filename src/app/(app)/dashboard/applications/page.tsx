@@ -7,12 +7,15 @@ import { listMyApplications } from "@/lib/services/adoption.service";
 import { PageHeader, Card, Badge, EmptyState } from "@/components/ui/primitives";
 import { ButtonLink } from "@/components/ui/button";
 import { WithdrawApplication } from "@/components/adoption/withdraw-application";
-import { formatDate } from "@/lib/utils";
+import { getI18n } from "@/lib/i18n/server";
 
-export const metadata: Metadata = {
-  title: "My applications",
+export async function generateMetadata(): Promise<Metadata> {
+  const { t } = await getI18n();
+  return {
+  title: t("My applications"),
   robots: { index: false, follow: false },
 };
+}
 
 const TONE: Record<string, "info" | "warning" | "success" | "danger" | "neutral"> = {
   SUBMITTED: "info",
@@ -35,23 +38,24 @@ const LABEL: Record<string, string> = {
 };
 
 export default async function MyApplicationsPage() {
+  const { t, fmt } = await getI18n();
   const auth = await requireAuth();
   const applications = await listMyApplications(auth);
 
   return (
     <div className="container-page max-w-3xl py-8 lg:py-10">
       <PageHeader
-        title="Adoption applications"
-        description="Rescues read these properly, which is why there are questions rather than a Contact button. Your answers are reused on every application."
+        title={t("Adoption applications")}
+        description={t("Rescues read these properly, which is why there are questions rather than a Contact button. Your answers are reused on every application.")}
       />
 
       <div className="mt-6">
         {applications.length === 0 ? (
           <EmptyState
             icon={<Heart className="size-5" aria-hidden />}
-            title="No applications yet"
-            description="Apply once and your household profile carries over, so the second application takes a minute rather than ten."
-            action={<ButtonLink href="/pets?intent=ADOPTION">Browse adoptions</ButtonLink>}
+            title={t("No applications yet")}
+            description={t("Apply once and your household profile carries over, so the second application takes a minute rather than ten.")}
+            action={<ButtonLink href="/pets?intent=ADOPTION">{t("Browse adoptions")}</ButtonLink>}
           />
         ) : (
           <ul className="space-y-3">
@@ -93,14 +97,14 @@ export default async function MyApplicationsPage() {
                           .join(", ")}
                       </p>
                       <p className="mt-0.5 text-xs text-fg-subtle">
-                        Applied {formatDate(application.createdAt)} · fit score{" "}
+                        {t("Applied {date}", { date: fmt.date(application.createdAt) })} · {t("fit score")}{" "}
                         <span className="tabular">{application.score}</span>
                       </p>
 
                       {application.decisionNote && (
                         <p className="mt-2 rounded-[var(--radius-field)] bg-bg-sunken px-3.5 py-2.5 text-sm leading-relaxed text-fg-muted">
                           <span className="font-medium text-fg">
-                            {application.listing.seller.name} said:{" "}
+                            {t("{name} said:", { name: application.listing.seller.name })}{" "}
                           </span>
                           {application.decisionNote}
                         </p>
@@ -114,7 +118,7 @@ export default async function MyApplicationsPage() {
                             variant="outline"
                           >
                             <MessageSquare className="size-4" aria-hidden />
-                            Conversation
+                            {t("Conversation")}
                           </ButtonLink>
                         )}
                         {["SUBMITTED", "IN_REVIEW", "SHORTLISTED"].includes(
