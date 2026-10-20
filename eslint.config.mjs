@@ -11,6 +11,9 @@ const config = [
   {
     ignores: [
       ".next/**",
+      // Agent worktrees are full checkouts with their own builds; linting them
+      // here reports other branches' files as this branch's errors.
+      ".claude/**",
       "node_modules/**",
       "prisma/generated/**",
       "public/**",
