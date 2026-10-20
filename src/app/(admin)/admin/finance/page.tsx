@@ -41,8 +41,9 @@ export default async function FinancePage() {
   const userIds = payouts.filter((p) => p.ownerType === "USER").map((p) => p.ownerId);
   const shopIds = payouts.filter((p) => p.ownerType === "SHOP").map((p) => p.ownerId);
   const clinicIds = payouts.filter((p) => p.ownerType === "CLINIC").map((p) => p.ownerId);
+  const providerIds = payouts.filter((p) => p.ownerType === "PROVIDER").map((p) => p.ownerId);
 
-  const [users, shops, clinics] = await Promise.all([
+  const [users, shops, clinics, providers] = await Promise.all([
     userIds.length
       ? db.user.findMany({
           where: { id: { in: userIds } },
@@ -55,12 +56,16 @@ export default async function FinancePage() {
     clinicIds.length
       ? db.clinic.findMany({ where: { id: { in: clinicIds } }, select: { id: true, name: true } })
       : [],
+    providerIds.length
+      ? db.careProvider.findMany({ where: { id: { in: providerIds } }, select: { id: true, name: true } })
+      : [],
   ]);
 
   const names = new Map<string, string>();
   for (const u of users) names.set(u.id, u.name);
   for (const s of shops) names.set(s.id, s.name);
   for (const c of clinics) names.set(c.id, c.name);
+  for (const p of providers) names.set(p.id, p.name);
 
   const pendingTotal = payouts.reduce((sum, p) => sum + p.amountCents, 0);
 

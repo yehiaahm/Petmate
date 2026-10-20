@@ -140,6 +140,20 @@ export default async function ModerationPage({
     }
   }
 
+  // A business verification names the business, not just the person who
+  // applied, and links to its console so the reviewer can see what they run.
+  const providerIds = verifications.filter((v) => v.subjectType === "CARE_PROVIDER").map((v) => v.subjectId);
+  const providerNames = new Map(
+    providerIds.length
+      ? (
+          await db.careProvider.findMany({
+            where: { id: { in: providerIds } },
+            select: { id: true, name: true },
+          })
+        ).map((p) => [p.id, p.name])
+      : [],
+  );
+
   return (
     <>
       <PageHeader
@@ -180,6 +194,8 @@ export default async function ModerationPage({
             id: v.id,
             subjectType: v.subjectType,
             subjectId: v.subjectId,
+            subjectName: (v.subjectType === "CARE_PROVIDER" && providerNames.get(v.subjectId)) || null,
+            subjectHref: v.subjectType === "CARE_PROVIDER" ? `/provider/${v.subjectId}` : null,
             type: v.type,
             notes: v.notes,
             documentCount: parseJsonArray<string>(v.documents).length,

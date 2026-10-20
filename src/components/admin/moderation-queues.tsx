@@ -63,6 +63,9 @@ export interface VerificationRow {
   id: string;
   subjectType: string;
   subjectId: string;
+  /** Business name, for verifications about a business rather than a person. */
+  subjectName: string | null;
+  subjectHref: string | null;
   type: string;
   notes: string | null;
   documentCount: number;
@@ -534,7 +537,7 @@ function VerificationQueue({ rows }: { rows: VerificationRow[] }) {
       <EmptyState
         icon={<BadgeCheck className="size-5" aria-hidden />}
         title="No verifications waiting"
-        description="ID, address, breeder and clinic-licence submissions queue here."
+        description="ID, address, breeder and business-licence submissions queue here."
       />
     );
   }
@@ -565,7 +568,15 @@ function VerificationQueue({ rows }: { rows: VerificationRow[] }) {
 
             <p className="mt-2 text-sm text-fg-muted">
               {v.documentCount} document{v.documentCount === 1 ? "" : "s"} attached ·{" "}
-              {v.subjectType.toLowerCase()} {v.subjectId}
+              {v.subjectType.replaceAll("_", " ").toLowerCase()}{" "}
+              {v.subjectHref ? (
+                <Link href={v.subjectHref} className="font-medium text-fg hover:underline">
+                  {v.subjectName ?? v.subjectId}
+                  <ExternalLink className="ml-0.5 inline size-3" aria-hidden />
+                </Link>
+              ) : (
+                v.subjectId
+              )}
             </p>
             {v.notes && (
               <p className="mt-2 rounded-[var(--radius-field)] bg-bg-sunken px-3.5 py-2.5 text-sm text-fg-muted">
