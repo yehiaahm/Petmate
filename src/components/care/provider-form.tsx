@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Checkbox, Field, Input, Select, SegmentedControl, Switch, Textarea } from "@/components/ui/field";
@@ -15,41 +15,11 @@ import {
   CANCELLATION_POLICY_LABEL,
   CANCELLATION_POLICY_SUMMARY,
   CURRENCIES,
-  type CancellationPolicy,
 } from "@/lib/constants";
-import { LocationPin, type Coords } from "./location-pin";
+import type { ProviderFormValues } from "@/lib/care/provider-form-values";
+import { LocationPin } from "./location-pin";
 
-export interface ProviderFormValues {
-  name: string;
-  tagline: string;
-  description: string;
-  email: string;
-  phone: string;
-  website: string;
-  addressLine: string;
-  city: string;
-  region: string;
-  country: string;
-  postalCode: string;
-  coords: Coords | null;
-  timezone: string;
-  licenseNumber: string;
-  offersBoarding: boolean;
-  offersTraining: boolean;
-  checkInMinute: number;
-  checkOutMinute: number;
-  offersTransport: boolean;
-  transportRadiusKm: string;
-  transportBase: string;
-  transportPerKm: string;
-  trainerCount: string;
-  amenities: string[];
-  requiresVaccination: boolean;
-  cancellationPolicy: CancellationPolicy;
-  bookingLeadHours: string;
-  currency: string;
-  official: boolean;
-}
+export type { ProviderFormValues } from "@/lib/care/provider-form-values";
 
 function browserTimeZone(): string {
   try {
@@ -59,38 +29,14 @@ function browserTimeZone(): string {
   }
 }
 
-export function emptyProviderValues(defaults: { email: string; city: string | null; country: string | null; currency: string }): ProviderFormValues {
-  return {
-    name: "",
-    tagline: "",
-    description: "",
-    email: defaults.email,
-    phone: "",
-    website: "",
-    addressLine: "",
-    city: defaults.city ?? "",
-    region: "",
-    country: defaults.country ?? "",
-    postalCode: "",
-    coords: null,
-    timezone: browserTimeZone(),
-    licenseNumber: "",
-    offersBoarding: true,
-    offersTraining: false,
-    checkInMinute: 540,
-    checkOutMinute: 1080,
-    offersTransport: false,
-    transportRadiusKm: "15",
-    transportBase: "",
-    transportPerKm: "",
-    trainerCount: "1",
-    amenities: [],
-    requiresVaccination: true,
-    cancellationPolicy: "MODERATE",
-    bookingLeadHours: "12",
-    currency: defaults.currency,
-    official: false,
-  };
+const noSubscription = () => () => {};
+
+/**
+ * The browser's time zone, without a hydration mismatch: the server renders
+ * "UTC" and the browser swaps in its own zone straight after hydrating.
+ */
+function useBrowserTimeZone(): string {
+  return useSyncExternalStore(noSubscription, browserTimeZone, () => "UTC");
 }
 
 /**
@@ -113,6 +59,9 @@ export function ProviderForm({
   const [v, setV] = useState(initial);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<ApiError | Error | null>(null);
+  // A new business defaults to the zone of the browser registering it.
+  const detectedTimeZone = useBrowserTimeZone();
+  const timezone = v.timezone || detectedTimeZone;
 
   const set = <K extends keyof ProviderFormValues>(key: K, value: ProviderFormValues[K]) =>
     setV((prev) => ({ ...prev, [key]: value }));
@@ -137,7 +86,7 @@ export function ProviderForm({
       postalCode: v.postalCode || undefined,
       lat: v.coords?.lat,
       lng: v.coords?.lng,
-      timezone: v.timezone,
+      timezone,
       licenseNumber: v.licenseNumber || undefined,
       offersBoarding: v.offersBoarding,
       offersTraining: v.offersTraining,
@@ -270,7 +219,7 @@ export function ProviderForm({
             {({ id, invalid }) => <Input id={id} invalid={invalid} value={v.country} onChange={(e) => set("country", e.target.value)} />}
           </Field>
           <Field label="Time zone" hint="For example Africa/Cairo." error={fieldError("timezone")}>
-            {({ id, invalid }) => <Input id={id} invalid={invalid} value={v.timezone} onChange={(e) => set("timezone", e.target.value)} />}
+            {({ id, invalid }) => <Input id={id} invalid={invalid} value={timezone} onChange={(e) => set("timezone", e.target.value)} />}
           </Field>
         </div>
       </Card>

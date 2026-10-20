@@ -3,7 +3,8 @@ import { requireAuth, hasRole } from "@/lib/auth/rbac";
 import { db } from "@/lib/db";
 import { Alert, PageHeader } from "@/components/ui/primitives";
 import { ResendVerification } from "@/components/auth/resend-verification";
-import { ProviderForm, emptyProviderValues } from "@/components/care/provider-form";
+import { ProviderForm } from "@/components/care/provider-form";
+import { emptyProviderValues } from "@/lib/care/provider-form-values";
 
 export const metadata: Metadata = { title: "Register a pet care business", robots: { index: false, follow: false } };
 
