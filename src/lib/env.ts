@@ -18,6 +18,16 @@ const bool = (def: boolean) =>
     .optional()
     .transform((v) => (v === undefined || v === "" ? def : v === "true" || v === "1"));
 
+/**
+ * `KEY=` in a .env file (as .env.example ships most optional keys) arrives as
+ * "", not undefined, so `.optional()` and `.default()` would not apply and a
+ * `.url()` check would reject it. An empty value means unset.
+ */
+const unsetIfEmpty = <T extends z.ZodType>(schema: T) =>
+  z.preprocess((v) => (v === "" ? undefined : v), schema);
+
+const optionalString = () => unsetIfEmpty(z.string().optional());
+
 const serverSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
 
@@ -32,7 +42,7 @@ const serverSchema = z.object({
     .min(32, "AUTH_SECRET must be at least 32 characters")
     .default("dev-only-insecure-secret-change-me-0123456789abcdef"),
 
-  APP_URL: z.string().url().default("http://localhost:3000"),
+  APP_URL: unsetIfEmpty(z.string().url().default("http://localhost:3000")),
 
   /**
    * Unpooled connection string for migrations. Only needed when
@@ -40,43 +50,43 @@ const serverSchema = z.object({
    * the generated Postgres schema, so it is declared here only so a missing
    * value is reported alongside the rest of the configuration.
    */
-  PETMATE_DIRECT_URL: z.string().optional(),
+  PETMATE_DIRECT_URL: optionalString(),
 
   // ---- Monitoring ---------------------------------------------------------
   // Errors logged with logger.exception, and errors in visitors' browsers,
   // are sent to Sentry when a DSN is set.
-  SENTRY_DSN: z.string().url().optional(),
-  SENTRY_ENVIRONMENT: z.string().optional(),
-  SENTRY_RELEASE: z.string().optional(),
+  SENTRY_DSN: unsetIfEmpty(z.string().url().optional()),
+  SENTRY_ENVIRONMENT: optionalString(),
+  SENTRY_RELEASE: optionalString(),
 
   // ---- Courier ------------------------------------------------------------
   // Each shop connects its own Bosta account; only the API endpoint is global.
   // Staging: https://stg-app.bosta.co/api/v2
-  BOSTA_BASE_URL: z.string().url().default("https://app.bosta.co/api/v2"),
+  BOSTA_BASE_URL: unsetIfEmpty(z.string().url().default("https://app.bosta.co/api/v2")),
 
   // ---- Social sign-in ------------------------------------------------------
   // Each provider appears on the sign-in page only when both of its values are
   // set. Redirect URI to register with the provider:
   //   {NEXT_PUBLIC_APP_URL}/api/auth/oauth/google/callback (and /facebook/)
-  GOOGLE_CLIENT_ID: z.string().optional(),
-  GOOGLE_CLIENT_SECRET: z.string().optional(),
-  FACEBOOK_APP_ID: z.string().optional(),
-  FACEBOOK_APP_SECRET: z.string().optional(),
+  GOOGLE_CLIENT_ID: optionalString(),
+  GOOGLE_CLIENT_SECRET: optionalString(),
+  FACEBOOK_APP_ID: optionalString(),
+  FACEBOOK_APP_SECRET: optionalString(),
 
   // ---- Payments -----------------------------------------------------------
   // With no Stripe key the platform runs on the internal double-entry ledger
   // provider, which is a real implementation (see lib/payments/ledger.ts), not
   // a stub that pretends a charge happened.
   PAYMENT_PROVIDER: z.enum(["ledger", "stripe", "paymob"]).default("ledger"),
-  STRIPE_SECRET_KEY: z.string().optional(),
-  STRIPE_WEBHOOK_SECRET: z.string().optional(),
+  STRIPE_SECRET_KEY: optionalString(),
+  STRIPE_WEBHOOK_SECRET: optionalString(),
 
   // Paymob (Egypt): cards, mobile wallets, kiosk and instalments through one
   // hosted checkout. All four values come from the Paymob dashboard,
   // Settings → API Keys and Settings → Payment Integrations.
-  PAYMOB_SECRET_KEY: z.string().optional(),
-  PAYMOB_PUBLIC_KEY: z.string().optional(),
-  PAYMOB_HMAC_SECRET: z.string().optional(),
+  PAYMOB_SECRET_KEY: optionalString(),
+  PAYMOB_PUBLIC_KEY: optionalString(),
+  PAYMOB_HMAC_SECRET: optionalString(),
   /** Comma-separated integration IDs, one per payment method offered at checkout. */
   PAYMOB_INTEGRATION_IDS: z
     .string()
@@ -89,51 +99,51 @@ const serverSchema = z.object({
         .map(Number),
     )
     .refine((ids) => ids.every((n) => Number.isInteger(n) && n > 0), "PAYMOB_INTEGRATION_IDS must be comma-separated integers"),
-  PAYMOB_BASE_URL: z.string().url().default("https://accept.paymob.com"),
+  PAYMOB_BASE_URL: unsetIfEmpty(z.string().url().default("https://accept.paymob.com")),
 
   // ---- Email --------------------------------------------------------------
   // "outbox" writes to the EmailMessage table and renders at /dev/mailbox.
   EMAIL_PROVIDER: z.enum(["outbox", "resend", "smtp"]).default("outbox"),
   EMAIL_FROM: z.string().default("PetMate <no-reply@petmate.app>"),
-  RESEND_API_KEY: z.string().optional(),
+  RESEND_API_KEY: optionalString(),
   // Any SMTP server (Gmail app password, Zoho, Mailgun SMTP, a hosting mailbox).
-  SMTP_HOST: z.string().optional(),
-  SMTP_PORT: z.coerce.number().int().positive().default(587),
+  SMTP_HOST: optionalString(),
+  SMTP_PORT: unsetIfEmpty(z.coerce.number().int().positive().default(587)),
   SMTP_SECURE: bool(false),
-  SMTP_USER: z.string().optional(),
-  SMTP_PASSWORD: z.string().optional(),
+  SMTP_USER: optionalString(),
+  SMTP_PASSWORD: optionalString(),
 
   // ---- WhatsApp and SMS ----------------------------------------------------
   // "log" writes to the OutboundMessage table and the log without sending,
   // for development. WhatsApp goes through Meta's WhatsApp Cloud API with
   // approved templates; SMS through Twilio.
   WHATSAPP_PROVIDER: z.enum(["log", "meta"]).default("log"),
-  META_WHATSAPP_TOKEN: z.string().optional(),
-  META_WHATSAPP_PHONE_NUMBER_ID: z.string().optional(),
+  META_WHATSAPP_TOKEN: optionalString(),
+  META_WHATSAPP_PHONE_NUMBER_ID: optionalString(),
   /** An approved "authentication" template whose body takes the code. */
   META_WHATSAPP_OTP_TEMPLATE: z.string().default("petmate_verification_code"),
   /** An approved "utility" template with two body parameters: the message and the link. */
   META_WHATSAPP_UPDATE_TEMPLATE: z.string().default("petmate_update"),
   SMS_PROVIDER: z.enum(["log", "twilio"]).default("log"),
-  TWILIO_ACCOUNT_SID: z.string().optional(),
-  TWILIO_AUTH_TOKEN: z.string().optional(),
+  TWILIO_ACCOUNT_SID: optionalString(),
+  TWILIO_AUTH_TOKEN: optionalString(),
   /** A sender number, alphanumeric sender ID or Messaging Service SID (MG…). */
-  TWILIO_FROM: z.string().optional(),
+  TWILIO_FROM: optionalString(),
 
   // ---- AI -----------------------------------------------------------------
   // Absent key => every AI surface falls back to its deterministic path and
   // says so in the UI. Nothing is ever presented as AI output when it is not.
-  ANTHROPIC_API_KEY: z.string().optional(),
+  ANTHROPIC_API_KEY: optionalString(),
   ANTHROPIC_MODEL: z.string().default("claude-opus-5"),
   AI_ENABLED: bool(true),
 
   // ---- Storage ------------------------------------------------------------
   STORAGE_DRIVER: z.enum(["local", "s3"]).default("local"),
-  S3_BUCKET: z.string().optional(),
-  S3_REGION: z.string().optional(),
-  S3_ACCESS_KEY_ID: z.string().optional(),
-  S3_SECRET_ACCESS_KEY: z.string().optional(),
-  S3_PUBLIC_URL: z.string().optional(),
+  S3_BUCKET: optionalString(),
+  S3_REGION: optionalString(),
+  S3_ACCESS_KEY_ID: optionalString(),
+  S3_SECRET_ACCESS_KEY: optionalString(),
+  S3_PUBLIC_URL: optionalString(),
 
   // ---- Operational --------------------------------------------------------
   RATE_LIMIT_ENABLED: bool(true),
@@ -141,11 +151,11 @@ const serverSchema = z.object({
   LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
   WORKER_ENABLED: bool(true),
   /** Shared secret for the /api/cron/tick endpoint when no worker process runs. */
-  CRON_SECRET: z.string().optional(),
+  CRON_SECRET: optionalString(),
 });
 
 const clientSchema = z.object({
-  NEXT_PUBLIC_APP_URL: z.string().url().default("http://localhost:3000"),
+  NEXT_PUBLIC_APP_URL: unsetIfEmpty(z.string().url().default("http://localhost:3000")),
   NEXT_PUBLIC_APP_NAME: z.string().default("PetMate"),
   /**
    * The time zone every date and time is shown in. Without one, a server in
